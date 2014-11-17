@@ -1,0 +1,98 @@
+#!/usr/bin/env oo-ruby
+
+#   Copyright 2012 Red Hat Inc.
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+#
+# oo-list - Utility to list various OpenShift statistics in a form
+# compatible with traditional tools e.g. grep, Excel, etc.
+#
+# Usage: See usage function below
+#
+require 'getoptlong'
+require 'pp'
+
+$:.unshift('/usr/local/lib')
+
+opts = GetoptLong.new(
+    ["--login",           "-l", GetoptLong::REQUIRED_ARGUMENT],
+    ["--expires_in",      "-e", GetoptLong::OPTIONAL_ARGUMENT],
+    ["--scopes",          "-s", GetoptLong::OPTIONAL_ARGUMENT],
+    ["--note",            "-n", GetoptLong::OPTIONAL_ARGUMENT],
+)
+
+def usage()
+  abort "Usage:
+#{File.basename(__FILE__)} --login|-l username [--scopes|-s scope] [--expires|-e duration] [--note|-n text]"
+end
+
+args = {}
+begin
+  opts.each{ |k,v| args[k]=v }
+rescue GetoptLong::Error => e
+  usage
+end
+
+usage unless args.length > 0
+
+expires_in = 0
+if args['--expires_in']
+  if /^\d+$/ =~ args['--expires_in']
+    expires_in = args['--expires_in'].to_i
+  else
+    expires_in = `date -d'#{args['--expires_in']}' '+%s' 2>/dev/null`.to_i - Time.now.to_i
+  end
+end
+abort "Invalid expiration: #{args['--expires_in']}" if expires_in < 0
+
+require "#{ENV['OPENSHIFT_BROKER_DIR'] || '/var/www/openshift/broker'}/config/environment"
+include AdminHelper
+
+# Disable analytics for admin scripts
+
+Rails.configuration.analytics[:enabled] = false
+Mongoid.raise_not_found_error = false
+
+user = nil
+login = args["--login"]
+
+login = CloudUser.normalize_login(login)
+begin
+  user = CloudUser.with(consistency: :eventual).find_by(login: login)
+rescue Mongoid::Errors::DocumentNotFound
+end
+abort "User #{login} not found." unless user
+
+scopes = (args['--scopes'] || 'session').gsub(/,/,' ')
+scopes = Scope.list!(scopes)
+
+note = (args['--note'] || "Created by OpenShift administrator on #{`hostname -s`.strip}").strip
+
+expires_in = scopes.default_expiration if expires_in == 0
+
+client_id = File.basename(__FILE__)
+
+access_token = Authorization.create!({
+  :expires_in => expires_in,
+  :note       => note,
+}) do |a|
+  a.user = user
+  a.scopes = scopes.to_s
+  a.oauth_client_id = client_id
+end
+
+$stderr.print "login #{user.login} expires at #{(Time.now + expires_in).strftime("%Y-%m-%d %H:%M:%S")}\n"
+puts access_token.token
+
+exit 0
