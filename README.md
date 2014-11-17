@@ -21,8 +21,8 @@ OpenShift environment.
 - oo-auth-token
 Generates an authentication token for an OpenShift login.
 Login must already exist.
-Primarily for use with the rhc command for back-end scripting, but can also be used with service.
-accounts.
+Primarily for use with the rhc command for back-end scripting, but can also be used with
+service accounts.
 
 - oo-delete-user.sh
 Bash script to inefficiently remove an OpenShift login.
@@ -31,7 +31,7 @@ Bash script to inefficiently remove an OpenShift login.
 Lists broker data in a form compatible with traditional shell utilities like grep and sed.
 Intended to quickly answer questions of the form "How may applications are in OpenShift?"
 Implementation is not particularly efficient, and this script will probably explode in a
-large environment, such as Online.
+large environment, such as Online. Use --help to see what's available.
 
 - oo-purge-apps
 Utility to purge applications more than X days old.
