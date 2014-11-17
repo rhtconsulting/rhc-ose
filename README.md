@@ -10,6 +10,9 @@ so include lots of "sleeps" if scripting.
 
 All of the ruby scripts support a --help option that produces slightly useful output.
 
+Note that these scripts all use unpublished internal API's that may be changed with no
+warning.
+
 If you want write access to this repository, ping me at my Red Hat address.
 
 No warranty is offered or implied and use of these scripts may destroy your entire
