@@ -21,6 +21,7 @@
 #
 logFile=/var/log/openshift/broker/ose-utils.log
 brokerhost="localhost"
+gearProfileDefault="small"
 
 function usage {
   echo "oo-register-developer.sh {username} {gearProfile}"
@@ -33,7 +34,27 @@ function json {
 }"
 }
 
-if [ "$#" -le 1 ]
+function validGear {
+  valid=$(grep "VALID_GEAR_SIZES=" /etc/openshift/broker.conf) &>>$logFile
+#  sed 's/"//g' <<< $valid &>>$logFile
+#  sed 's/"//g' <<< $1 &>>$logFile
+  IFS='='; read -r -a raw <<< "$valid"
+  IFS=','; read -r -a sizes <<< ${raw[1]}
+  for size in ${sizes[*]}
+  do
+
+    if [[ $size == $1 ]]; then
+      echo 1
+      return
+    fi
+    echo "$size did not equal $1"
+  done
+  echo 0
+  return
+
+}
+
+if [ "$#" -lt 1 ]
   then
   usage
   json 255 "Invalid usage"
@@ -43,15 +64,27 @@ fi
 username="$1"
 gearProfile="$2"
 
+if [ -z ${gearProfile+x} ];then
+  $gearProfile=$gearProfileDefault
+else
+  checkGear=$(validGear "$gearProfile")
+  echo "checkgear=$checkGear"
+  if [ "$checkGear" != "1" ];then
+    json 255 "Invalid Gear Size."
+    exit 255
+  fi
+fi
+
 if [ -z ${username+x} ];then
   usage
   json 2 "No Username supplied"
   exit 255
 fi
 
-if [ -z ${gearProfile+x} ];then
-  $gearProfile=small
-fi
+
+
+
+
 #1. Check if developer account already exists in OpenShift E1
 #   (API TBD, Java RA and Red Hat working on this one). If it does not, then:
 
