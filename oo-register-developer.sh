@@ -65,8 +65,8 @@ fi
 username="$1"
 gearProfile="$2"
 
-if [ -z ${gearProfile+x} ];then
-  $gearProfile=$gearProfileDefault
+if [ -z $2 ];then
+  gearProfile="$gearProfileDefault"
 else
   checkGear=$(validGear "$gearProfile")
   if [ "$checkGear" != "1" ];then
@@ -103,7 +103,7 @@ elif [[ "$code" = "0" ]]; then
   exit 1
 else
   #Unknow error
-  echo "error=$?"
+  echo "error=$code"
   json 255 "Unknown Error. Exiting..."
   exit 255;
 fi
