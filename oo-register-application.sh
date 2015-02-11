@@ -122,8 +122,14 @@ if [[ -n "$appAdmins" && "$appAdmins" != [0-9A-Za-z,]* || -n "$developers" && "$
    exit 255
 fi
 
+
 if [[ ${#appDomain} -gt 16 ]];then #appdomain is longer than 16 error out
    json 255 "App Domain too long"
+   exit 255
+fi
+
+if [[ "$appDomain" != [0-9A-Za-z]* ]];then #appdomain is longer than 16 error out
+   json 255 "Illegal characters for application domain"
    exit 255
 fi
 
@@ -161,14 +167,14 @@ TOKEN="$(oo-auth-token -l $appDomain -e "$(date -d "+year" 2>> $logfile | tee -a
 response=$( curl -k -H "Authorization: Bearer $TOKEN" -X POST https://$brokerhost/broker/rest/domains/ --data-urlencode name=$appDomain --data-urlencode allowed_gear_sizes=small 2>> $logfile | tee -a $logfile 2>> $logfile)
 status=$(exit_code "$response")
 if [ "$status" = 103 ] && [ "$force" != 1 ];then
-    json 1 "Domain already exists. Openshift API exit code $status"
+    json 1 "Domain already exists. Openshift API exit code $status" $TOKEN
     exit 1
 
 elif [ "$status" = 103 ] && [ "$force" = 1 ];then
     echo "Forcing changed to existing domain" &>> $logfile
 
 elif [ "$status" != 0 ];then
-     json 255 "Error creating Domain. Openshift API exit code $status"
+     json 255 "Error creating Domain. Openshift API exit code $status" $TOKEN
      exit 255
 fi
 
