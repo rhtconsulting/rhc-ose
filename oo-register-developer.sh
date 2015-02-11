@@ -110,8 +110,7 @@ fi
 
 #   a.  Create  developer account in OpenShift E1   HSC to OpenShift API TBD,Java RA and Red Hat working on this one
 oo-admin-ctl-user --create -l $username &>>$logFile
-
-TOKEN="$(oo-auth-token -l $username -e "$(date -d "+year")" 2>>$logFile| tee $logFile)"
+TOKEN="$(oo-auth-token -l $username -e "$(date -d "+day")" 2>>$logFile| tee $logFile)"
 
 
 #   b.  Create developer domain in OpenShift E1 (a.k.a. remote E0 in ePaaS)       HSC to OpenShift API, POST /broker/rest/domains

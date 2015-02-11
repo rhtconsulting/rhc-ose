@@ -116,9 +116,8 @@ while true; do
 
   esac
 done
-
-
-if [[ $appAdmins != [0-9A-Za-z,]* ]] || [[ $developers != [0-9A-Za-z,]* ]];then
+#check that devs and admin strings dont contain illegal characters or are empty
+if [[ -n "$appAdmins" && "$appAdmins" != [0-9A-Za-z,]* || -n "$developers" && "$developers" != [0-9A-Za-z,]* ]];then
    json 255 "invalid username detected"
    exit 255
 fi
@@ -142,11 +141,11 @@ if [[ "$code" = "5" ]]; then
 
 elif [[ "$code" = "0" ]]; then
   #already exists do nothing return 1
-  echo "Force = $force"
   if [ $force -ne 1 ]; then
     json 1 "User already exists. Exiting..."
     exit 1
   fi
+  echo "User already exists. Continuing on behalf of --force" &>>$logfile
 else
   #Unknow error
   echo "error=$code"
@@ -167,7 +166,7 @@ if [ "$status" = 103 ] && [ "$force" != 1 ];then
 
 elif [ "$status" = 103 ] && [ "$force" = 1 ];then
     echo "Forcing changed to existing domain" &>> $logfile
-    
+
 elif [ "$status" != 0 ];then
      json 255 "Error creating Domain. Openshift API exit code $status"
      exit 255
@@ -181,7 +180,7 @@ for employee in ${admins[*]}; do
     status=$(exit_code "$response")
       if [ "$status" != 0 ];then
         echo "Error granting administrator permissions. Openshift API exit code $status" &>>$logfile
-    fi
+      fi
 done
 
 #5 Grant view access on application domain to all employees listed under developers
