@@ -5,6 +5,7 @@
 
 ## Creating an Instance ##
  * Create an instance using provision script
+
   ```bash
   cd [path/to/ose-utils/installation/openstack/]
   ./provision --key [name-of-openstack-ssh-key]
@@ -12,6 +13,7 @@
 
 ## Preparing Instance for Configuring ##
  * sync ssh keys
+
  ```bash
  ssh cloud-user@[instance ip]
  [cloud-user@.... ~] $ sudo cp -r ~/.ssh/ /root/
@@ -20,6 +22,7 @@
 
 ## Installing OpenShift ##
  * Run the OpenShift Install script
+
  ```bash
  ./install-se.sh
  ```
