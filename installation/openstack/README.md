@@ -24,7 +24,7 @@
  * Run the OpenShift Install script
 
  ```bash
- ./install-se.sh
+ ./install-ose.sh
  ```
 
 ### Notes ###
