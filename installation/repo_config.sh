@@ -3,7 +3,7 @@
 declare -A repos
 repos["base"]="rhel-6-server-rpms rhel-6-server-ose-2.2-rhc-rpms rhel-6-server-supplementary-rpms rhel-6-server-optional-rpms rhel-server-rhscl-6-rpms"
 repos["broker"]="rhel-6-server-ose-2.2-infra-rpms"
-repos["node"]="rhel-6-server-ose-2.2-node-rpms"
+repos["node"]="rhel-6-server-ose-2.2-node-rpms jb-ews-2-for-rhel-6-server-rpms"
 
 username=$1; shift;
 password=$1; shift;
@@ -32,7 +32,7 @@ build_subscription_string () {
   echo "$subs_string"
 }
 
-echo "export PS1=\"[\u@\h <broker> \W]\\$ \"" >> ~/.bash_profile
+echo "export PS1=\"[\u@\h <$@> \W]\\$ \"" >> ~/.bash_profile
 
 #TODO: remove password
 echo "$username: $password"
@@ -41,9 +41,7 @@ subscription-manager register --username=$username --password=$password --auto-a
 subscription-manager repos --disable="*"
 echo "Building repolist for: $@"
 string=$(build_subscription_string $@)
-echo "$string"
+#echo "$string"
 subscription-manager repos $string
 
 yum -y update
-
-echo "Please set hostname to the correct value"
