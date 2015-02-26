@@ -58,9 +58,9 @@ ssh -o StrictHostKeyChecking=no root@${instance_ip} "bash -s" -- < ../repo_confi
 
 ## Finally, install OSE
 echo "Installing OSE..."
-demo_password=random_password
-ssh -o StrictHostKeyChecking=no root@${instance_ip} "export CONF_OPENSHIFT_PASSWORD1=$demo_password; bash . " < ./openshift.conf ";
-curl -o ./openshift.sh ${SCRIPT_URL} && bash ./openshift.sh | tee ~/openshift-install.log;"
+demo_password=$(random_password)
+ssh -o StrictHostKeyChecking=no root@${instance_ip} "export CONF_OPENSHIFT_PASSWORD1=$demo_password; bash " < ./openshift.conf ";
+curl -o ./openshift.sh ${SCRIPT_URL} && bash ./openshift.sh actions=do_all_actions,post_deploy | tee ~/openshift-install.log;"
 
 echo "Your Instance IP is: ${instance_ip}"
 echo "Done"
