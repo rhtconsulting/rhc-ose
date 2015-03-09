@@ -15,7 +15,7 @@
 #
 #VARIABLES
 #logFile: where the stderr and stdout get redirected to
-#brokerhost: url of the OSE broker
+#brokerHost: url of the OSE broker
 #
 #
 #EXAMPLES
@@ -24,9 +24,12 @@
 #
 #
 
-brokerhost="localhost"
+#brokerHost="localhost"
 #defaultGearProfile="small"
 logfile=/var/log/openshift/broker/ose-utils.log
+
+brokerHost="broker.e1.epaas.aexp.com"
+platformDomain="e1.epaas.aexp.com"
 
 #GLOBAL VARIABLES
 force=0
@@ -37,10 +40,10 @@ function usage {
 
 function json {
   echo "{
-        'returnCode':'$1',
-        'returnDesc':'$2',
-        'authenticationTokenId':'$3'
-        'appDomainFullyQualified':'$4'
+        \"returnCode\":\"$1\",
+        \"returnDesc\":\"$2\",
+        \"authenticationTokenId\":\"$3\",
+        \"appDomainFullyQualified\":\"$4\"
   }"
 
 }
@@ -66,15 +69,23 @@ function validGear {
   for size in ${sizes[*]}
   do
 
-    if [[ $size == $1 ]]; then
+    if [[ $size = $1 ]]; then
       echo 1
       return
     fi
-    echo "$size did not equal $1"
   done
   echo 0
   return
+}
+function getGearDefault {
+  valid=$(grep "DEFAULT_GEAR_CAPABILITIES=" /etc/openshift/broker.conf | tee -a $logfile )
+  valid=$(sed 's/"//g' <<< $valid)
 
+  IFS='='; read -r -a default <<< "$valid"
+  IFS=','; read -r -a size <<< "${default[1]}"
+
+  echo "$size"
+  return
 }
 
 
@@ -82,7 +93,7 @@ function validGear {
 if [ "$#" -lt 1 ]
   then
   usage
-  json 255 "Invalid usage"
+  json 255 "InvalidUsage"
   exit 255
 fi
 
@@ -96,13 +107,13 @@ while true; do
   case "$1" in
     --appAdmins )
         case "$2" in
-          "") json 255 "Invalid usage"; shift;;
+          "") json 255 "InvalidUsage"; shift;;
           *) appAdmins="$2"; shift ; shift;;
         esac
     ;;
     --developers )
         case "$2" in
-          "") json 255 "Invalid usage"; shift;;
+          "") json 255 "InvalidUsage"; shift;;
           *) developers="$2"; shift; shift;;
         esac
     ;;
@@ -118,18 +129,18 @@ while true; do
 done
 #check that devs and admin strings dont contain illegal characters or are empty
 if [[ -n "$appAdmins" && "$appAdmins" != [0-9A-Za-z,]* || -n "$developers" && "$developers" != [0-9A-Za-z,]* ]];then
-   json 255 "invalid username detected"
+   json 255 "UnknownError. Invalid Username detected"
    exit 255
 fi
 
 
 if [[ ${#appDomain} -gt 16 ]];then #appdomain is longer than 16 error out
-   json 255 "App Domain too long"
+   json 255 "UnknownError. App Domain too long"
    exit 255
 fi
 
 if [[ "$appDomain" != [0-9A-Za-z]* ]];then #appdomain is longer than 16 error out
-   json 255 "Illegal characters for application domain"
+   json 255 "UnknownError. Illegal characters for application domain"
    exit 255
 fi
 
@@ -148,33 +159,39 @@ if [[ "$code" = "5" ]]; then
 elif [[ "$code" = "0" ]]; then
   #already exists do nothing return 1
   if [ $force -ne 1 ]; then
-    json 1 "User already exists. Exiting..."
+    json 1 "AlreadyExists"
     exit 1
   fi
   echo "User already exists. Continuing on behalf of --force" &>>$logfile
 else
   #Unknow error
   echo "error=$code"
-  json 255 "Unknown Error. Exiting..."
+  json 255 "UnknownError"
   exit 255;
 fi
 
 #Create Token (expires a year from creation
 TOKEN="$(oo-auth-token -l $appDomain -e "$(date -d "+year" 2>> $logfile | tee -a $logfile)" 2>> $logfile | tee -a $logfile)"
 
+gearDefault=$(getGearDefault)
 
+#echo "default:$gearDefault gearProfile:$gearProfile brokerHost:$brokerHost appDomain:$appDomain"
+
+if [ "$gearDefault" = "e1dev-standard" ];then
+    oo-admin-ctl-user -l $appDomain --addgearsize $gearProfile --removegearsize $gearDefault &>>$logfile
+fi
 #2. Create application domain owned by appDomain Openshift user $appDomain
-response=$( curl -k -H "Authorization: Bearer $TOKEN" -X POST https://$brokerhost/broker/rest/domains/ --data-urlencode name=$appDomain --data-urlencode allowed_gear_sizes=small 2>> $logfile | tee -a $logfile 2>> $logfile)
+response=$(curl -k -H "Authorization: Bearer $TOKEN" -X POST https://$brokerHost/broker/rest/domains/ --data-urlencode name=$appDomain 2>> $logfile | tee -a $logfile 2>> $logfile)
 status=$(exit_code "$response")
 if [ "$status" = 103 ] && [ "$force" != 1 ];then
-    json 1 "Domain already exists. Openshift API exit code $status" $TOKEN
+    json 1 "AlreadyExists. Openshift API exit code $status" $TOKEN
     exit 1
 
 elif [ "$status" = 103 ] && [ "$force" = 1 ];then
     echo "Forcing changed to existing domain" &>> $logfile
 
 elif [ "$status" != 0 ];then
-     json 255 "Error creating Domain. Openshift API exit code $status" $TOKEN
+     json 255 "UnknownError. Error creating domain. Openshift API exit code $status" $TOKEN
      exit 255
 fi
 
@@ -182,7 +199,7 @@ fi
 #4. grant edit access on the application domain to all employeeNums listed under appAdmins
 IFS=',' read -ra admins <<< $appAdmins
 for employee in ${admins[*]}; do
-    response=$(curl -k -H "Authorization: Bearer $TOKEN" -X PATCH https://$brokerhost/broker/rest/domains/$appDomain/members --data-urlencode role=admin --data-urlencode login=$employee 2>> $logfile | tee -a $logfile )
+    response=$(curl -k -H "Authorization: Bearer $TOKEN" -X PATCH https://$brokerHost/broker/rest/domains/$appDomain/members --data-urlencode role=admin --data-urlencode login=$employee 2>> $logfile | tee -a $logfile )
     status=$(exit_code "$response")
       if [ "$status" != 0 ];then
         echo "Error granting administrator permissions. Openshift API exit code $status" &>>$logfile
@@ -194,12 +211,12 @@ done
 IFS=',' read -ra devs <<< $developers
 
 for dev in ${devs[*]}; do
-    response=$(curl -k -H "Authorization: Bearer $TOKEN" -X PATCH https://$brokerhost/broker/rest/domains/$appDomain/members --data-urlencode role=view --data-urlencode login=$dev 2>> $logfile| tee -a $logfile )
+    response=$(curl -k -H "Authorization: Bearer $TOKEN" -X PATCH https://$brokerHost/broker/rest/domains/$appDomain/members --data-urlencode role=view --data-urlencode login=$dev 2>> $logfile| tee -a $logfile )
     status=$(exit_code "$response")
     if [ $status != 0 ];then
         echo "Error granting developer permissions. Openshift API exit code $status" &>>$logfile
     fi
 done
 
-json 0 "Success" $TOKEN "$appDomain.$brokerhost"
+json 0 "Success" $TOKEN "$appDomain.$platformDomain"
 exit 0

@@ -11,7 +11,8 @@
 #
 #VARIABLES
 #logFile: where the stderr and stdout get redirected to
-#brokerhost: url of the OSE broker
+#brokerHost: url of the OSE broker
+#gearProfileDefault: use this gear profile if none was provided as a parameter
 #
 #
 #EXAMPLES
@@ -19,9 +20,13 @@
 # ./oo-register-developer.sh Bnye medium
 #
 #
+
+#brokerHost="localhost"
+#gearProfileDefault="small"
 logFile=/var/log/openshift/broker/ose-utils.log
-brokerhost="localhost"
-gearProfileDefault="small"
+
+brokerHost="broker.e1.epaas.aexp.com"
+gearProfileDefault="e1dev-standard"
 
 function usage {
   echo "oo-register-developer.sh {username} {gearProfile}"
@@ -29,8 +34,8 @@ function usage {
 
 function json {
   echo "{
-        'returnCode':'$1',
-        'returnDesc':'$2'
+        \"returnCode\":\"$1\",
+        \"returnDesc\":\"$2\"
 }"
 }
 
@@ -44,11 +49,11 @@ function validGear {
   for size in ${sizes[*]}
   do
 
-    if [[ $size == $1 ]]; then
+    if [[ $size = $1 ]]; then
       echo 1
       return
     fi
-    echo "$size did not equal $1"
+    #echo "$size did not equal $1"
   done
   echo 0
   return
@@ -69,7 +74,7 @@ if [ -z $2 ];then
   gearProfile="$gearProfileDefault"
 else
   checkGear=$(validGear "$gearProfile")
-  if [ "$checkGear" != "1" ];then
+  if [ $checkGear -ne 1 ];then
     json 255 "Invalid Gear Size."
     exit 255
   fi
@@ -80,9 +85,6 @@ if [ -z ${username+x} ];then
   json 2 "No Username supplied"
   exit 255
 fi
-
-
-
 
 
 #1. Check if developer account already exists in OpenShift E1
@@ -110,15 +112,15 @@ fi
 
 #   a.  Create  developer account in OpenShift E1   HSC to OpenShift API TBD,Java RA and Red Hat working on this one
 oo-admin-ctl-user --create -l $username &>>$logFile
-TOKEN="$(oo-auth-token -l $username -e "$(date -d "+day")" 2>>$logFile| tee $logFile)"
+TOKEN="$(oo-auth-token -l $username -e "$(date -d "+day")" 2>>$logFile| tee -a $logFile)"
 
 
 #   b.  Create developer domain in OpenShift E1 (a.k.a. remote E0 in ePaaS)       HSC to OpenShift API, POST /broker/rest/domains
-#       (e.g. “curl -k -X POST https://LPDCLDWA00608.phx.aexp.com/broker/rest/domains --user cdSystemAccount:password name=username allowed_gear_sizes=standard”,
+#       (e.g. "curl -k -X POST https://LPDCLDWA00608.phx.aexp.com/broker/rest/domains --user cdSystemAccount:password name=username allowed_gear_sizes=standard",
 #       note the actual hostname and gear sizes will be different and will be defined once we get the VMs)
 
 
-curl -H "Authorization: Bearer $TOKEN" -k -X POST https://$brokerhost/broker/rest/domains/ --data-urlencode name=dev$username --data-urlencode allowed_gear_sizes=$gearProfile &>>"$logFile"
+curl -H "Authorization: Bearer $TOKEN" -k -X POST https://$brokerHost/broker/rest/domains/ --data-urlencode name=dev$username --data-urlencode allowed_gear_sizes=$gearProfile &>>"$logFile"
 
 json 0 "Succcess"
 exit 0
