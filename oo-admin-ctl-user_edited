@@ -1,0 +1,824 @@
+#!/usr/bin/env oo-ruby
+
+require 'rubygems'
+require 'getoptlong'
+require 'date'
+
+def usage
+  puts <<USAGE
+== Synopsis
+
+#{File.basename $0}: Control user settings.
+
+== Notes
+
+  WARNING:
+  When modifying multiple users, use the -f option to provide multiple logins
+  at once, rather than invoking the script multiple times.
+
+== Usage
+
+#{File.basename $0} OPTIONS
+
+Options:
+  -l|--login <login_name>
+    Login with OpenShift access (required)
+  -f|--logins-file <file>
+    File containing one login per line (use instead of --login argument)
+
+  -c|--create
+    Create the specified user(s) if they do not already exist
+
+  --setmaxdomains <number>
+    Set the maximum number of domains a user is allowed to use
+  --setmaxgears <number>
+    Set the maximum number of gears a user is allowed to use
+  --setmaxtrackedstorage <number>
+    Set the maximum additional storage per gear that will be tracked for a user
+  --setmaxuntrackedstorage <number>
+    Set the maximum additional storage per gear that will be untracked for a user
+  --setconsumedgears <number>
+    Set the number of gears a user has consumed (use carefully)
+  --setmaxteams <number>
+    Set the maximum number of teams a user is allowed to create
+  --setplan <plan_id>
+    Set the plan for the user
+  --setplanexpirationdate <date>
+    Set the plan expiration date for the user. Format yyyy-mm-dd
+  --clearplanexpirationdate 
+    Clears the plan expiration date for the user.
+  --setplanquantity <number>
+    Set the quantity of plan
+  --listsubaccounts
+    List the subaccounts that have been created under this parent account (login)
+    Cannot use this option with --quiet
+  --addsubaccount <subaccount login>
+    The sub account to add to the login parent account
+    Cannot use this option when multiple logins are specified
+  --removeuser <account login>
+    The account to remove
+  --removesubaccount <subaccount login>
+    The sub account to remove from the login parent account
+    Cannot use this option when multiple logins are specified
+  --allowsubaccounts true|false
+    Add / Remove the capability to manage sub accounts
+  --allowplanupgrade true|false
+    Add / Remove the capability to upgrade plan for this login user
+  --allowviewglobalteams true|false
+    Add / Remove the capability to search and view any global team for this login user
+  --allowprivatesslcertificates true|false
+    Add / Remove the capability to add private SSL certificates
+  --addgearsize <gearsize>
+    Add gearsize to the capability for this login user
+  --removegearsize <gearsize>
+    Remove gearsize from the capability for this login user
+  --inheritgearsizes true|false
+    Allow / Disallow inheritance of login user gearsizes capability to sub accounts
+  --allowha true|false
+    Allow / Disallow High Availability capability to the user
+
+  -q|--quiet
+    Suppress non-error output
+
+  -h|--help
+    Show Usage info
+
+Examples:
+  List the current user settings with:
+    #{File.basename $0} -l bob@redhat.com
+
+  Set the maximum number of gears a user is allowed to use with:
+    #{File.basename $0} -l bob@redhat.com --setmaxgears 10
+USAGE
+  exit 255
+end
+
+class String
+  def to_b()
+    return true if self.to_s.strip =~ /^(true|t|yes|y|1)$/i
+    return false
+  end
+end
+
+def set_max_domains(user, maxdomains)
+  begin
+    Lock.run_in_user_lock(user) do
+      if user.max_domains == maxdomains
+        puts "User #{user.login} already has max_domains set to #{maxdomains}"
+        return
+      end
+
+      print "Setting max_domains to #{maxdomains}... "
+      user.max_domains = maxdomains
+      user.save!
+    end
+  rescue Exception => e
+    $stderr.puts "Failed to set max domains for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+def set_max_gears(user, maxgears)
+  begin
+    Lock.run_in_user_lock(user) do
+      if user.max_gears == maxgears
+        puts "User #{user.login} already has max_gears set to #{maxgears}"
+        return
+      end
+
+      print "Setting max_gears to #{maxgears}... "
+      user.max_gears = maxgears
+      user.save!
+    end
+  rescue Exception => e
+    $stderr.puts "Failed to set max gears for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+def set_max_tracked_storage(user, maxtrackedstorage)
+  begin
+    Lock.run_in_user_lock(user) do
+      if user.max_tracked_additional_storage == maxtrackedstorage
+        puts "User #{user.login} already has max_tracked_additional_storage set to #{maxtrackedstorage}"
+        return
+      end
+
+      print "Setting max_tracked_addtl_storage_per_gear to #{maxtrackedstorage}... "
+      user.max_tracked_additional_storage = maxtrackedstorage
+      user.save!
+    end
+  rescue Exception => e
+    $stderr.puts "Failed to set max tracked addtional storage for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+def set_max_untracked_storage(user, maxuntrackedstorage)
+  begin
+    Lock.run_in_user_lock(user, 1800) do
+      if user.max_untracked_additional_storage == maxuntrackedstorage
+        puts "User #{user.login} already has max_untracked_additional_storage set to #{maxuntrackedstorage}"
+        return
+      end
+
+      print "Setting max_untracked_addtl_storage_per_gear to #{maxuntrackedstorage}... "
+      old_untracked = user.max_untracked_additional_storage
+      user.max_untracked_additional_storage = maxuntrackedstorage
+      user.save!
+
+      error = nil
+      user.domains.each do |domain|
+        domain.applications.each do |app|
+          begin
+            app.change_max_untracked_storage(old_untracked, maxuntrackedstorage)
+          rescue Exception => e
+            error = e
+            $stderr.puts "An error occurred updating storage tracking for the user #{user.login} for the app #{app.name}."
+            $stderr.puts e.message
+          end
+        end
+      end
+      exit 6 if error
+    end
+  rescue Exception => e
+    $stderr.puts "An error occurred updating storage tracking for the user #{user.login}."
+    $stderr.puts e.message
+    exit 6
+  end
+  puts "Done."
+end
+
+def set_consumed_gears(user, consumedgears)
+  begin
+    Lock.run_in_user_lock(user) do
+      if user.consumed_gears == consumedgears
+        puts "User #{user.login} already has consumed_gears set to #{user.consumed_gears}"
+        return
+      end
+
+      print "Setting consumed_gears to #{consumedgears}... "
+      user.consumed_gears = consumedgears
+      user.save!
+    end
+  rescue Exception => e
+    $stderr.puts "Failed to set consumed gears for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+def set_max_teams(user, maxteams)
+  begin
+    Lock.run_in_user_lock(user) do
+      if user.max_teams == maxteams
+        puts "User #{user.login} already has max_teams set to #{maxteams}"
+        return
+      end
+
+      print "Setting max_teams to #{maxteams}... "
+      user.max_teams = maxteams
+      user.save!
+    end
+  rescue Exception => e
+    $stderr.puts "Failed to set max teams for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+def allow_sub_accounts(user, allow)
+  begin
+    Lock.run_in_user_lock(user) do
+      if user.subaccounts == allow
+        puts "User #{user.login} already has allowsubaccounts set to #{allow}"
+        return
+      end
+
+      print "Setting subaccounts capability to #{allow} for user #{user.login}... "
+      user.subaccounts = allow
+      user.save!
+    end
+  rescue Exception => e
+    $stderr.puts "Failed to allow subaccounts for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+def allow_private_ssl_certificates(user, allow)
+  begin
+    Lock.run_in_user_lock(user) do
+      if user.private_ssl_certificates == allow
+        puts "User #{user.login} already has allow private_ssl_certificates set to #{allow}"
+        return
+      end
+
+      print "Setting private_ssl_certificates capability to #{allow} for user #{user.login}... "
+      user.private_ssl_certificates = allow
+      user.save!
+    end
+  rescue Exception => e
+    $stderr.puts "Failed to allow private ssl certificates for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+def allow_plan_upgrade(user, allow)
+  begin
+    Lock.run_in_user_lock(user) do
+      if user.plan_upgrade_enabled == allow
+        puts "User #{user.login} already has plan_upgrade_enabled set to #{allow}"
+        return
+      end
+
+      print "Setting plan_upgraded_enabled capability to #{allow} for user #{user.login}... "
+      user.plan_upgrade_enabled = allow
+      user.save!
+    end
+  rescue Exception => e
+    $stderr.puts "Failed to allow private ssl certificates for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+def allow_global_teams(user, allow)
+  begin
+    Lock.run_in_user_lock(user) do
+      if user.view_global_teams == allow
+        puts "User #{user.login} already has view_global_teams set to #{allow}"
+        return
+      end
+
+      print "Setting view_global_teams capability to #{allow} for user #{user.login}... "
+      user.view_global_teams = allow
+      user.save!
+    end
+  rescue Exception => e
+    $stderr.puts "Failed to allow viewing global teams for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+def add_sub_account(user, subaccount_login)
+  begin
+    child_user = nil
+    Lock.run_in_user_lock(user) do
+      unless user.subaccounts
+        $stderr.puts "User #{user.login} does not have the capability to manage sub accounts"
+        return
+      end
+
+      begin
+        child_user = CloudUser::find_by_identity(subaccount_login)
+      rescue Mongoid::Errors::DocumentNotFound
+        child_user = nil
+      end
+
+      if not child_user.nil?
+        if child_user.parent_user_id == user._id
+          $stderr.puts "Error: Subaccount for '#{subaccount_login}' already exists under #{user.login}"
+        elsif not child_user.parent_user_id.nil?
+          parent_user = CloudUser.with(consistency: :eventual).find_by(_id: child_user.parent_user_id)
+          $stderr.puts "Error: Subaccount for '#{subaccount_login}' already exists under #{parent_user.login}"
+        else
+          $stderr.puts "Error: User '#{subaccount_login}' already exists"
+        end
+        exit 5
+      end
+
+      print "Adding subaccount for #{subaccount_login} under #{user.login}... "
+      child_user = CloudUser.new(login: subaccount_login, parent_user_id: user._id)
+      if child_user.save
+        puts "Done."
+      else
+        $stderr.puts "An error occurred adding the sub account #{subaccount_login} under #{user.login}."
+        $stderr.puts "Errors: #{child_user.errors.messages}"
+        exit 6
+      end
+    end
+    Lock.create_lock(child_user.id)
+  rescue Exception => e
+    $stderr.puts "Failed to add subaccount for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+#edit
+def remove_user(user)
+  begin
+    user = CloudUser::find_by_identity(user)
+    user.force_delete
+  rescue Mongoid::Errors::DocumentNotFound
+    $stderr.puts "Error: Account User '#{user}' not found"
+    exit 5
+  end
+  puts "Done"
+end
+#edit
+def remove_sub_account(user, subaccount_login)
+  begin
+    child_user = CloudUser::find_by_identity(subaccount_login)
+  rescue Mongoid::Errors::DocumentNotFound
+    $stderr.puts "Error: Sub Account User '#{subaccount_login}' not found"
+    exit 5
+  end
+    
+  if child_user.parent_user_id.nil? || (child_user.parent_user_id != user._id)
+    $stderr.puts "Error: User '#{subaccount_login}' is not a sub account of #{user.login}"
+    exit 5
+  end
+    
+  print "Removing subaccount for #{child_user.login} under #{user.login}... "
+  begin
+    child_user.force_delete
+  rescue Exception => e
+    $stderr.puts "An error occurred removing the sub account for #{subaccount_login} under #{user.login} : #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+
+def add_gear_size(user, gear_size)
+  print "Adding gear size #{gear_size} for user #{user.login}... "
+
+  begin
+    Lock.run_in_user_lock(user) do
+      user.add_gear_size(gear_size)
+    end
+  rescue Exception=>e
+    $stderr.puts e.message
+    $stderr.puts e.backtrace.join("\n")
+    exit 1
+  end
+  puts "Done."
+end
+
+def set_plan(user, plan_id, plan_quantity, plan_expiration_date, clear_plan_expiration_date)
+  plan_id = plan_id || user.plan_id
+  plan_quantity = plan_quantity || user.plan_quantity || 1
+  print "Updating plan #{plan_id} with quantity #{plan_quantity} with expiration date #{plan_expiration_date} for user #{user.login}... "
+  begin
+    if plan_id != user.plan_id or plan_quantity != user.plan_quantity
+      user.update_plan(plan_id, plan_quantity)
+    end
+    if plan_expiration_date and plan_expiration_date != user.plan_expiration_date
+      Lock.run_in_user_lock(user) do
+        user.plan_expiration_date = plan_expiration_date
+        user.save!
+      end
+    elsif clear_plan_expiration_date
+      Lock.run_in_user_lock(user) do
+        user.plan_expiration_date = nil
+        user.save!
+      end
+    end
+  rescue Exception=>e
+    $stderr.puts e.message
+    exit 1
+  end
+  puts "Done."
+end
+
+def remove_gear_size(user, gear_size)
+  print "Removing gear size #{gear_size} for user #{user.login}... "
+
+  begin
+    Lock.run_in_user_lock(user) do
+      user.remove_gear_size(gear_size)
+    end
+  rescue Exception => e
+    $stderr.puts e.message
+    exit 6
+  end
+  puts "Done."
+end
+
+def inherit_on_subaccounts(user, allow, capability, cap_name)
+  begin
+    Lock.run_in_user_lock(user) do
+      if user.inherit_on_subaccounts.include?(capability) == allow
+        puts "User #{user.login} already has #{cap_name} inheritance set to #{allow}"
+        return
+      end
+
+      print "Setting #{cap_name} inheritance to #{allow} for user #{user.login}... "
+      if allow
+        user.add_capability_inherit_on_subaccounts(capability)
+      else
+        user.remove_capability_inherit_on_subaccounts(capability)
+      end
+      user.save!
+    end
+  rescue Exception => e
+    $stderr.puts "Failed to allow/disallow subaccount capability inheritance for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+def allow_ha(user, allow)
+  unless Rails.configuration.openshift[:allow_ha_applications]
+    $stderr.puts "Error: Platform does not allow HA applications"
+    exit 5
+  end
+  begin
+    Lock.run_in_user_lock(user) do
+      if user.ha == allow
+        puts "User #{user.login} already has HA set to #{allow}"
+        return
+      end
+
+      print "Setting HA capability to #{allow} for user #{user.login}... "
+      user.ha = allow
+      user.save!
+    end
+  rescue Exception => e
+    $stderr.puts "Failed to allow/disallow HA capability for user #{user.login}, error: #{e.message}"
+    exit 6
+  end
+  puts "Done."
+end
+
+opts = GetoptLong.new(
+    ["--login",          "-l", GetoptLong::REQUIRED_ARGUMENT],
+    ["--logins-file",    "-f", GetoptLong::REQUIRED_ARGUMENT],
+
+    ["--create",         "-c", GetoptLong::NO_ARGUMENT],
+
+    ["--setmaxdomains",    GetoptLong::REQUIRED_ARGUMENT],
+    ["--setmaxgears",      GetoptLong::REQUIRED_ARGUMENT],
+    ["--setmaxtrackedstorage", GetoptLong::REQUIRED_ARGUMENT],
+    ["--setmaxuntrackedstorage", GetoptLong::REQUIRED_ARGUMENT],
+    ["--setmaxteams",      GetoptLong::REQUIRED_ARGUMENT],
+    ["--setplan",          GetoptLong::REQUIRED_ARGUMENT],
+    ["--setplanexpirationdate", GetoptLong::REQUIRED_ARGUMENT],
+    ["--clearplanexpirationdate", GetoptLong::NO_ARGUMENT],
+    ["--setplanquantity", GetoptLong::REQUIRED_ARGUMENT],
+    ["--setconsumedgears", GetoptLong::REQUIRED_ARGUMENT],
+    ["--listsubaccounts",  GetoptLong::NO_ARGUMENT],
+    ["--addsubaccount",    GetoptLong::REQUIRED_ARGUMENT],
+    ["--removeuser",       GetoptLong::REQUIRED_ARGUMENT], #edit
+    ["--removesubaccount", GetoptLong::REQUIRED_ARGUMENT],
+    ["--allowsubaccounts", GetoptLong::REQUIRED_ARGUMENT],
+    ["--allowprivatesslcertificates", GetoptLong::REQUIRED_ARGUMENT],
+    ["--allowplanupgrade", GetoptLong::REQUIRED_ARGUMENT],
+    ["--allowviewglobalteams", GetoptLong::REQUIRED_ARGUMENT],
+    ["--addgearsize",      GetoptLong::REQUIRED_ARGUMENT],
+    ["--removegearsize",   GetoptLong::REQUIRED_ARGUMENT],
+    ["--inheritgearsizes", GetoptLong::REQUIRED_ARGUMENT],
+    ["--allowha",          GetoptLong::REQUIRED_ARGUMENT],
+    
+    ["--quiet",            "-q", GetoptLong::NO_ARGUMENT],
+    ["--help",             "-h", GetoptLong::NO_ARGUMENT]
+)
+
+args = {}
+begin
+  opts.each{ |k,v| args[k]=v }
+rescue GetoptLong::Error => e
+  usage
+end
+
+if ARGV.length>0
+  $stderr.puts "Stray input arguments - #{ARGV.inspect}"
+  usage
+end
+
+logins = []
+if args["--login"]
+  logins << args["--login"]
+end
+if args["--logins-file"]
+  begin
+    logins += File.readlines(args["--logins-file"]).map(&:strip).reject(&:empty?)
+    logins.uniq!
+  rescue
+    $stderr.puts "ERROR: Could not read logins from #{args['--logins-file']}"
+    $stderr.puts $!.message
+    exit 1
+  end
+end
+
+allowsubaccounts = args["--allowsubaccounts"].to_b if args["--allowsubaccounts"]
+allowprivatesslcertificates = args["--allowprivatesslcertificates"].to_b if args["--allowprivatesslcertificates"]
+inheritgearsizes = args["--inheritgearsizes"].to_b if args["--inheritgearsizes"]
+allowha = args["--allowha"].to_b if args["--allowha"]
+
+if args["--setmaxdomains"]
+  unless args["--setmaxdomains"] =~ /^[0-9]+$/
+    $stderr.puts "ERROR: Max domains must be a positive integer"
+    exit 1
+  end
+  maxdomains = args["--setmaxdomains"].to_i
+end
+
+if args["--setmaxgears"]
+  unless args["--setmaxgears"] =~ /^[0-9]+$/
+    $stderr.puts "ERROR: Max gears must be a positive integer"
+    exit 1
+  end
+  maxgears = args["--setmaxgears"].to_i
+end
+
+if args["--setmaxtrackedstorage"]
+  unless args["--setmaxtrackedstorage"] =~ /^[0-9]+$/
+    $stderr.puts "ERROR: Max tracked storage must be a positive integer"
+    exit 1
+  end
+  maxtrackedstorage = args["--setmaxtrackedstorage"].to_i
+end
+
+if args["--setmaxuntrackedstorage"]
+  unless args["--setmaxuntrackedstorage"] =~ /^[0-9]+$/
+    $stderr.puts "ERROR: Max untracked storage must be a positive integer"
+    exit 1
+  end
+  maxuntrackedstorage = args["--setmaxuntrackedstorage"].to_i
+end
+
+if args["--setmaxteams"]
+  unless args["--setmaxteams"] =~ /^[0-9]+$/
+    $stderr.puts "ERROR: Max teams must be a positive integer"
+    exit 1
+  end
+  maxteams = args["--setmaxteams"].to_i
+end
+
+if args["--setconsumedgears"]
+  unless args["--setconsumedgears"] =~ /^[0-9]+$/
+    $stderr.puts "ERROR: Consumed gears must be a positive integer"
+    exit 1
+  end
+  consumedgears = args["--setconsumedgears"].to_i
+end
+
+if args["--setplanexpirationdate"]
+  unless args["--setplanexpirationdate"] =~ /^\d{4}-\d{2}-\d{2}$/
+    $stderr.puts "ERROR: Plan expiration date must be in format yyyy-mm-dd"
+    exit 1
+  end
+  begin
+    plan_expiration_date = Date.strptime(args["--setplanexpirationdate"], '%Y-%m-%d')
+  rescue => ex
+    $stderr.puts "ERROR: Could not parse plan expiration date: #{ex.message}"
+    exit 1
+  end
+end
+
+if args["--clearplanexpirationdate"]
+  if args["--setplanexpirationdate"]
+    $stderr.puts "ERROR: You can either clear the plan expiration date or set it.  You cannot do both"
+    exit 1
+  end
+  clear_plan_expiration_date = true
+else
+  clear_plan_expiration_date = false
+end
+
+if args["--setplanquantity"]
+  unless args["--setplanquantity"] =~ /^[0-9]+$/
+    $stderr.puts "ERROR: Plan quantity must be a positive integer"
+    exit 1
+  end
+  plan_quantity = args["--setplanquantity"].to_i
+end
+
+
+if logins.empty? or args["--help"]
+  usage
+end
+
+account_to_add = args["--addsubaccount"]
+account_to_remove = args["--removesubaccount"]
+account_to_delete = args["--removeuser"] #edit
+gear_size_to_add = args["--addgearsize"]
+gear_size_to_remove = args["--removegearsize"]
+plan_to_set = args["--setplan"]
+
+
+if logins.length > 1 and (account_to_add or account_to_remove)
+  $stderr.puts "ERROR: Cannot use --addsubaccount or --removesubaccount with multiple logins"
+  usage
+end
+
+if args["--quiet"]
+  if args["--listsubaccounts"]
+    $stderr.puts "ERROR: Can not use --quiet and --listsubaccounts together"
+    usage
+  else
+    $stdout.reopen File.new('/dev/null', 'w')
+  end
+end
+
+# this require is here to not load the environment simply to display help
+require "#{ENV['OPENSHIFT_BROKER_DIR'] || '/var/www/openshift/broker'}/config/environment"
+# Disable analytics for admin scripts
+Rails.configuration.analytics[:enabled] = false
+puts
+puts
+
+exit_exception = nil
+logins.map {|l| CloudUser.normalize_login(l) }.each do |login|
+
+  begin
+
+    begin
+      if args["--create"]
+        user, _ = CloudUser.find_or_create_by_identity(nil, login)
+      else
+        user = CloudUser.find_by_identity(login)
+      end
+    rescue Mongoid::Errors::DocumentNotFound
+      $stderr.puts "Error: User '#{login}' not found"
+      exit 5
+    end
+
+    changed_user = false
+    subaccount_list = []
+
+    unless maxdomains.nil?
+      set_max_domains(user, maxdomains)
+      changed_user = true
+    end
+
+    unless maxgears.nil?
+      set_max_gears(user, maxgears)
+      changed_user = true
+    end
+
+    unless maxtrackedstorage.nil?
+      set_max_tracked_storage(user,maxtrackedstorage)
+      changed_user = true
+    end
+
+    unless maxteams.nil?
+      set_max_teams(user, maxteams)
+      changed_user = true
+    end
+
+    unless maxuntrackedstorage.nil?
+      set_max_untracked_storage(user,maxuntrackedstorage)
+      changed_user = true
+    end
+
+    unless consumedgears.nil?
+      set_consumed_gears(user, consumedgears)
+      changed_user = true
+    end
+
+    unless allowsubaccounts.nil?
+      allow_sub_accounts(user, allowsubaccounts)
+      changed_user = true
+    end
+
+    unless args["--allowplanupgrade"].nil?
+      allow_plan_upgrade(user, args["--allowplanupgrade"].to_b)
+    end
+
+    unless args["--allowviewglobalteams"].nil?
+      allow_global_teams(user, args["--allowviewglobalteams"].to_b)
+    end
+
+    unless allowprivatesslcertificates.nil?
+      allow_private_ssl_certificates(user, allowprivatesslcertificates)
+      changed_user = true
+    end
+
+    unless account_to_add.nil?
+      add_sub_account(user, CloudUser.normalize_login(account_to_add))
+    end
+
+    unless account_to_remove.nil?
+      remove_sub_account(user, CloudUser.normalize_login(account_to_remove))
+    end
+#edit------
+    unless account_to_delete.nil?
+      remove_user(CloudUser.normalize_login(account_to_delete))
+    end
+#edit------
+    unless gear_size_to_add.nil?
+      add_gear_size(user, gear_size_to_add)
+      changed_user = true
+    end
+
+    unless gear_size_to_remove.nil?
+      remove_gear_size(user, gear_size_to_remove)
+      changed_user = true
+    end
+
+    unless inheritgearsizes.nil?
+      inherit_on_subaccounts(user, inheritgearsizes, 'gear_sizes', 'gearsizes')
+      changed_user = true
+    end
+
+    unless allowha.nil?
+      allow_ha(user, allowha)
+      changed_user = true
+    end
+    
+    if plan_to_set or plan_quantity or plan_expiration_date or clear_plan_expiration_date
+      set_plan(user, plan_to_set, plan_quantity, plan_expiration_date, clear_plan_expiration_date)
+      changed_user = true
+    end
+
+    if args["--listsubaccounts"]
+      subaccount_list = CloudUser.where(parent_user_id: user._id) 
+    end
+
+    if changed_user
+      # reload user with new settings
+      user = CloudUser.find_by_identity(login)
+      puts
+    end
+
+    # print out the user's current settings
+    puts "User #{user.login}:"
+    puts "                            plan: #{user.plan_id}"
+    puts "                   plan quantity: #{user.plan_quantity}"
+    puts "            plan expiration date: #{user.plan_expiration_date}"
+    puts "                consumed domains: #{user.domains.count}"
+    puts "                     max domains: #{user.max_domains}"
+    puts "                  consumed gears: #{user.consumed_gears}"
+    puts "                       max gears: #{user.max_gears}"
+    puts "    max tracked storage per gear: #{user.max_tracked_additional_storage}"
+    puts "  max untracked storage per gear: #{user.max_untracked_additional_storage}"
+    puts "                       max teams: #{user.max_teams}"
+    puts "viewing all global teams allowed: #{user.view_global_teams}"
+    puts "            plan upgrade enabled: #{user.plan_upgrade_enabled}" if user.capabilities.has_key?('plan_upgrade_enabled')
+    puts "                      gear sizes: #{user.allowed_gear_sizes.join(', ')}"
+    puts "            sub accounts allowed: #{user.subaccounts}"
+    puts "private SSL certificates allowed: #{user.private_ssl_certificates}"
+    puts "              inherit gear sizes: #{user.inherit_on_subaccounts.include?('gear_sizes')}"
+    puts "                      HA allowed: #{user.ha}"
+
+    puts 
+    if args["--listsubaccounts"] and (not subaccount_list.nil?) and (not subaccount_list.empty?)
+      puts "Sub Accounts: #{subaccount_list.length}"
+      subaccount_list.each do |subaccount|
+        puts "     #{subaccount.login}"
+      end
+      puts
+    end
+
+  rescue StandardError
+    $stderr.puts $!.message
+    exit_exception = SystemExit.new(10)
+  rescue SystemExit
+    # Don't exit in case we have more users to process, but save to exit at the end
+    exit_exception = $!
+  end
+
+end
+
+if exit_exception
+  $stderr.puts "Errors were encountered" if logins.length > 1
+  raise exit_exception
+end
