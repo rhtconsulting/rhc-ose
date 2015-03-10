@@ -1,12 +1,31 @@
-openstack_cred=${OPENSTACK_CRED_HOME:-~/.ssh/openstack}
-IMAGE_PREFIX="rhel-guest-image-6.5-20140603.0"
-rc_file="${openstack_cred}/ec2rc.sh"
-interactive="true"
-
 # Functions
 usage() {
-  echo "Usage: $0 --key {openstack ssh key name} [-n]"
+  echo "Usage: $0 --key <openstack ssh key name> --instance-name <name> [--rhel7] [-n] [--auth-key-file <file location>]"
   echo ""
+}
+
+wait_for_instance_running() {
+  local instance_name=$1
+
+  command="[ \$( nova show $instance_name | grep -c \"status.*ACTIVE\" ) -eq 1 ]"
+  run_cmd_with_timeout "$command" ${2:-30}
+}
+
+wait_for_ssh() {
+  local instance_ip=$1
+
+  command="ssh -o StrictHostKeyChecking=no cloud-user@${instance_ip} 'ls' &>/dev/null"
+  run_cmd_with_timeout "$command" ${2:-60}
+}
+
+run_cmd_with_timeout() {
+  local command="$1"
+  local timeout=$2
+
+  next_wait_time=0
+  until eval "$command" || [ $next_wait_time -eq $timeout ]; do
+    sleep $(( next_wait_time++ ))
+  done
 }
 
 # Process options
@@ -20,37 +39,64 @@ do
       key="$1"; shift;;
     "--n")
       interactive="false";;
+    "--instance-name")
+      instance_name="$1"; shift;;
+    "--rhel7")
+      image_name="rhel-guest-image-7.0-20140618.1";;
+    "--auth-key-file")
+      options="{$options} --file /root/.ssh/authorized_keys=$1"; shift;;
     *) echo >&2 "Invalid option: $@"; exit 1;;
   esac
 done
 
-if [ -z $key ]; then
+if [ -z $key ] || [ -z $instance_name ]; then
   echo "Missing argument key."
   usage
   exit 1;
 fi
 
 # Setup Environment and Gather Requirements
+openstack_cred=${OPENSTACK_CRED_HOME:-~/.openstack/openrc.sh}
+image_name_search=${image_name:-"rhel-guest-image-6.5-20140603.0"}
+rc_file="${openstack_cred}"
+interactive="true"
+security_groups="default,osebroker,osenode"
+flavor="m1.large"
 #num_of_brokers=1
 #num_of_nodes=1
 if [ ! -f $rc_file ]; then
-  echo "OpenStack API Credentials not found. Default location is ~/.ssh/openstack/, or set OPENSTACK_CRED_HOME."
+  echo "OpenStack API Credentials not found. Default location is ${rc_file}, or set OPENSTACK_CRED_HOME."
   exit 1
 fi
 
 . $rc_file
 
 # Provision VMs
-image_ami=$(euca-describe-images | awk "/$IMAGE_PREFIX/"'{print $2}')
-instance_id=$(euca-run-instances $image_ami -t m1.large -k ${key} | awk '/INSTANCE/ {print $2}')
-if [ "$interactive" = "true" ]; then
-  echo "Instance ${instance_id} created. Waiting for instance to start..."
+image_ami=$(nova image-list | awk "/$image_name_search/"'{print $2}')
+status=$(nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} --security-groups ${security_groups} ${instance_name} | awk '/status/ {print $4}')
+if [ "$status" != "BUILD" ]; then
+  echo "Something went wrong during image creation."
+  echo "Status expected: BUILD"
+  echo "Status received: $status"
+  exit 1
 fi
-count=0
-while [ $count -lt 1 ]; do
-  count=$(euca-describe-instances $instance_id | grep -c "INSTANCE.*running")
-done
-instance_ip=$(euca-describe-instances $instance_id | awk '/INSTANCE/ {print $4}')
+
+if [ "$interactive" = "true" ]; then
+  echo "Instance ${instance_name} created. Waiting for instance to start..."
+fi
+
+# need to wait for instance to be in running state
+wait_for_instance_running $instance_name
+#count=0
+#while [ $count -lt 1 ]; do
+#  count=$(nova show $instance_name | grep -c "status.*ACTIVE")
+#done
+
+instance_ip=$(nova show $instance_name | awk '/os1-internal.*network/ {print $6}')
+
+# need to wait until ssh service comes up on instance
+wait_for_ssh $instance_ip
+
 if [ "$interactive" = "true" ]; then
   echo "Instance IP: ${instance_ip}"
 else

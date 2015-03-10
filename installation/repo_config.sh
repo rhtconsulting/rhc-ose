@@ -34,8 +34,6 @@ build_subscription_string () {
 
 echo "export PS1=\"[\u@\h <$@> \W]\\$ \"" >> ~/.bash_profile
 
-#TODO: remove password
-echo "$username: $password"
 subscription-manager register --username=$username --password=$password --auto-attach
 
 subscription-manager repos --disable="*"
@@ -43,5 +41,3 @@ echo "Building repolist for: $@"
 string=$(build_subscription_string $@)
 #echo "$string"
 subscription-manager repos $string
-
-yum -y update
