@@ -12,6 +12,32 @@ random_password() {
   cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w ${1:-16} | head -n 1
 }
 
+install_ose2() {
+  ## First, create an instance
+  #TODO: this
+  echo "Creating Instance and Waiting for it to become available"
+  instance_name="${key}-ose-$(random_password 6)"
+  instance_ip=$(./provision.sh --key ${key} --n --instance-name ${instance_name} ${options})
+
+  ## Now Setup Repos
+  # allow root access to instance
+  ssh -o StrictHostKeyChecking=no -tt cloud-user@${instance_ip} 'sudo cp -r ~/.ssh/ /root/'
+
+  # Run Broker and Node setup scripts
+  echo "Configuring Repos..."
+  ssh -o StrictHostKeyChecking=no root@${instance_ip} "bash -s" -- < ../repo_config.sh $rhsm_username $rhsm_password $roles | tee ~/repo-config.log
+
+  ## Finally, install OSE
+  echo "Installing OSE..."
+  demo_password=$(random_password)
+  ssh -o StrictHostKeyChecking=no root@${instance_ip} "export CONF_OPENSHIFT_PASSWORD1=$demo_password; bash " < ./openshift.conf ";
+  curl -o ./openshift.sh ${SCRIPT_URL} && bash ./openshift.sh actions=do_all_actions,post_deploy | tee ~/openshift-install.log;"
+
+  echo "Your Instance IP is: ${instance_ip}"
+  echo "Done"
+
+}
+
 ## Process options
 while [[ $# -gt 0 ]] &&  [[ ."$1" = .--* ]] ;
 do
@@ -27,6 +53,8 @@ do
       rhsm_password="$1"; shift;;
     "--roles")
       roles="$1"; shift;;
+    "--ose3")
+      ose3=1;;
     *) echo >&2 "Invalid option: $@"; exit 1;;
   esac
 done
@@ -37,30 +65,9 @@ if [ -z $key ] || [ -z $rhsm_username ] || [ -z $rhsm_password ] || [ -z "$roles
   exit 1;
 fi
 
-## First, create an instance
-#TODO: this
-echo "Creating Instance and Waiting for it to become available"
-instance_ip=$(./provision.sh --key ${key} --n)
-
-# need to wait until ssh service comes up on instance
-ssh -o StrictHostKeyChecking=no cloud-user@${instance_ip} 'ls' &>/dev/null
-until [ $? -eq 0 ]; do
-  ssh -o StrictHostKeyChecking=no cloud-user@${instance_ip} 'ls' &>/dev/null
-done
-
-## Now Setup Repos
-# allow root access to instance
-ssh -o StrictHostKeyChecking=no -tt cloud-user@${instance_ip} 'sudo cp -r ~/.ssh/ /root/'
-
-# Run Broker and Node setup scripts
-echo "Configuring Repos..."
-ssh -o StrictHostKeyChecking=no root@${instance_ip} "bash -s" -- < ../repo_config.sh $rhsm_username $rhsm_password $roles | tee ~/repo-config.log
-
-## Finally, install OSE
-echo "Installing OSE..."
-demo_password=$(random_password)
-ssh -o StrictHostKeyChecking=no root@${instance_ip} "export CONF_OPENSHIFT_PASSWORD1=$demo_password; bash " < ./openshift.conf ";
-curl -o ./openshift.sh ${SCRIPT_URL} && bash ./openshift.sh actions=do_all_actions,post_deploy | tee ~/openshift-install.log;"
-
-echo "Your Instance IP is: ${instance_ip}"
-echo "Done"
+if [ -z "${ose3}" ]; then
+  install_ose2
+else
+  #install_ose3
+  echo "We currently do not support install of OSE 3... coming soon."
+fi
