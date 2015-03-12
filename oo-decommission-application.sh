@@ -1,6 +1,9 @@
-brokerHost="broker.e1.epaas.aexp.com"
-platformDomain="e1.epaas.aexp.com"
+#!/bin/bash
 
+#brokerHost="broker.e1.epaas.aexp.com"
+brokerhost="localhost"
+platformDomain="e1.epaas.aexp.com"
+logfile=/var/log/openshift/broker/ose-utils.log
 function usage {
   echo "Usage: oo-decommission-application-simulator.sh {appDomain} {Token}"
 }
@@ -44,16 +47,24 @@ if [[ "$appDomain" != [0-9A-Za-z]* ]];then #appdomain is longer than 16 error ou
    json 255 "Illegal characters for application domain"
    exit 255
 fi
-
-response=$(curl -k -H "Authorization: Bearer $TOKEN" -X DELETE https://$brokerhost/broker/rest/domains/$appDomain --force --user $appDomain  2>> $logfile | tee -a $logfile )
+#loop through domains here TODO
+response=$(curl -k -H "Authorization: Bearer $TOKEN" -X DELETE https://$brokerhost/broker/rest/domains/$appDomain --data-urlencode force=true 2>> $logfile | tee -a $logfile )
 status=$(exit_code "$response")
 
-if [ "$status" != 0 ];then
+if [ "$status" = 0 ] && [ "$status" = 127 ];then
   echo "Error deleting domain. Openshift API exit code $status" &>>$logfile
-  json 255 "Error deleting domain"
+  json 255 "Error deleting domain. Openshift API exit code $status"
   exit 255
 
 else
-  json 0 "Success"
-  exit 0
+  oo-ruby /usr/sbin/oo-delete-user $appDomain $TOKEN &>>logfile
+  status=$?
+
+  if [ "$status" != 0 ] ; then
+    json 255 "Error deleting user. Openshift exit code: $status"
+    exit 255
+  else
+    json 0 "Success"
+    exit 0
+  fi
 fi
