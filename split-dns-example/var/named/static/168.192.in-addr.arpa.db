@@ -1,0 +1,24 @@
+$ORIGIN .
+$TTL 3600
+168.192.in-addr.arpa      IN SOA  ns1.ose.example.com. hostmaster.ose.example.com. (
+                                2011112967 ; serial
+                                60         ; refresh (1 minute)
+                                15         ; retry (15 seconds)
+                                1800       ; expire (30 minutes)
+                                10         ; minimum (10 seconds)
+                                )
+                        NS      ns1.ose.example.com.
+                        NS      ns2.ose.example.com.
+                        NS      ns3.ose.example.com.
+                        MX      10 mail.example.com.
+$ORIGIN 168.192.in-addr.arpa
+10.198			PTR	broker1.nodes.ose.example.com.
+11.198			PTR	broker2.nodes.ose.example.com.
+12.198			PTR	broker3.nodes.ose.example.com.
+23.198                  PTR     node1.nodes.ose.example.com.
+24.198                  PTR     node2.nodes.ose.example.com.
+25.198                  PTR     node3.nodes.ose.example.com.
+26.198                  PTR     node4.nodes.ose.example.com.
+27.198                  PTR     node5.nodes.ose.example.com.
+28.198                  PTR     node6.nodes.ose.example.com.
+29.198                  PTR     node7.nodes.ose.example.com.
