@@ -39,11 +39,11 @@ end
 code = error_code(response)
 
 if code != 127 && code != 0
-    puts "Delete Failed! Openshift Exit code #{code}")
+    puts "Delete Failed! Openshift Exit code #{code}"
     exit code
 else
  user_obj.force_delete
 end
 
-puts "Success!")
+puts "Success!"
 exit 0
