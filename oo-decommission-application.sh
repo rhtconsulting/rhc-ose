@@ -1,8 +1,7 @@
 #!/bin/bash
 
-#brokerHost="broker.e1.epaas.aexp.com"
 brokerhost="localhost"
-platformDomain="e1.epaas.aexp.com"
+platformDomain="example.com"
 logfile=/var/log/openshift/broker/ose-utils.log
 function usage {
   echo "Usage: oo-decommission-application-simulator.sh {appDomain} {Token}"
