@@ -28,8 +28,8 @@
 #defaultGearProfile="small"
 logfile=/var/log/openshift/broker/ose-utils.log
 
-brokerHost="broker.e1.epaas.aexp.com"
-platformDomain="e1.epaas.aexp.com"
+brokerHost="localhost"
+platformDomain="example.com"
 
 #GLOBAL VARIABLES
 force=0
