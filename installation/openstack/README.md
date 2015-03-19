@@ -1,7 +1,7 @@
 ## Getting Started ##
  * Get Access to OS1: https://mojo.redhat.com/docs/DOC-28082#jive_content_id_Getting_Started
  * Install nova client package
- ```bash
+ ```
  yum install python-novaclient
  ```
  * Log into the OpenStack Dashboard
