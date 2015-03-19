@@ -17,6 +17,7 @@ install_ose2() {
   #TODO: this
   echo "Creating Instance and Waiting for it to become available"
   instance_name="${key}-ose-$(random_password 6)"
+  echo "./provision.sh --key ${key} --n --instance-name ${instance_name} ${options}"
   instance_ip=$(./provision.sh --key ${key} --n --instance-name ${instance_name} ${options})
 
   ## Now Setup Repos
