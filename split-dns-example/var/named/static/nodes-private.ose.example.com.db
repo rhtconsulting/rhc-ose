@@ -1,0 +1,27 @@
+$ORIGIN .
+$TTL 3600
+nodes.ose.example.com      IN SOA  ns1.ose.example.com. hostmaster.ose.example.com. (
+                                2011112967 ; serial
+                                60         ; refresh (1 minute)
+                                15         ; retry (15 seconds)
+                                1800       ; expire (30 minutes)
+                                10         ; minimum (10 seconds)
+                                )
+                        NS      ns1.ose.example.com.
+                        NS      ns2.ose.example.com.
+                        NS      ns3.ose.example.com.
+                        MX      10 mail.example.com.
+$ORIGIN nodes.ose.example.com.
+broker                  A       192.168.198.10
+broker                  A       192.168.198.11
+broker                  A       192.168.198.12
+broker1                 A       192.168.198.10
+broker2                 A       192.168.198.11
+broker3                 A       192.168.198.12
+node1                   A       192.168.198.23
+node2                   A       192.168.198.24
+node3                   A       192.168.198.25
+node4                   A       192.168.198.26
+node5                   A       192.168.198.27
+node6                   A       192.168.198.28
+node7                   A       192.168.198.29
