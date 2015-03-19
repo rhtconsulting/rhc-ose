@@ -1,5 +1,9 @@
 ## Getting Started ##
  * Get Access to OS1: https://mojo.redhat.com/docs/DOC-28082#jive_content_id_Getting_Started
+ * Install nova client package
+ ```bash
+ yum install python-novaclient
+ ```
  * Log into the OpenStack Dashboard
  * Navigate to Compute > Access & Security > API Access and click to "Download OpenStack RC File"
  * Place rc file in openstack directory
