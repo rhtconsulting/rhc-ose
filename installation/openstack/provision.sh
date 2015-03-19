@@ -26,6 +26,7 @@ run_cmd_with_timeout() {
   until eval "$command" || [ $next_wait_time -eq $timeout ]; do
     sleep $(( next_wait_time++ ))
   done
+  [ $next_wait_time -eq $timeout ] && echo "Command $command timed out after $timeout seconds."
 }
 
 # Process options
@@ -44,7 +45,7 @@ do
     "--rhel7")
       image_name="rhel-guest-image-7.0-20140618.1";;
     "--auth-key-file")
-      options="{$options} --file /root/.ssh/authorized_keys=$1"; shift;;
+      options="${options} --file /root/.ssh/authorized_keys=$1"; shift;;
     *) echo >&2 "Invalid option: $@"; exit 1;;
   esac
 done
@@ -60,7 +61,8 @@ openstack_cred=${OPENSTACK_CRED_HOME:-~/.openstack/openrc.sh}
 image_name_search=${image_name:-"rhel-guest-image-6.5-20140603.0"}
 rc_file="${openstack_cred}"
 interactive="true"
-security_groups="default,osebroker,osenode"
+#security_groups="default,osebroker,osenode"
+security_groups="default"
 flavor="m1.large"
 #num_of_brokers=1
 #num_of_nodes=1
@@ -69,11 +71,15 @@ if [ ! -f $rc_file ]; then
   exit 1
 fi
 
+if [ -z $security_groups ]; then
+  options="${options} --security-groups ${security_groups}"
+
 . $rc_file
 
 # Provision VMs
 image_ami=$(nova image-list | awk "/$image_name_search/"'{print $2}')
-status=$(nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} --security-groups ${security_groups} ${instance_name} | awk '/status/ {print $4}')
+echo "nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} ${options} ${instance_name}"
+status=$(nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} ${options} ${instance_name} | awk '/status/ {print $4}')
 if [ "$status" != "BUILD" ]; then
   echo "Something went wrong during image creation."
   echo "Status expected: BUILD"
@@ -87,10 +93,10 @@ fi
 
 # need to wait for instance to be in running state
 wait_for_instance_running $instance_name
-#count=0
-#while [ $count -lt 1 ]; do
-#  count=$(nova show $instance_name | grep -c "status.*ACTIVE")
-#done
+
+if [ "$interactive" = "true" ]; then
+  echo "Instance ${instance_name} is active. Waiting for ssh service to be ready..."
+fi
 
 instance_ip=$(nova show $instance_name | awk '/os1-internal.*network/ {print $6}')
 
