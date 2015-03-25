@@ -30,27 +30,39 @@ opts = GetoptLong.new(
     ["--csv",             "-C", GetoptLong::NO_ARGUMENT],
     ["--applications",    "-a", GetoptLong::NO_ARGUMENT],
     ["--cartridges",      "-c", GetoptLong::NO_ARGUMENT],
-    ["--domains",         "-d", GetoptLong::NO_ARGUMENT],
     ["--headers",         "-h", GetoptLong::NO_ARGUMENT],
     ["--gears",           "-g", GetoptLong::NO_ARGUMENT],
+    ["--profiles",        "-p", GetoptLong::REQUIRED_ARGUMENT],
     ["--nodes",           "-n", GetoptLong::NO_ARGUMENT],
-    ["--login",           "-l", GetoptLong::OPTIONAL_ARGUMENT],
-    ["--output",          "-o", GetoptLong::OPTIONAL_ARGUMENT],
-    ["--tokens",          "-t", GetoptLong::NO_ARGUMENT],
+    ["--district",        "-d", GetoptLong::REQUIRED_ARGUMENT],
+    ["--show",            "-s", GetoptLong::REQUIRED_ARGUMENT],
+    ["--statistics",            GetoptLong::NO_ARGUMENT],
+    ["--login",           "-l", GetoptLong::REQUIRED_ARGUMENT],
+    ["--output",          "-o", GetoptLong::REQUIRED_ARGUMENT],
     ["--users",           "-u", GetoptLong::NO_ARGUMENT],
 )
 
 def usage()
   abort "Usage:
-oo-list [--csv|-C] [--headers|-h] [--output|-o file] [--login|-l login] --option
-Option - required - select one:
-  --applications|-a - list applications
-  --cartridges|-c - list currently used cartridges
-  --domains|-d - list domains
-  --gears|-g - list gears
-  --nodes|-n - list nodes
-  --tokens|-t - list authorization tokens
-  --users|-u - list users
+oo-list [--csv|-C] [--headers|-h] [--output|-o file] --show|-s report \\
+[--login|-l login] [--district|-d district] [--profile|-p gear_profile]
+Options:
+  --login - filter by specified login(s)
+  --district - filter by specified district(s)
+  --profile - filter by specified gear profile(s)
+  --statistics - collect and show statistics
+  --all - include expired/obsolete information
+Above options only apply when appropriate.
+
+Reports available - select one:-
+  applications - list applications
+  cartridges - list currently used cartridges
+  domains - list domains
+  districts - list districts
+  gears - list gears
+  nodes - list nodes
+  tokens - list authorization tokens
+  users - list users
 "
 end
 
@@ -74,6 +86,25 @@ if args["--csv"]
 end
 
 output = $stdout
+report = ''
+match = 0
+reports = [ "applications", "cartridges", "domains", "districts", "gears", "nodes", "tokens", "users" ].sort
+
+reports.each do |r|
+  if args["--show"]
+    if args["--show"].downcase == r.slice(0,args["--show"].length)
+      match += 1 unless report == r
+      report = r
+    end
+  end
+  if args["--#{r}"]
+    match += 1 unless report == r
+    report = r
+  end
+end
+
+usage unless match == 1
+
 if args["--output"] && args["--output"] != '-'
   begin
     output = File.open(args["--output"], "w")
@@ -87,48 +118,86 @@ require "#{ENV['OPENSHIFT_BROKER_DIR'] || '/var/www/openshift/broker'}/config/en
 Rails.configuration.analytics[:enabled] = false
 Mongoid.raise_not_found_error = false
 
-filter = {}
 user = nil
+logins = []
+user_ids = []
+users = {}
 
 if  args["--login"]
-  login = args["--login"]
-
-  login = CloudUser.normalize_login(login)
-  begin
-    user = CloudUser.with(consistency: :eventual).find_by(login: login)
-  rescue Mongoid::Errors::DocumentNotFound
+  args["--login"].split(/[ ,]/).each do |l|
+    login = CloudUser.normalize_login(l)
+    begin
+      user = CloudUser.with(consistency: :eventual).find_by(login: login)
+      logins << user
+      user_ids << user._id
+      users[user._id] = user.login
+    rescue Mongoid::Errors::DocumentNotFound
+      $stderr.puts "User #{l} not found."
+    end
   end
-  abort "User #{login} not found." unless user
-  filter = { '_id' => user._id }
+  abort "No users defined" unless logins.count > 0
 end
 
 begin
-  if args["--applications"]
+  case report
+  when "applications"
+    #users = {}
+    filter = {}
+    if user_ids.count > 0
+      filter = { :owner_id.in => user_ids }
+    else
+      CloudUser.all.each do |u|
+        users[u._id] = u.login
+      end
+    end
     if headers
       h = ["login","application","components","created","application_id"]
       output.puts h.join(sep1)
     end
-    CloudUser.where( filter ).sort{|a,b| a['login']<=>b['login']}.each do |u|
-      Application.where(owner_id: u._id).sort{|a,b| a['name']<=>b['name']}.each do |app|
+    Application.where( filter ).sort{ |a,b|
+      a.owner_id == b.owner_id ? a['name'] <=> b['name'] : users[a.owner_id] <=> users[b.owner_id]
+    }.each do |app|
         o = []
-        o << u.login
+        o << users[app.owner_id]
         o << "#{app.canonical_name}-#{app.domain_namespace}"
         o << app.component_instances.map { |ci| ci.cartridge_name }.sort.join(sep2)
         o << app.created_at.strftime("%Y-%m-%d %H:%M:%S")
         o << app._id
         output.puts o.join(sep1)
-      end
     end
-  elsif args["--domains"]
+
+  when "districts"
+    filter = args["--district"] ? { 'name' => args["--district"] } : {}
+    if headers
+      h = ["name","gear_profile","gears","available_gears","nodes","district_id"]
+      output.puts h.join(sep1)
+    end
+    districts = District.where( filter ).sort{|a,b| a['name']<=>b['name']}.each do |d|
+      o = []
+      o << d.name
+      o << d.gear_size
+      o << d.max_capacity - d.available_capacity
+      o << d.max_capacity
+      o << d.active_servers_size
+      o << d.uuid
+      output.puts o.join(sep1)
+    end
+
+  when "domains"
     users = Hash.new
-    CloudUser.all.each do |u|
-      users[u._id] = u.login
+    filter = {}
+    if user_ids.count > 0
+      filter = { :owner_id.in => user_ids }
+    else
+      CloudUser.all.each do |u|
+        users[u._id] = u.login
+      end
     end
     if headers
       h = ["domain","allowed_gears","owner","admins","members"]
       output.puts h.join(sep1)
     end
-      Domain.all.sort{|a,b| a['canonical_namespace']<=>b['canonical_namespace']}.each do |d|
+      Domain.where( filter ).sort{|a,b| a['canonical_namespace']<=>b['canonical_namespace']}.each do |d|
         u = {}
         #pp d
         #pp d.members
@@ -153,77 +222,114 @@ begin
         }.delete_if {|m| m.nil?}.sort.join(sep2)
         output.puts o.join(sep1)
       end
-  elsif args["--gears"]
+
+  when "gears"
+    servers = Hash.new
+    filter2 = args["--district"] ? { 'name' => args["--district"] } : {}
+    District.where( filter2 ).each do |district|
+      district.servers.each do |server|
+         server["gear_size"] = district.gear_size
+         server["district"] = district.name
+         server["region_name"] = server["region_name"] || "none"
+         server["zone_name"] = server["zone_name"] || "none"
+         servers[ server.name ] = server
+       end
+    end
     users = Hash.new
-    CloudUser.all.each do |u|
-      users[u._id] = u.login
+    filter1 = {}
+    if user_ids.count > 0
+      filter1 = { :owner_id.in => user_ids }
+    else
+      CloudUser.all.each do |u|
+        users[u._id] = u.login
+      end
     end
     if headers
-      h=["application","login","cartridge","node","gear_id"]
-      output.puts j.join(sep1)
+      h=["application","login","cartridge","gear_profile","district","node","gear_id"]
+      output.puts h.join(sep1)
     end
-      Application.all.sort{|a,b| a['canonical_name']+a['domain_namespace']<=>b['canonical_name']+b['domain_namespace']}.each do |app|
-        if args["--login"]
-          next unless users[app.owner_id] == args["--login"]
-        end
+      Application.where( filter1 ).sort{|a,b| a['canonical_name']+a['domain_namespace']<=>b['canonical_name']+b['domain_namespace']}.each do |app|
         carts = {}
         app.component_instances.each do |ci|
           carts[ci.group_instance_id] = ci.cartridge_name
         end
         app.group_instances.each do |gi|
           gi.gears.each do |g|
+            next unless servers[g.server_identity]
             o = []
             o << "#{app.canonical_name}-#{app.domain_namespace}"
             o << users[app.owner_id]
             o << carts[gi._id]
+            o << servers[g.server_identity]["gear_size"]
+            o << servers[g.server_identity]["district"]
             o << g.server_identity
             o << g._id
             output.puts o.join(sep1)
           end
         end
       end
-  elsif args["--nodes"]
-    users = Hash.new
-    servers = Hash.new
-    District.find_all.each do |district|
-       district.servers.each do |server|
-         server["gears"] = 0
-         server["gear_size"] = district.gear_size
-         server["district"] = district.name
-         server["region_name"] = "none" unless server["region_name"]
-         server["zone_name"] = "none" unless server["zone_name"]
-         servers[ server.name ] = server
-       end
-    end
-    CloudUser.all.each do |u|
-      users[u._id] = u.login
+
+  when "nodes"
+    servers = {}
+    filter = args["--district"] ? { 'name' => args["--district"] } : {}
+    District.where( filter ).each do |district|
+      district.servers.each do |s|
+        server = {}
+        server[:gears] = 0
+        server[:max_gears] = 0
+        server[:gear_size] = district.gear_size
+        server[:district] = district.name
+        server[:region_name] = s["region_name"] || "none"
+        server[:zone_name] = s["zone_name"] || "none"
+        if args["--statistics"]
+          stats = OpenShift::ApplicationContainerProxy.instance(s.name).get_node_details %w[
+            max_active_gears
+            gears_started_count
+            gears_idle_count
+            gears_stopped_count
+            gears_deploying_count
+            gears_unknown_count
+            gears_total_count
+            gears_active_count
+            node_profile
+           ]
+          server[:gears] = stats[:gears_active_count]
+          server[:max_gears] = stats[:max_active_gears]
+        end
+        server[:active] = s["active"]
+
+        servers[ s.name ] = server
+      end
     end
 
-      Application.all.each do |app|
-          continue unless users[app.owner_id]
-        app.group_instances.each do |gi|
-          gi.gears.each do |g|
-            servers[ g.server_identity ]["gears"] += 1
-          end
-        end
+    if headers
+      h =["node","gear_profile","district","status","region","zone"]
+      if args["--statistics"]
+        h << "gears"
+        h << "max_gears"
       end
-      if headers
-        h =["node","gear_size","district","status","region","zone","gears"]
-        output.puts h.join(sep1)
-      end
+      output.puts h.join(sep1)
+    end
+
+    unless servers.empty?
       servers.sort.each do |n,v|
         o = []
         o << n
-        o << v["gear_size"]
-        o << v["district"]
-        o << "#{v["active"] ? '' : "in"}active"
-        o << v["region_name"]
-        o << v["zone_name"]
-        o << v["gears"].to_s
-        o << "gears" unless headers
+        o << v[:gear_size]
+        o << v[:district]
+        o << "#{v[:active] ? '' : "in"}active"
+        o << v[:region_name]
+        o << v[:zone_name]
+        if args["--statistics"]
+          o << v[:gears].to_s
+          o << "of" unless headers
+          o << v[:max_gears].to_s
+          o << "gears" unless headers
+        end
         output.puts o.join(sep1)
       end
-  elsif args["--cartridges"]
+    end
+  when "cartridges"
     users = Hash.new
     carts = Hash.new
     CloudUser.all.each do |u|
@@ -245,13 +351,15 @@ begin
         o << value
         output.puts o.join(sep1)
       end
-  elsif args["--tokens"]
+
+  when "tokens"
     if headers
       h = ["login","token","expires_at","scope"]
       output.puts h.join(sep1)
     end
     # --all includes expired tokens in list
     expiry = args["--all"] ? Time.at(0) : Time.now + 1
+    filter = filter = user_ids.count > 0 ? { :_id.in => user_ids } : {}
     CloudUser.where( filter ).sort{|a,b| a['login']<=>b['login']}.each do |u|
       Authorization.where(user_id: u._id).each do |a|
         next unless a.expires_at > expiry
@@ -263,11 +371,13 @@ begin
 	output.puts o.join(sep1)
       end
     end
-  elsif args["--users"]
+
+  when "users"
     if headers
-      h = ["login","gear_sizes","applications","gears","max_gears","user_id"]
+      h = ["login","gear_profiles","applications","gears","max_gears","user_id"]
       output.puts h.join(sep1)
     end
+    filter = user_ids.count > 0 ? { :_id.in => user_ids } : {}
     CloudUser.where( filter ).sort{|a,b| a['login']<=>b['login']}.each do |u|
       o = []
       o << u.login
