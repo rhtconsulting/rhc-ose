@@ -4,11 +4,21 @@ usage() {
   echo ""
 }
 
+get_fault_info() {
+  local instance_info=$1
+
+  echo "$instance_info" | grep -E "fault"
+}
+
 wait_for_instance_running() {
   local instance_name=$1
 
-  command="[ \$( nova show $instance_name | grep -c \"status.*ACTIVE\" ) -eq 1 ]"
+  command="[ \$( nova show $instance_name | grep -cE \"status.*ACTIVE|status.*ERROR\" ) -eq 1 ]"
   run_cmd_with_timeout "$command" ${2:-30}
+
+  instance_info="$(nova show $instance_name)"
+  status=$( echo "$instance_info" | awk '/status/ {print $4}' )
+  [ "$status" == "ERROR" ] && safe_out "error" "Instance $instance_name failed to boot \n$(get_fault_info \"$instance_info\")" && exit 2
 }
 
 wait_for_ssh() {
@@ -24,19 +34,22 @@ run_cmd_with_timeout() {
 
   next_wait_time=0
   until eval "$command" || [ $next_wait_time -eq $timeout ]; do
+    safe_out "info" "Ran command at $next_wait_time: $command"
     sleep $(( next_wait_time++ ))
   done
-  [ $next_wait_time -eq $timeout ] && echo "Command $command timed out after $timeout seconds."
+  [ $next_wait_time -eq $timeout ] && safe_out "error" "Command $command timed out after $timeout seconds."
 }
 
 safe_out() {
-  [ "$1" == "debug" ] && [ ! -z $debug ] && echo "$1: $2"
-  [ "$1" == "info" ] && [ ! -z $interactive ] && echo "$1: $2"
-  [ "$1" == "error" ] && echo "$1: $2"
+  [ "$1" == "debug" ] && [ "${LOG_LEVEL}" == "debug" ] && echo "$1: $2" >> $LOGFILE
+  [ "$1" == "info" ] && ([ "${LOG_LEVEL}" == "info" ] || ["${LOG_LEVEL}" == "debug" ]) && echo "$1: $2" >> $LOGFILE
+  [ "$1" == "error" ] && echo "$1: $2" >> $LOGFILE
 }
 
 # Initialize environment
 interactive="true"
+LOGFILE=~/openstack_provision.log
+LOG_LEVEL="info"
 
 # Process options
 while [[ $# -gt 0 ]] &&  [[ ."$1" = .--* ]] ;
@@ -56,7 +69,7 @@ do
     "--auth-key-file")
       options="${options} --file /root/.ssh/authorized_keys=$1"; shift;;
     "--debug")
-      debug=1;;
+      LOG_LEVEL="debug";;
     *) echo >&2 "Invalid option: $@"; exit 1;;
   esac
 done
@@ -87,6 +100,10 @@ fi
 
 . $rc_file
 
+if [ "$interactive" = "true" ]; then
+  echo "Tail Logfile for More Info: ${LOGFILE}"
+fi
+
 # Provision VMs
 image_ami=$(nova image-list | awk "/$image_name_search/"'{print $2}')
 safe_out "debug" "nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} ${options} ${instance_name}"
@@ -109,6 +126,8 @@ instance_ip=$(nova show $instance_name | awk '/os1-internal.*network/ {print $6}
 
 # need to wait until ssh service comes up on instance
 wait_for_ssh $instance_ip
+
+safe_out "info" "Instance ${instance_name} is accessible and ready to use."
 
 if [ "$interactive" = "true" ]; then
   echo "Instance IP: ${instance_ip}"
