@@ -2,7 +2,7 @@
 SCRIPT_URL="https://raw.githubusercontent.com/openshift/openshift-extras/enterprise-2.2/enterprise/install-scripts/generic/openshift.sh"
 
 usage() {
-  echo "Usage: $0 --key [openstack ssh key name] --rhsm_user [rhsm-username] --rhsm_pass [rhsm-password] --roles [roles]"
+  echo "Usage: $0 --key <openstack ssh key name> --rhsm_user <rhsm-username> [--rhsm_pass rhsm-password] --roles <roles>"
   echo "  Currently Supported Roles:
     - broker
     - node"
@@ -17,7 +17,7 @@ install_ose2() {
   #TODO: this
   echo "Creating Instance and Waiting for it to become available"
   instance_name="${key}-ose-$(random_password 6)"
-  echo "./provision.sh --key ${key} --n --instance-name ${instance_name} ${options}"
+  #echo "./provision.sh --key ${key} --n --instance-name ${instance_name} ${options}"
   instance_ip=$(./provision.sh --key ${key} --n --instance-name ${instance_name} ${options})
 
   ## Now Setup Repos
@@ -60,10 +60,14 @@ do
   esac
 done
 
-if [ -z $key ] || [ -z $rhsm_username ] || [ -z $rhsm_password ] || [ -z "$roles" ]; then
+if [ -z $key ] || [ -z $rhsm_username ] || [ -z "$roles" ]; then
   echo "Missing argument."
   usage
   exit 1;
+fi
+
+if [ -z $rhsm_password ]; then
+  read -s -p "Enter your Red Hat Customer Portal password: " rhsm_password
 fi
 
 if [ -z "${ose3}" ]; then
