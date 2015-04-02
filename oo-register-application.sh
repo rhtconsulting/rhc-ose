@@ -1,9 +1,6 @@
 #!/bin/bash
 #oo-register-application.sh {gearProfile}{appDomain} [--appAdmins {appAdminsCSV}] [--developers {developersCSV}]
-#SETUP
-# Set the broker host variable below to the correct url for the broker and [OPTIONAL] set the logfile where to send stdout & stderr
-# Set the appDomain to the user who will own authenticate to register the application "appDomain" in the Onboard flows document
-#
+
 #PARAMETERS
 #
 #[REQUIRED]gearProfile: gear profile to be used in the application eg. small, medium
@@ -12,30 +9,16 @@
 #[OPTIONAL]--developers <comma-separtated list> of users to be granted developer access
 #IMPORTANT NOTE: Comma-separated lists may not contain spaces.
 #
-#
-#VARIABLES
-#logFile: where the stderr and stdout get redirected to
-#brokerHost: url of the OSE broker
-#
-#
-#EXAMPLES
-# ./oo-register-application.sh small app1 --appAdmins kyle1 --developers ryanT,lucy34
-# ./oo-register-application.sh small applicationx --appAdmins kyle1,rebecca4
-#
-#
-
-#brokerHost="localhost"
 #defaultGearProfile="small"
 logfile=/var/log/openshift/broker/ose-utils.log
 
-brokerHost="localhost"
-platformDomain="example.com"
+platformDomain=$(hostname -f)
 
 #GLOBAL VARIABLES
 force=0
 
 function usage {
-  echo "Usage: oo-register-application.sh {gearProfile} {appDomain} [--appAdmins {appAdminsCSV}] [--developers {developersCSV}]"
+  echo "Usage: oo-register-application.sh {gearProfile} {appDomain} [--appAdmins {appAdminsCSV}] [--developers {developersCSV}] [--broker {brokerUrl}]"
 }
 
 function json {
@@ -100,7 +83,7 @@ fi
 
 gearProfile="$1"
 appDomain="$2"
-ARGS=`getopt -o h --long "appAdmins:,developers:,force" -n "oo-register-application" -- "$@"`
+ARGS=`getopt -o h --long "appAdmins:,developers:,force,broker:" -n "oo-register-application" -- "$@"`
 shift;shift;
 eval set -- "$ARGS";
 while true; do
@@ -117,6 +100,13 @@ while true; do
           *) developers="$2"; shift; shift;;
         esac
     ;;
+    --broker )
+        case "$2" in
+          "") json 255 "Invalid Usage"; usage; shift;;
+          *) brokerHost="$2"; shift;shift;;
+        esac
+    ;;
+
     --force )
         shift;
         force=1;
@@ -127,6 +117,17 @@ while true; do
 
   esac
 done
+#NOTE HARDCODED Location
+if [ -z "$brokerHost" ]; then
+  broker=$(grep "^ServerName" /etc/httpd/conf.d/000002_openshift_origin_broker_servername.conf)
+  IFS=' '; read -r -a broker <<< "$broker"
+  brokerHost="${broker[1]}"
+  if [ -z "$brokerHost" ]; then
+    json 255 "brokerHost not set"
+    exit 255
+  fi
+
+fi
 #check that devs and admin strings dont contain illegal characters or are empty
 if [[ -n "$appAdmins" && "$appAdmins" != [0-9A-Za-z,]* || -n "$developers" && "$developers" != [0-9A-Za-z,]* ]];then
    json 255 "UnknownError. Invalid Username detected"
@@ -144,12 +145,8 @@ if [[ "$appDomain" != [0-9A-Za-z]* ]];then #appdomain is longer than 16 error ou
    exit 255
 fi
 
-# #1. Create internal Openshift user "$appDomain"
-# result=$(oo-admin-ctl-user -c -l $appDomain 2>>$logfile | tee -a $logfile)
-# if [ "$result" = "0" ]; then
-#   json 1 "The user $appDomain already exists!" "" ""
-#   exit 1
-# fi
+ #1. Create internal Openshift user "$appDomain"
+
 oo-admin-ctl-user -l $appDomain &>>$logfile
 code=$?
 if [[ "$code" = "5" ]]; then
@@ -170,43 +167,38 @@ else
   exit 255;
 fi
 
-#Create Token (expires a year from creation
 TOKEN="$(oo-auth-token -l $appDomain -e "$(date -d "+year" 2>> $logfile | tee -a $logfile)" 2>> $logfile | tee -a $logfile)"
-
 gearDefault=$(getGearDefault)
 
-#echo "default:$gearDefault gearProfile:$gearProfile brokerHost:$brokerHost appDomain:$appDomain"
 
 if [ "$gearDefault" = "e1dev-standard" ];then
     oo-admin-ctl-user -l $appDomain --addgearsize $gearProfile --removegearsize $gearDefault &>>$logfile
 fi
-#2. Create application domain owned by appDomain Openshift user $appDomain
+
+
+
 response=$(curl -k -H "Authorization: Bearer $TOKEN" -X POST https://$brokerHost/broker/rest/domains/ --data-urlencode name=$appDomain 2>> $logfile | tee -a $logfile 2>> $logfile)
 status=$(exit_code "$response")
 if [ "$status" = 103 ] && [ "$force" != 1 ];then
     json 1 "AlreadyExists. Openshift API exit code $status" $TOKEN
     exit 1
-
 elif [ "$status" = 103 ] && [ "$force" = 1 ];then
     echo "Forcing changed to existing domain" &>> $logfile
-
 elif [ "$status" != 0 ];then
      json 255 "UnknownError. Error creating domain. Openshift API exit code $status" $TOKEN
      exit 255
 fi
 
 
-#4. grant edit access on the application domain to all employeeNums listed under appAdmins
 IFS=',' read -ra admins <<< $appAdmins
-for employee in ${admins[*]}; do
-    response=$(curl -k -H "Authorization: Bearer $TOKEN" -X PATCH https://$brokerHost/broker/rest/domains/$appDomain/members --data-urlencode role=admin --data-urlencode login=$employee 2>> $logfile | tee -a $logfile )
+for user in ${admins[*]}; do
+    response=$(curl -k -H "Authorization: Bearer $TOKEN" -X PATCH https://$brokerHost/broker/rest/domains/$appDomain/members --data-urlencode role=admin --data-urlencode login=$user 2>> $logfile | tee -a $logfile )
     status=$(exit_code "$response")
       if [ "$status" != 0 ];then
         echo "Error granting administrator permissions. Openshift API exit code $status" &>>$logfile
       fi
 done
 
-#5 Grant view access on application domain to all employees listed under developers
 
 IFS=',' read -ra devs <<< $developers
 

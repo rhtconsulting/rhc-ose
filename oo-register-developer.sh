@@ -1,35 +1,14 @@
 #! /bin/bash
-#oo-register-developer <username> <gearProfile>
-#
-#SETUP
-# simple set the broker host variable below to the correct url for the broker and [OPTIONAL] set the logfile where to send stdout & stderr
-#
-#PARAMETERS
-#username: username of the developer to add. script will create developer with name "dev[username]"
-#gearProfile: gear profile to be used in the developers domain eg. small, medium
-#
-#
-#VARIABLES
-#logFile: where the stderr and stdout get redirected to
-#brokerHost: url of the OSE broker
-#gearProfileDefault: use this gear profile if none was provided as a parameter
-#
-#
-#EXAMPLES
-# ./oo-register-developer.sh Jsmith small
-# ./oo-register-developer.sh Bnye medium
-#
-#
+#oo-register-developer <username> [gearProfile]
 
-#brokerHost="localhost"
-#gearProfileDefault="small"
+
 logFile=/var/log/openshift/broker/ose-utils.log
 
-brokerHost="localhost"
 gearProfileDefault="small"
+maxDevGears="3"
 
 function usage {
-  echo "oo-register-developer.sh {username} {gearProfile}"
+  echo "oo-register-developer.sh {username} [gearProfile]"
 }
 
 function json {
@@ -53,15 +32,13 @@ function validGear {
       echo 1
       return
     fi
-    #echo "$size did not equal $1"
   done
   echo 0
   return
 
 }
 
-if [ "$#" -lt 1 ]
-  then
+if [ "$#" -lt 1 ];then
   usage
   json 255 "Invalid usage"
   exit 255
@@ -86,8 +63,7 @@ if [ -z ${username+x} ];then
   exit 255
 fi
 
-
-
+#check if user exists and catch output(should produce a not found error since the user shouldnt exist)
 oo-admin-ctl-user -l $username &>>$logFile
 code=$?
 if [[ "$code" = "5" ]]; then
@@ -110,6 +86,8 @@ fi
 oo-admin-ctl-user --create -l $username &>>$logFile
 TOKEN="$(oo-auth-token -l $username -e "$(date -d "+day")" 2>>$logFile| tee -a $logFile)"
 
+# set max gears for developer accounts
+oo-admin-ctl-user -l $username --setmaxgears $maxDevGears &>>$logFile
 
 
 curl -H "Authorization: Bearer $TOKEN" -k -X POST https://$brokerHost/broker/rest/domains/ --data-urlencode name=dev$username --data-urlencode allowed_gear_sizes=$gearProfile &>>"$logFile"
