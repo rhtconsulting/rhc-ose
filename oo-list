@@ -262,6 +262,7 @@ begin
         users[u._id] = u.login
       end
     end
+    
     if headers
       h=["application","login","cartridge","gear_profile","district","node","gear_id"]
       output.puts h.join(sep1)
@@ -282,6 +283,18 @@ begin
             o << servers[g.server_identity]["district"]
             o << g.server_identity
             o << g._id
+	    if args["--extended"]
+		
+          	lines = g.status(app.component_instances[0]).to_s().split("\n")
+          	lines.each do |l|
+            		if l.include? "status"
+                	    o << l
+                	break
+            	end
+	    end
+       end
+	
+	
             output.puts o.join(sep1)
           end
         end
