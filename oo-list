@@ -172,7 +172,14 @@ begin
         o << app.created_at.strftime("%Y-%m-%d %H:%M:%S")
         o << app._id
         if args["--extended"]
-          #o << app.status
+	  lines = app.status.to_s().split("\n")
+	  lines.each do |l|	
+	    if l.include? "Application is"
+		o << l
+		break
+	    end
+	  end
+         # o <<  app.status
         end
         output.puts o.join(sep1)
     end
