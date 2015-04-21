@@ -253,7 +253,7 @@ begin
          servers[ server.name ] = server
        end
     end
-    users = Hash.new
+    #users = Hash.new
     filter1 = {}
     if user_ids.count > 0
       filter1 = { :owner_id.in => user_ids }
@@ -265,6 +265,10 @@ begin
     
     if headers
       h=["application","login","cartridge","gear_profile","district","node","gear_id"]
+      if args["--extended"]
+         h = ["application","owner","cartridge","gear_size","owner","district","node","gear_id", "status"]
+      end
+
       output.puts h.join(sep1)
     end
       Application.where( filter1 ).sort{|a,b| a['canonical_name']+a['domain_namespace']<=>b['canonical_name']+b['domain_namespace']}.each do |app|
@@ -284,17 +288,17 @@ begin
             o << g.server_identity
             o << g._id
 	    if args["--extended"]
-		
-          	lines = g.status(app.component_instances[0]).to_s().split("\n")
-          	lines.each do |l|
-            		if l.include? "status"
-                	    o << l
+          	 Gear.get_gear_states(gi.gears).each do |l|
+            		if l.include? "#{g._id}"
+			    status = l["#{g._id}"] 
+                	    o << status
                 	break
             	end
 	    end
+	
        end
 	
-	
+		
             output.puts o.join(sep1)
           end
         end
