@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# Functions
+confirm () {
+    # call with a prompt string or use a default
+    read -r -p "${1:-Are you sure? [y/N]} " response
+    case $response in
+        [yY][eE][sS]|[yY])
+            false
+            ;;
+        *)
+            true
+            ;;
+    esac
+}
+
+usage() {
+  echo "Usage: $0 [Options]"
+  echo ""
+  echo "  Cleans up osc resources within the current project namespace. Assumes active kubernetes login."
+  echo ""
+  echo "Options:"
+  echo "  -h : Help info"
+  echo "  -y : Yes. Autoconfirm that you want to do this dangerous thing."
+}
+
+# Process options
+while [[ $# -gt 0 ]] &&  [[ ."$1" = .-* ]] ;
+do
+  opt=$1
+  shift
+  case "$opt" in
+    "--" ) break 2;;
+    "-y" )
+      confirmed=true; shift;;
+    "-h" )
+      usage; exit 0;;
+    *) echo >&2 "Invalid option: $@"; usage; exit 1;;
+  esac
+done
+
+# Setup
+resource_types="build buildconfig images imagerepository deploymentconfig route replicationcontroller service pod"
+
+# Get current project namespace
+context=$(awk '/current-context/ {print $2}' ~/.kube/.kubeconfig)
+namespace=$(grep -B 4 "name: $context" ~/.kube/.kubeconfig | awk '/namespace/ {print $2}')
+
+# Confirm we want to delete resources for this project
+
+[ ! $confirmed ] && confirm "Are you sure you want to delete all resources in project '${namespace}'? [y/N]" && echo "Exiting..." && exit 1;
+
+for resource_type in $resource_types; do
+  resource_list=$(osc get ${resource_type} | grep -v '^NAME\|POD\|CONTROLLER' | awk '{print $1}')
+  for name in $resource_list; do
+    echo -n "deleting:- $resource_type -> $name... "
+    [ "$(osc delete $resource_type $name)" == "$name" ] && echo "Done"
+  done
+done
