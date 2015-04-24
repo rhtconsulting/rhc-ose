@@ -1,12 +1,10 @@
 # ose-utils | OpenShift Enterprise 3
 
-Miscellaneous utilities for use with OpenShift Enterprise
+Miscellaneous utilities for use with OpenShift Enterprise 3 (currently in beta)
 
-Note that these utilities must be run from a shell command line on a broker, and use the OpenShift Ruby on Rails infrastructure.
+Note that these utilities must be run from a shell command line on a master.
 
-All of the warnings about over-using broker utilities also apply to these utilities so include lots of "sleeps" if scripting.
-
-All of the ruby scripts support a --help option that produces slightly useful output.
+All of the scripts support a --help or -h option that produces slightly useful output.
 
 Note that these scripts all use unpublished internal API's that may be changed with no warning.
 
@@ -16,4 +14,4 @@ No warranty is offered or implied and use of these scripts may destroy your enti
 
  - osc-cleanup-project : Utility script for deleting all resources in a project. Project is selected based current-context on kubeconfig login.
 
- - dns.sh : Wrapper around nsupdate for adding/removing CNAME records to our split-dns. 
+ - dns.sh : Wrapper around nsupdate for adding/removing CNAME records to our split-dns.
