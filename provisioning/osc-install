@@ -1,0 +1,74 @@
+#!/bin/bash
+
+
+usage() {
+  echo "Usage: $0 -m=|--master=\"<master hostname>\" -n=|--nodes=\"<node1 hostname>,..,<nodeN hostname>\""
+}
+
+for i in "$@"
+do
+  case $i in
+    -m=*|--master=*)
+    MASTER="${i#*=}"
+    shift
+    ;;
+    -n=*|--nodes=*)
+    NODES="${i#*=}"
+    shift
+    ;;
+    *)
+    echo "Invalid Option: ${i#*=}"
+    exit 1;
+    ;;
+  esac
+done
+
+if [ -z $MASTER ] || [ -z $NODES ]; then
+  echo "Missing required args"
+  usage
+  exit 1
+fi
+
+ansible_branch="v3-beta3"
+ansible_hosts_file="# This is an example of a bring your own (byo) host inventory
+
+[OSEv3:children]
+masters
+nodes
+
+[OSEv3:vars]
+deployment_type=enterprise
+ansible_ssh_user=root
+# Pre-release registry URL
+#openshift_registry_url=docker-buildvm-rhose.usersys.redhat.com:5000/openshift3_beta/ose-${component}:${version}
+# Pre-release additional repo
+#openshift_additional_repos=[{'id': 'ose-devel', 'name': 'ose-devel', 'baseurl': 'http://buildvm-devops.usersys.redhat.com/puddle/build/OpenShiftEnterprise/3.0/latest/RH7-RHOSE-3.0/$basearch/os', 'enabled': 1, 'gpgcheck': 0}]
+
+# host group for masters
+[masters]
+${MASTER}
+
+# host group for nodes
+[nodes]
+${NODES//,/$'\n'}
+"
+
+yum -y update
+yum -y install \
+http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
+sed -i -e "s/^enabled=1/enabled=0/" /etc/yum.repos.d/epel.repo
+yum -y --enablerepo=epel install https://kojipkgs.fedoraproject.org//packages/ansible/1.8.4/1.el7/noarch/ansible-1.8.4-1.el7.noarch.rpm
+
+cd
+rm -rf ~/training
+git clone https://github.com/openshift/training.git
+rm -rf ~/openshift-ansible
+git clone https://github.com/detiber/openshift-ansible.git -b $ansible_branch
+cd ~/openshift-ansible
+/bin/cp -r ~/training/beta3/ansible/* /etc/ansible/
+cd
+
+echo "$ansible_hosts_file" > /etc/ansible/hosts
+
+# Run ansible
+ansible-playbook ~/openshift-ansible/playbooks/byo/config.yml

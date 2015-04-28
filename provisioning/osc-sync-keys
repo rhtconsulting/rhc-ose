@@ -1,0 +1,50 @@
+#!/bin/bash
+
+## Functions
+
+usage() {
+  echo "Usage: $0 -m=|--master=\"<master hostname>\" -n=|--nodes=\"<node1 hostname>,..,<nodeN hostname>\""
+}
+
+for i in "$@"
+do
+case $i in
+  -m=*|--master=*)
+    MASTER="${i#*=}"
+    shift
+    ;;
+  -n=*|--nodes=*)
+    NODES="${i#*=}"
+    shift
+    ;;
+  *)
+    echo "Invalid Option: ${i#*=}"
+    exit 1;
+    ;;
+esac
+done
+
+if [ -z $MASTER ] || [ -z $NODES ]; then
+  echo "Missing required args"
+  usage
+  exit 1
+fi
+
+# Create new keypair if it does not exist
+if ssh root@${MASTER} stat ~/.ssh/id_rsa > /dev/null 2>&1; then
+  echo "Found existing Keypair, will use that."
+else
+  echo -n "No keypair found. Creating one... "
+  ssh root@${MASTER} 'ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa' > /dev/null 2>&1
+  echo "Done"
+fi
+
+public_key=$(ssh root@${MASTER} 'cat ~/.ssh/id_rsa.pub')
+
+for node in ${NODES//,/ }; do
+  echo -n "Pushing key for node ${node}..."
+  ssh root@${node} 'mkdir -p ~/.ssh'
+  echo "${public_key}" | ssh root@${node} 'cat  >> ~/.ssh/authorized_keys'
+  ssh root@${node} 'chmod 700 ~/.ssh; chmod 600 ~/.ssh/*'
+  echo "Done"
+done
