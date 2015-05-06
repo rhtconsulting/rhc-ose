@@ -31,13 +31,16 @@ if [ -z $MASTER ] || [ -z $NODES ]; then
 fi
 
 # Create new keypair if it does not exist
-if ssh root@${MASTER} stat ~/.ssh/id_rsa > /dev/null 2>&1; then
+if ssh root@${MASTER} 'stat ~/.ssh/id_rsa' > /dev/null 2>&1; then
   echo "Found existing Keypair, will use that."
 else
   echo -n "No keypair found. Creating one... "
   ssh root@${MASTER} 'ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa' > /dev/null 2>&1
   echo "Done"
 fi
+
+# Turn of host checking
+echo "StrictHostKeyChecking no" >> ~/.ssh/config
 
 public_key=$(ssh root@${MASTER} 'cat ~/.ssh/id_rsa.pub')
 
