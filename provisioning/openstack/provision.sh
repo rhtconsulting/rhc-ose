@@ -15,10 +15,10 @@ Options:
 }
 
 get_fault_info() {
-  local instance_info=$1
+  local instance_info="$1"
 
   echo "$instance_info" | grep '^| fault'
-  safeout "debug" "$instance_info"
+  safe_out "debug" "$instance_info"
 }
 
 wait_for_instance_running() {
@@ -29,8 +29,9 @@ wait_for_instance_running() {
 
   instance_info="$(nova show $instance_name)"
   status=$( echo "$instance_info" | awk '/status/ {print $4}' )
-  [ "$status" == "ERROR" ] && safe_out "error" "Instance $instance_name failed to boot:
-$(get_fault_info \"$instance_info\")" && exit 2
+  [ "$status" == "ERROR" ] && safe_out "error" "Instance $instance_name failed to boot:"
+  [ "$status" == "ERROR" ] && get_fault_info "$instance_info"
+  [ "$status" == "ERROR" ] && exit 2
 }
 
 wait_for_ssh() {
@@ -46,16 +47,20 @@ run_cmd_with_timeout() {
 
   next_wait_time=0
   until eval "$command" || [ $next_wait_time -eq $timeout ]; do
-    safe_out "info" "Ran command at $next_wait_time: $command"
+    safe_out "debug" "Ran command at $next_wait_time: $command"
     sleep $(( next_wait_time++ ))
   done
   [ $next_wait_time -eq $timeout ] && safe_out "error" "Command $command timed out after $timeout seconds."
 }
 
 safe_out() {
-  [ "$1" == "debug" ] && [ "${LOG_LEVEL}" == "debug" ] && echo "$1: $2" >> $LOGFILE
-  [ "$1" == "info" ] && ([ "${LOG_LEVEL}" == "info" ] || ["${LOG_LEVEL}" == "debug" ]) && echo "$1: $2" >> $LOGFILE
-  [ "$1" == "error" ] && echo "$1: $2" >> $LOGFILE
+  [ "$1" == "debug" ] && [ "${LOG_LEVEL}" == "debug" ] && log "$1" "$2"
+  [ "$1" == "info" ] && ([ "${LOG_LEVEL}" == "info" ] || [ "${LOG_LEVEL}" == "debug" ]) && log "$1" "$2"
+  [ "$1" == "error" ] && log "$1" "$2"
+}
+
+log() {
+  echo "$(date): $1: $2" >> $LOGFILE
 }
 
 # Initialize environment
@@ -122,7 +127,7 @@ fi
 
 # Provision VMs
 image_ami=$(nova image-list | awk "/$image_name_search/"'{print $2}')
-[ $(echo "$image_ami" | grep -c ".*") != 1 ] && echo "Error: --image-name $image_name_search gave multiple matches. Be more specific" && exit 2
+[ $(echo "$image_ami" | grep -c ".*") != 1 ] && safe_out "error" "--image-name $image_name_search gave multiple matches. Be more specific" && exit 2
 
 safe_out "debug" "nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} ${options} ${instance_name}"
 instance_status=$(nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} ${options} ${instance_name} | awk '/^\| id/ || /^\| status/ {print $4}')
