@@ -1,0 +1,357 @@
+#!/bin/bash -
+
+#
+#   Copyright 2012 Red Hat Inc.
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+#
+
+#
+# osc-dns-config - Utility to configure a master DNS server + nodes
+#
+# Usage: See usage function below
+#
+# TODO: 
+#  - Support Reverse DNS zones 
+#  - Fully support multiple master instances.
+#
+
+
+#
+# CONSTANTS
+#
+SSH_CMD='ssh -tt -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
+SCP_CMD='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
+
+
+#
+# FUNCTIONS
+#
+
+
+# 
+# Function to print the usage
+# 
+
+function usage()
+{
+  echo "Usage: "
+  echo "  $0 -m=|--master=\"<master1 private ip|master1 public ip>,...,<masterN private ip|masterN public ip>\""
+  echo "                   -n=|--nodes=\"<node1 private ip|node1 public ip>,...,<nodeN private ip|nodeN public ip>\""
+  echo "                   -b=|--base_domain=\"<base domain>\""
+  echo ""
+  echo "  where:"
+  echo "    -m|--master      : comma separated list of master instances, private and public IPs separated by '|'"
+  echo "    -n|--nodes       : comma separated list of node instances, private and public IPs separated by '|'"
+  echo "    -b|--base_domain : base DNS domain for use with the master(s) and nodes"
+}
+
+
+# 
+# Function to install the DNS server (bind/named)
+# 
+# Parameters:
+# $1 - IP address for remote host
+#
+
+function installDNSserver()
+{
+  ${SSH_CMD} root@${1} 'yum -y install bind bind-utils'
+
+  [ $? -ne 0 ] && echo "Failed to install DNS server on ${1}" && exit 1
+}
+
+
+# 
+# Function to prepare DNS server
+# 
+# Parameters:
+# $1 - IP address for remote host
+# $2 - base DNS domain name
+# $3 - private master IP address
+# $4 - public master IP address
+#
+
+function prepDNSserver()
+{
+  ${SCP_CMD} -r templates/bind/* root@${1}:/
+  [ $? -ne 0 ] && echo "Failed to copy template DNS files to master ${1}" && exit 1
+
+  ${SSH_CMD} root@${1} " 
+  sed -i \"s/OSE_DNS_DOMAIN/${2}/g\" /etc/named.conf 
+  sed -i \"s/MASTER_PRIVATE_IP_ADDRESS/${3}/g\" /etc/named.conf 
+  sed -i \"s/MASTER_PUBLIC_IP_ADDRESS/${4}/g\" /etc/named.conf 
+
+  mv -f /var/named/static/private-OSE_DNS_DOMAIN.db /var/named/static/private-${2}.db
+  sed -i \"s/OSE_DNS_DOMAIN/${2}/g\" /var/named/static/private-${2}.db 
+
+  mv -f /var/named/static/public-OSE_DNS_DOMAIN.db /var/named/static/public-${2}.db
+  sed -i \"s/OSE_DNS_DOMAIN/${2}/g\" /var/named/static/public-${2}.db
+"
+
+  [ $? -ne 0 ] && echo "Failed to prep DNS server on ${1}" && exit 1
+}
+
+
+# 
+# Function to set the IPtables rules to allow for DNS traffic
+# 
+# Parameters:
+# $1 - IP address for remote host
+# 
+
+function setIPtables()
+{
+  udp='\-A INPUT \-p udp \-m state \-\-state NEW \-m udp \-\-dport 53 \-j ACCEPT'
+  tcp='\-A INPUT \-p tcp \-m state \-\-state NEW \-m tcp \-\-dport 53 \-j ACCEPT'
+
+  ${SSH_CMD} root@${1} "
+  [ \$(grep -c '"$udp"' /etc/sysconfig/iptables) == 0 ] && \
+  sed -i \"/-A INPUT -j REJECT/i $udp\" /etc/sysconfig/iptables
+
+  [ \$(grep -c '"$tcp"' /etc/sysconfig/iptables) == 0 ] && \
+  sed -i \"/-A INPUT -j REJECT/i $tcp\" /etc/sysconfig/iptables
+
+  systemctl restart iptables
+"
+
+  [ $? -ne 0 ] && echo "Failed to set iptables on ${1}" && exit 1
+}
+
+
+# 
+# Function to update the /etc/resolv.conf file with the "correct" 
+# nameserver(s) and search domain
+# 
+# Parameters:
+# $1 - IP address for remote host
+# $2 - DNS search domain
+# $3 - nameserver(s)
+#
+
+function setDNSservers()
+{
+  ${SSH_CMD} root@${1} " 
+  sed -i 's/^PEERDNS=.*/PEERDNS=\"no\"/' /etc/sysconfig/network-scripts/ifcfg-*
+  sed -i 's/^\(nameserver.*\)/# \1/g' /etc/resolv.conf
+  sed -i 's/^\(search.*\)/# \1/g' /etc/resolv.conf
+  echo \"search ${2}\" >> /etc/resolv.conf 
+  echo \"nameserver ${3}\" >> /etc/resolv.conf
+"
+
+  [ $? -ne 0 ] && echo "Failed to configure DNS on ${1}" && exit 1
+}
+
+
+# 
+# Function to update the hostname 
+#
+# Parameters:
+# $1 - IP address for remote host
+# $2 - new hostname for host/instance
+#
+
+function setHostname()
+{
+  ${SSH_CMD} root@${1} "
+  if [ -e \"/etc/cloud/cloud.cfg\" ]
+  then
+    sed -i 's/\(.*- set_hostname.*\)/# \1/' /etc/cloud/cloud.cfg
+    sed -i 's/\(.*- update_hostname.*\)/# \1/' /etc/cloud/cloud.cfg
+  fi
+
+  hostnamectl set-hostname ${2}
+"
+
+  [ $? -ne 0 ] && echo "Failed to set hostname on ${1}" && exit 1
+}
+
+
+# 
+# Function to create a new DNS record 
+#
+# Parameters:
+# $1 - IP address for master / DNS server
+# $2 - private ip
+# $3 - public ip
+# $4 - hostname
+# $5 - DNS record type
+#
+
+function createDNSrecord()
+{
+  ${SSH_CMD} root@${1} "
+  echo \"${4}          ${5}      ${2}\" >> /var/named/static/private-*
+  echo \"${4}          ${5}      ${3}\" >> /var/named/static/public-*
+"
+
+  [ $? -ne 0 ] && echo "Failed to create DNS record(${5}) for ${4} on ${1}" && exit 1
+}
+
+
+# 
+# Function to set the ACL list in the /etc/named.conf file
+#
+# Parameters:
+# $1 - IP address for master / DNS server
+# $2 - ACL list
+#
+
+function setACLlist()
+{
+  ${SSH_CMD} root@${1} "
+  sed -i \"s/ACL_PRIVATE_IP_ADDRESSES;/${2}/g\" /etc/named.conf 
+"
+
+  [ $? -ne 0 ] && echo "Failed to set ACL list on ${1}" && exit 1
+}
+
+
+# 
+# Function to restart DNS server to activate new settings
+#
+# Parameters:
+# $1 - IP address for master / DNS server
+#
+
+function restartDNSserver()
+{
+  ${SSH_CMD} root@${1} 'systemctl restart named && systemctl enable named'
+
+  [ $? -ne 0 ] && echo "Failed to reload DNS server on ${1}" && exit 1
+}
+
+
+#
+# END FUNCTIONS
+#
+
+
+#
+# MAIN - main execution starts below
+#
+
+for i in "$@"
+do
+  case $i in
+    -m=*|--master=*)
+      MASTER="${i#*=}"
+      shift
+    ;;
+
+    -n=*|--nodes=*)
+      NODES="${i#*=}"
+      shift
+    ;;
+
+    -b=*|--base_domain=*)
+      BASE_DOMAIN="${i#*=}"
+      shift
+    ;;
+
+    *)
+      echo "Invalid Option: ${i#*=}"
+      exit 1;
+    ;;
+
+  esac
+done
+
+if [ -z "${MASTER}" -o \
+     -z "${NODES}"  -o \
+     -z "${BASE_DOMAIN}" ]
+then
+  echo "Missing required args"
+  usage
+  exit 1
+fi
+
+declare -a acllist
+
+IFS=',' read -a masters <<< "${MASTER}"
+IFS=',' read -a nodes <<< "${NODES}"
+
+i=
+[ ${#masters[@]} -gt 1 ] && i=1
+
+for m in "${masters[@]}"
+do
+  privateip=${m%|*}
+  publicip=${m#*|}
+  if [ -z "${privateip}" -o \
+       -z "${publicip}" ]
+  then
+    echo "Invalid master IP combination for ${m}"
+    usage 
+    exit 1
+  fi
+
+  installDNSserver ${privateip}
+  prepDNSserver ${privateip} ${BASE_DOMAIN} ${privateip} ${publicip}
+  setDNSservers ${privateip} ${BASE_DOMAIN} ${privateip}
+  setIPtables ${privateip}
+  setHostname ${privateip} master${i}.${BASE_DOMAIN} 
+
+  createDNSrecord ${privateip} ${privateip} ${publicip} ns1 "A"
+  createDNSrecord ${privateip} ${privateip} ${publicip} master${i} "A"
+
+  acllist+=(${privateip})
+
+  i=$((i+1))
+done
+
+
+i=1
+for n in "${nodes[@]}"
+do
+  privateip=${n%|*}
+  publicip=${n#*|}
+  if [ -z "${privateip}" -o \
+       -z "${publicip}" ]
+  then
+    echo "Invalid node IP combination for ${n}"
+    usage 
+    exit 1
+  fi
+
+  setHostname ${privateip} node${i}.${BASE_DOMAIN} 
+
+  for m in "${masters[@]}"
+  do
+    masterip=${m%|*}
+
+    setDNSservers ${privateip} ${BASE_DOMAIN} ${masterip}
+    createDNSrecord ${masterip} ${privateip} ${publicip} node${i} "A"
+  done
+
+  acllist+=(${privateip})
+
+  i=$((i+1))
+done
+
+fullacllist=
+for a in "${acllist[@]}"
+do
+  fullacllist="${fullacllist}\\t${a}\/32;\\n"
+done
+
+for m in "${masters[@]}"
+do
+  masterip=${m%|*}
+  setACLlist ${masterip} ${fullacllist}
+  restartDNSserver ${masterip}
+done
+
+echo "DNS configuration completed successfully!"
+exit 0
+

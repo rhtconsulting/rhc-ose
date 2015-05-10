@@ -1,0 +1,11 @@
+$ORIGIN .
+$TTL 3600
+OSE_DNS_DOMAIN      IN SOA  ns1.OSE_DNS_DOMAIN. hostmaster.OSE_DNS_DOMAIN. (
+                                2011112969 ; serial
+                                60         ; refresh (1 minute)
+                                15         ; retry (15 seconds)
+                                1800       ; expire (30 minutes)
+                                10         ; minimum (10 seconds)
+                                )
+                        NS      ns1.OSE_DNS_DOMAIN.
+$ORIGIN OSE_DNS_DOMAIN.
