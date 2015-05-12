@@ -38,7 +38,6 @@ setup_ansible() {
     ${node} openshift_hostname=${node} openshift_public_hostname=${node}"
   done
 
-  ansible_branch=${CONF_ANSIBLE_BRANCH:-"v3-beta3"}
   ansible_hosts_file="# This is an example of a bring your own (byo) host inventory
 
   [OSEv3:children]
@@ -64,7 +63,7 @@ setup_ansible() {
 
   cd
   rm -rf ~/openshift-ansible
-  git clone https://github.com/detiber/openshift-ansible.git -b $ansible_branch
+  git clone https://github.com/detiber/openshift-ansible.git -b $ANSIBLE_BRANCH
   cd ~/openshift-ansible
   /bin/cp -r ~/training/beta3/ansible/* /etc/ansible/
   cd
@@ -73,7 +72,7 @@ setup_ansible() {
 }
 
 setup_authentication() {
-  users=${CONF_OPENSHIFT_USERS:-"joe:redhat alice:redhat"}
+  users=$OPENSHIFT_USERS
 
   # Set up authentication
   yum -y install httpd-tools
@@ -89,6 +88,12 @@ setup_authentication() {
   /etc/openshift/master.yaml
 
   systemctl restart openshift-master
+}
+
+setup_topology() {
+  # Create a custom scheduler topology based on user input
+  # TODO
+
 }
 
 setup_training_repo() {
@@ -154,9 +159,15 @@ do_install() {
 do_post(){
   echo "Post Install"
   setup_authentication
+
+  # Setup infrastructure topology
+
+  # Create router infrastructure
+
+  # Create registry
 }
 
-
+# Process input
 for i in "$@"
 do
   case $i in
@@ -182,5 +193,17 @@ if [ -z $ACTIONS ]; then
   exit 1
 fi
 
+# Set up default values
+openshift_version='beta3'
+ansible_branch="v3-$openshift_version"
+openshift_users="joe:redhat alice:redhat"
+
+# Set up environment based on default values and User input
+OPENSHIFT_VERSION=${CONF_OPENSHIFT_VERSION:=openshift_version}
+ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=ansible_branch}
+OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=openshift_users}
+
+# Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}
+
 exit 0;

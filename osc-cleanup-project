@@ -1,4 +1,12 @@
 #!/bin/bash
+if [ -f ~/.kube/.kubeconfig ]; then
+  OSC_CONFIG=~/.kube/.kubeconfig
+elif [ -f ~/.config/openshift/.config ]; then
+  OSC_CONFIG=~/.config/openshift/.config
+else
+  echo "Error: No login config. Please log in using osc login first."
+  exit 1
+fi
 
 # Functions
 confirm () {
@@ -43,8 +51,8 @@ done
 resource_types="build buildconfig images imagerepository deploymentconfig route replicationcontroller service pod"
 
 # Get current project namespace
-context=$(awk '/current-context/ {print $2}' ~/.kube/.kubeconfig)
-namespace=$(grep -B 4 "name: $context" ~/.kube/.kubeconfig | awk '/namespace/ {print $2}')
+context=$(awk '/current-context/ {print $2}' $OSC_CONFIG)
+namespace=$(grep -B 4 "name: $context" $OSC_CONFIG | awk '/namespace/ {print $2}')
 
 # Confirm we want to delete resources for this project
 
