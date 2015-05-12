@@ -4,12 +4,13 @@ usage() {
 Usage: $0 --instance-name <name> --key <key name>[options]
 
 Options:
-  --instance-name <name>          : *Name of your instance
-  --key <openstack ssh key name>  : *Name of your SSH key in OpenStack dashboard.
-  --image-name <image-name>       : Specify an image (or snapshot) to use for boot
-  -n                              : non-iteractive mode for use with scripts. Doesn't log anything to the console
-  --auth-key-file <file location> : Pass a custom authorized keys file to the root user (for multiple user access).
-  --debug                         : Set log level to Debug
+  --instance-name <name>              : *Name of your instance
+  --key <openstack ssh key name>      : *Name of your SSH key in OpenStack dashboard.
+  --image-name <image-name>           : Specify an image (or snapshot) to use for boot
+  -n                                  : non-iteractive mode for use with scripts. Doesn't log anything to the console
+  --auth-key-file <file location>     : Pass a custom authorized keys file to the root user (for multiple user access).
+  --security-groups <security groups> : Specift security groups for your instance
+  --debug                             : Set log level to Debug
   "
 
 }
@@ -86,6 +87,9 @@ do
     "--auth-key-file")
       auth_key_file=true;
       options="${options} --file /root/.ssh/authorized_keys=$1";
+      shift;;
+    "--security-groups")
+      options="${options} --security-groups=$1";
       shift;;
     "--debug")
       LOG_LEVEL="debug";;
