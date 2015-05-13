@@ -99,7 +99,7 @@ setup_authentication() {
 setup_topology() {
   # Create a custom scheduler topology based on user input
   # TODO
-
+  echo
 }
 
 setup_training_repo() {
