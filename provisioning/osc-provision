@@ -1,0 +1,23 @@
+#!/bin/bash
+SSH_CMD='ssh -tt -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
+
+# Process input
+for i in "$@"
+do
+  case $i in
+    -m=*|--master=*)
+      MASTER="${i#*=}"
+      shift;;
+    -n=*|--nodes=*)
+      NODES="${i#*=}"
+      shift;;
+    *)
+      echo "Invalid Option: ${i#*=}"
+      exit 1;
+      ;;
+  esac
+done
+
+
+${SSH_CMD} root@${MASTER} "git clone https://github.com/etsauer/ose-utils.git --branch openshift-enterprise-3"
+${SSH_CMD} root@${MASTER} "bash ~/ose-utils/provisioning/osc-install -m=${MASTER} -n=${NODES} -a=prep,dns,install,post"
