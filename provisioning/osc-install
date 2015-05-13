@@ -189,10 +189,10 @@ openshift_users="joe:redhat alice:redhat"
 openshift_base_domain="ose.example.com"
 
 # Set up environment based on default values and User input
-OPENSHIFT_VERSION=${CONF_OPENSHIFT_VERSION:=openshift_version}
-ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=ansible_branch}
-OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=openshift_users}
-OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=openshift_base_domain}
+OPENSHIFT_VERSION=${CONF_OPENSHIFT_VERSION:=$openshift_version}
+ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=$ansible_branch}
+OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
+OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 # Begin installation phases
