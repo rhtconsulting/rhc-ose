@@ -15,7 +15,7 @@ contains() {
 
 # Usage: error_out <message> <error_code>
 error_out() {
-  echo "ERROR: ${$1}"
+  echo "ERROR: ${1}"
   exit $2
 }
 
@@ -121,7 +121,7 @@ do_prep() {
 
 do_dns() {
   command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN}"
-  [ eval $command ] || error_out "DNS Install & Configuration failed." $ERROR_CODE_DNS_FAILURE
+  [ $command ] || error_out "DNS Install & Configuration failed." $ERROR_CODE_DNS_FAILURE
 }
 
 do_install() {
@@ -138,7 +138,7 @@ do_install() {
 
   # Run ansible
   command="ansible-playbook ~/openshift-ansible/playbooks/byo/config.yml"
-  [ eval $command ] || error_out "Ansible install had failures" $ERROR_CODE_ANSIBLE_INSTALL_FAILURE
+  [ $command ] || error_out "Ansible install had failures" $ERROR_CODE_ANSIBLE_INSTALL_FAILURE
 }
 
 do_post(){
