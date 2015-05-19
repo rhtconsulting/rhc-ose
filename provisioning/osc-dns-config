@@ -21,8 +21,8 @@
 #
 # Usage: See usage function below
 #
-# TODO: 
-#  - Support Reverse DNS zones 
+# TODO:
+#  - Support Reverse DNS zones
 #  - Fully support multiple master instances.
 #
 
@@ -32,6 +32,7 @@
 #
 SSH_CMD='ssh -tt -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
 SCP_CMD='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
+SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 
 #
@@ -39,9 +40,9 @@ SCP_CMD='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogL
 #
 
 
-# 
+#
 # Function to print the usage
-# 
+#
 
 function usage()
 {
@@ -57,9 +58,9 @@ function usage()
 }
 
 
-# 
+#
 # Function to install the DNS server (bind/named)
-# 
+#
 # Parameters:
 # $1 - IP address for remote host
 #
@@ -72,9 +73,9 @@ function installDNSserver()
 }
 
 
-# 
+#
 # Function to prepare DNS server
-# 
+#
 # Parameters:
 # $1 - IP address for remote host
 # $2 - base DNS domain name
@@ -84,16 +85,16 @@ function installDNSserver()
 
 function prepDNSserver()
 {
-  ${SCP_CMD} -r templates/bind/* root@${1}:/
+  ${SCP_CMD} -r ${SCRIPT_BASE_DIR}/templates/bind/* root@${1}:/
   [ $? -ne 0 ] && echo "Failed to copy template DNS files to master ${1}" && exit 1
 
-  ${SSH_CMD} root@${1} " 
-  sed -i \"s/OSE_DNS_DOMAIN/${2}/g\" /etc/named.conf 
-  sed -i \"s/MASTER_PRIVATE_IP_ADDRESS/${3}/g\" /etc/named.conf 
-  sed -i \"s/MASTER_PUBLIC_IP_ADDRESS/${4}/g\" /etc/named.conf 
+  ${SSH_CMD} root@${1} "
+  sed -i \"s/OSE_DNS_DOMAIN/${2}/g\" /etc/named.conf
+  sed -i \"s/MASTER_PRIVATE_IP_ADDRESS/${3}/g\" /etc/named.conf
+  sed -i \"s/MASTER_PUBLIC_IP_ADDRESS/${4}/g\" /etc/named.conf
 
   mv -f /var/named/static/private-OSE_DNS_DOMAIN.db /var/named/static/private-${2}.db
-  sed -i \"s/OSE_DNS_DOMAIN/${2}/g\" /var/named/static/private-${2}.db 
+  sed -i \"s/OSE_DNS_DOMAIN/${2}/g\" /var/named/static/private-${2}.db
 
   mv -f /var/named/static/public-OSE_DNS_DOMAIN.db /var/named/static/public-${2}.db
   sed -i \"s/OSE_DNS_DOMAIN/${2}/g\" /var/named/static/public-${2}.db
@@ -103,12 +104,12 @@ function prepDNSserver()
 }
 
 
-# 
+#
 # Function to set the IPtables rules to allow for DNS traffic
-# 
+#
 # Parameters:
 # $1 - IP address for remote host
-# 
+#
 
 function setIPtables()
 {
@@ -129,10 +130,10 @@ function setIPtables()
 }
 
 
-# 
-# Function to update the /etc/resolv.conf file with the "correct" 
+#
+# Function to update the /etc/resolv.conf file with the "correct"
 # nameserver(s) and search domain
-# 
+#
 # Parameters:
 # $1 - IP address for remote host
 # $2 - DNS search domain
@@ -141,11 +142,11 @@ function setIPtables()
 
 function setDNSservers()
 {
-  ${SSH_CMD} root@${1} " 
+  ${SSH_CMD} root@${1} "
   sed -i 's/^PEERDNS=.*/PEERDNS=\"no\"/' /etc/sysconfig/network-scripts/ifcfg-*
   sed -i 's/^\(nameserver.*\)/# \1/g' /etc/resolv.conf
   sed -i 's/^\(search.*\)/# \1/g' /etc/resolv.conf
-  echo \"search ${2}\" >> /etc/resolv.conf 
+  echo \"search ${2}\" >> /etc/resolv.conf
   echo \"nameserver ${3}\" >> /etc/resolv.conf
 "
 
@@ -153,8 +154,8 @@ function setDNSservers()
 }
 
 
-# 
-# Function to update the hostname 
+#
+# Function to update the hostname
 #
 # Parameters:
 # $1 - IP address for remote host
@@ -177,8 +178,8 @@ function setHostname()
 }
 
 
-# 
-# Function to create a new DNS record 
+#
+# Function to create a new DNS record
 #
 # Parameters:
 # $1 - IP address for master / DNS server
@@ -199,7 +200,7 @@ function createDNSrecord()
 }
 
 
-# 
+#
 # Function to set the ACL list in the /etc/named.conf file
 #
 # Parameters:
@@ -210,14 +211,14 @@ function createDNSrecord()
 function setACLlist()
 {
   ${SSH_CMD} root@${1} "
-  sed -i \"s/ACL_PRIVATE_IP_ADDRESSES;/${2}/g\" /etc/named.conf 
+  sed -i \"s/ACL_PRIVATE_IP_ADDRESSES;/${2}/g\" /etc/named.conf
 "
 
   [ $? -ne 0 ] && echo "Failed to set ACL list on ${1}" && exit 1
 }
 
 
-# 
+#
 # Function to restart DNS server to activate new settings
 #
 # Parameters:
@@ -292,7 +293,7 @@ do
        -z "${publicip}" ]
   then
     echo "Invalid master IP combination for ${m}"
-    usage 
+    usage
     exit 1
   fi
 
@@ -300,7 +301,7 @@ do
   prepDNSserver ${privateip} ${BASE_DOMAIN} ${privateip} ${publicip}
   setDNSservers ${privateip} ${BASE_DOMAIN} ${privateip}
   setIPtables ${privateip}
-  setHostname ${privateip} master${i}.${BASE_DOMAIN} 
+  setHostname ${privateip} master${i}.${BASE_DOMAIN}
 
   createDNSrecord ${privateip} ${privateip} ${publicip} ns1 "A"
   createDNSrecord ${privateip} ${privateip} ${publicip} master${i} "A"
@@ -320,11 +321,11 @@ do
        -z "${publicip}" ]
   then
     echo "Invalid node IP combination for ${n}"
-    usage 
+    usage
     exit 1
   fi
 
-  setHostname ${privateip} node${i}.${BASE_DOMAIN} 
+  setHostname ${privateip} node${i}.${BASE_DOMAIN}
 
   for m in "${masters[@]}"
   do
@@ -354,4 +355,3 @@ done
 
 echo "DNS configuration completed successfully!"
 exit 0
-
