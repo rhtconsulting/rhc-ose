@@ -7,10 +7,11 @@ Options:
   --instance-name <name>              : *Name of your instance
   --key <openstack ssh key name>      : *Name of your SSH key in OpenStack dashboard.
   --image-name <image-name>           : Specify an image (or snapshot) to use for boot
-  -n                                  : non-iteractive mode for use with scripts. Doesn't log anything to the console
   --auth-key-file <file location>     : Pass a custom authorized keys file to the root user (for multiple user access).
   --security-groups <security groups> : Specift security groups for your instance
+  --num-instances <number>            : Number of instances to create with this profile
   --debug                             : Set log level to Debug
+  -n                                  : non-iteractive mode for use with scripts. Doesn't log anything to the console
   "
 
 }
@@ -91,6 +92,9 @@ do
     "--security-groups")
       options="${options} --security-groups=$1";
       shift;;
+    "--num-instances")
+      num_instances=$1;
+      shift;;
     "--debug")
       LOG_LEVEL="debug";;
     *) echo >&2 "Invalid option: $@"; exit 1;;
@@ -112,8 +116,6 @@ rc_file="${openstack_cred}"
 #security_groups="default,osebroker,osenode"
 security_groups="default"
 flavor="m1.large"
-#num_of_brokers=1
-#num_of_nodes=1
 if [ ! -f $rc_file ]; then
   safe_out "error" "OpenStack API Credentials not found. Default location is ${rc_file}, or set OPENSTACK_CRED_HOME."
   exit 1
@@ -121,6 +123,10 @@ fi
 
 if [ -z $security_groups ]; then
   options="${options} --security-groups ${security_groups}"
+fi
+
+if [ -z $num_instances ] && [ $num_instances -gt 1 ]; then
+  options="${options} --num-instances ${num_instances}"
 fi
 
 . $rc_file
@@ -153,7 +159,7 @@ wait_for_instance_running $instance_id
 
 safe_out "info" "Instance ${instance_name} is active. Waiting for ssh service to be ready..."
 
-instance_ip=$(nova show $instance_id | awk '/os1-internal.*network/ {print $6}')
+instance_ip=$(nova show $instance_id | awk '/os1-internal.*network/ {print $5$6}')
 
 # need to wait until ssh service comes up on instance
 wait_for_ssh $instance_ip
