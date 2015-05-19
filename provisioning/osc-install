@@ -121,7 +121,7 @@ do_prep() {
 
 do_dns() {
   echo "Beginning action: DNS"
-  command="bash -x ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN}"
+  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN}"
   $command || error_out "DNS Install & Configuration failed." $ERROR_CODE_DNS_FAILURE
 }
 
