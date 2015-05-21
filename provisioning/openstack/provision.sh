@@ -11,7 +11,7 @@ Options:
   --security-groups <security groups> : Specift security groups for your instance
   --num-instances <number>            : Number of instances to create with this profile
   --debug                             : Set log level to Debug
-  -n                                  : non-iteractive mode for use with scripts. Doesn't log anything to the console
+  --n                                  : non-iteractive mode for use with scripts. Doesn't log anything to the console
   "
 
 }
@@ -26,14 +26,18 @@ get_fault_info() {
 wait_for_instance_running() {
   local instance_name=$1
 
+  safe_out "info" "Instance ${instance_name} created. Waiting for instance to start..."
+
   command="[ \$( nova show $instance_name | grep -cE \"status.*ACTIVE|status.*ERROR\" ) -eq 1 ]"
   run_cmd_with_timeout "$command" ${2:-30}
 
   instance_info="$(nova show $instance_name)"
   status=$( echo "$instance_info" | awk '/status/ {print $4}' )
-  [ "$status" == "ERROR" ] && safe_out "error" "Instance $instance_name failed to boot:"
-  [ "$status" == "ERROR" ] && get_fault_info "$instance_info"
-  [ "$status" == "ERROR" ] && exit 2
+  if [ "$status" == "ERROR" ]; then
+    safe_out "error" "Instance $instance_name failed to boot:"
+    safe_out $(get_fault_info "$instance_info")
+    exit 2
+  fi
 }
 
 wait_for_ssh() {
@@ -121,11 +125,11 @@ if [ ! -f $rc_file ]; then
   exit 1
 fi
 
-if [ -z $security_groups ]; then
+if [ ! -z $security_groups ]; then
   options="${options} --security-groups ${security_groups}"
 fi
 
-if [ -z $num_instances ] && [ $num_instances -gt 1 ]; then
+if [ ! -z $num_instances ]; then
   options="${options} --num-instances ${num_instances}"
 fi
 
@@ -141,6 +145,7 @@ image_ami=$(nova image-list | awk "/$image_name_search/"'{print $2}')
 
 safe_out "debug" "nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} ${options} ${instance_name}"
 instance_status=$(nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} ${options} ${instance_name} | awk '/^\| id/ || /^\| status/ {print $4}')
+safe_out "debug" "${instance_status}"
 instance_status=${instance_status//$'\n'/ }
 instance_id=${instance_status%' '*}
 status=${instance_status#*' '}
@@ -152,22 +157,27 @@ if [ "$status" != "BUILD" ]; then
   exit 1
 fi
 
-safe_out "info" "Instance ${instance_name} created. Waiting for instance to start..."
+# added to support multiple instances
+instance_ids=$(nova list --name ${instance_name} | awk "/${instance_name}/"'{print $2}')
 
-# need to wait for instance to be in running state
-wait_for_instance_running $instance_id
+for instance_id in ${instance_ids//$'\n'/ }; do
 
-safe_out "info" "Instance ${instance_name} is active. Waiting for ssh service to be ready..."
+  instance_name=$(nova show $instance_id | awk "/ name/"'{print $4}')
 
-instance_ip=$(nova show $instance_id | awk '/os1-internal.*network/ {print $5$6}')
+  # need to wait for instance to be in running state
+  wait_for_instance_running $instance_name
+  safe_out "info" "Instance ${instance_name} is active. Waiting for ssh service to be ready..."
+  instance_ip=$(nova show ${instance_name} | awk '/os1-internal.*network/ {print $5$6}')
 
-# need to wait until ssh service comes up on instance
-wait_for_ssh $instance_ip
+  # need to wait until ssh service comes up on instance
+  wait_for_ssh ${instance_ip#*,} 20
 
-safe_out "info" "Instance ${instance_name} is accessible and ready to use."
+  safe_out "info" "Instance ${instance_name} is accessible and ready to use."
 
-if [ "$interactive" = "true" ]; then
-  echo "Instance IP: ${instance_ip}"
-else
-  echo "$instance_ip"
-fi
+  if [ "$interactive" = "true" ]; then
+    echo "Instance IP: ${instance_ip}"
+  else
+    echo "$instance_ip"
+  fi
+  
+done
