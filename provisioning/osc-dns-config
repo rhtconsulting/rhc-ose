@@ -34,6 +34,7 @@
 #
 SSH_CMD='ssh -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
 SCP_CMD='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
+SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 VAR_NAMED_STATIC_DIR="/var/named/static"
 
 #
@@ -97,7 +98,7 @@ function prepDNSserver()
 
   ${SSH_CMD} root@${master_private_ip_address} "rm -rf ${VAR_NAMED_STATIC_DIR}/*"
 
-  ${SCP_CMD} -r templates/bind/* root@${master_private_ip_address}:/
+  ${SCP_CMD} -r ${SCRIPT_BASE_DIR}/templates/bind/* root@${master_private_ip_address}:/
   [ $? -ne 0 ] && echo "Failed to copy template DNS files to master ${master_private_ip_address}" && exit 1
 
   ${SSH_CMD} root@${master_private_ip_address} "
