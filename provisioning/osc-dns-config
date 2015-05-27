@@ -21,8 +21,10 @@
 #
 # Usage: See usage function below
 #
+# SPECIAL CONSIDERATIONS:
+#  - For reverse DNS, only subnets smaller or equal to /16 are supported
+#
 # TODO:
-#  - Support Reverse DNS zones
 #  - Fully support multiple master instances.
 #
 
@@ -30,10 +32,15 @@
 #
 # CONSTANTS
 #
-SSH_CMD='ssh -tt -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
+SSH_CMD='ssh -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
 SCP_CMD='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+VAR_NAMED_STATIC_DIR="/var/named/static"
 
+#
+# GLOBALS
+#
+declare -a A_ACLlist
 
 #
 # FUNCTIONS
@@ -85,22 +92,32 @@ function installDNSserver()
 
 function prepDNSserver()
 {
-  ${SCP_CMD} -r ${SCRIPT_BASE_DIR}/templates/bind/* root@${1}:/
-  [ $? -ne 0 ] && echo "Failed to copy template DNS files to master ${1}" && exit 1
+  master_private_ip_address=${1}
+  master_public_ip_address=${2}
+  dns_domain=${3}
 
-  ${SSH_CMD} root@${1} "
-  sed -i \"s/OSE_DNS_DOMAIN/${2}/g\" /etc/named.conf
-  sed -i \"s/MASTER_PRIVATE_IP_ADDRESS/${3}/g\" /etc/named.conf
-  sed -i \"s/MASTER_PUBLIC_IP_ADDRESS/${4}/g\" /etc/named.conf
+  ${SSH_CMD} root@${master_private_ip_address} "rm -rf ${VAR_NAMED_STATIC_DIR}/*"
 
-  mv -f /var/named/static/private-OSE_DNS_DOMAIN.db /var/named/static/private-${2}.db
-  sed -i \"s/OSE_DNS_DOMAIN/${2}/g\" /var/named/static/private-${2}.db
+  ${SCP_CMD} -r ${SCRIPT_BASE_DIR}/templates/bind/* root@${master_private_ip_address}:/
+  [ $? -ne 0 ] && echo "Failed to copy template DNS files to master ${master_private_ip_address}" && exit 1
 
-  mv -f /var/named/static/public-OSE_DNS_DOMAIN.db /var/named/static/public-${2}.db
-  sed -i \"s/OSE_DNS_DOMAIN/${2}/g\" /var/named/static/public-${2}.db
+  ${SSH_CMD} root@${master_private_ip_address} "
+  sed -i \"s/OSE_DNS_DOMAIN/${dns_domain}/g\" /etc/named.conf
+  sed -i \"s/MASTER_PRIVATE_IP_ADDRESS/${master_private_ip_address}/g\" /etc/named.conf
+  sed -i \"s/MASTER_PUBLIC_IP_ADDRESS/${master_public_ip_address}/g\" /etc/named.conf
+
+  mv -f ${VAR_NAMED_STATIC_DIR}/private-OSE_DNS_DOMAIN.db ${VAR_NAMED_STATIC_DIR}/private-${dns_domain}.db
+  sed -i \"s/OSE_DNS_DOMAIN/${dns_domain}/g\" ${VAR_NAMED_STATIC_DIR}/private-${dns_domain}.db
+
+  mv -f ${VAR_NAMED_STATIC_DIR}/public-OSE_DNS_DOMAIN.db ${VAR_NAMED_STATIC_DIR}/public-${dns_domain}.db
+  sed -i \"s/OSE_DNS_DOMAIN/${dns_domain}/g\" ${VAR_NAMED_STATIC_DIR}/public-${dns_domain}.db
+
+  netsize=`ip addr show | sed -ne "s/.*inet ${master_private_ip_address}\/\([0-9]*\).*/\1/p"`
+  subnet=`ipcalc -n ${master_private_ip_address}/${netsize} | sed -ne 's/^NETWORK=\(.*\)/\1/p'`
+
 "
 
-  [ $? -ne 0 ] && echo "Failed to prep DNS server on ${1}" && exit 1
+  [ $? -ne 0 ] && echo "Failed to prep DNS server on ${master_private_ip_address}" && exit 1
 }
 
 
@@ -117,6 +134,8 @@ function setIPtables()
   tcp='\-A INPUT \-p tcp \-m state \-\-state NEW \-m tcp \-\-dport 53 \-j ACCEPT'
 
   ${SSH_CMD} root@${1} "
+  [ ! -e "/etc/sysconfig/iptables" ] && exit 1
+
   [ \$(grep -c '"$udp"' /etc/sysconfig/iptables) == 0 ] && \
   sed -i \"/-A INPUT -j REJECT/i $udp\" /etc/sysconfig/iptables
 
@@ -179,6 +198,21 @@ function setHostname()
 
 
 #
+# "Helper" function to consistently get the in-addr.arpa value
+#
+# Parameters:
+# $1 - IP address to use for return value
+#
+
+function getInAddrArpa()
+{
+  subnet=`ipcalc -n ${1}/16 | sed -ne 's/^NETWORK=\(.*\)/\1/p'`
+  in_addr=`echo ${subnet} | awk -F . '{print $2"."$1}'`
+  echo "${in_addr}"
+}
+
+
+#
 # Function to create a new DNS record
 #
 # Parameters:
@@ -191,12 +225,61 @@ function setHostname()
 
 function createDNSrecord()
 {
-  ${SSH_CMD} root@${1} "
-  echo \"${4}          ${5}      ${2}\" >> /var/named/static/private-*
-  echo \"${4}          ${5}      ${3}\" >> /var/named/static/public-*
+  masterip=${1}
+  privateip=${2}
+  publicip=${3}
+  hostname=${4}
+  dnstype=${5}
+
+  if [ "${dnstype}" = "A" ]
+  then
+    ${SSH_CMD} root@${masterip} "
+    echo \"${hostname}          ${dnstype}      ${privateip}\" >> ${VAR_NAMED_STATIC_DIR}/private-*
+    echo \"${hostname}          ${dnstype}      ${publicip}\" >> ${VAR_NAMED_STATIC_DIR}/public-*
+  "
+  elif [ "${dnstype}" = "PTR" ]
+  then
+    in_addr=`getInAddrArpa ${privateip}`
+    ptrrecord=`echo ${privateip} | awk -F . '{print $4"."$3}'`
+    ${SSH_CMD} root@${1} "
+    echo \"${ptrrecord}          ${dnstype}      ${hostname}\" >> ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
+  "
+  fi
+
+  [ $? -ne 0 ] && echo "Failed to create DNS record(${dnstype}) for ${hostname} on ${masterip}" && exit 1
+}
+
+
+
+#
+# Function to prepare the PTR (reverse DNS) config in
+# /etc/named.conf + specific in-addr.arpa files
+#
+# Parameters:
+# $1 - IP address for master / DNS server
+# $2 - IP address for PTR record
+# $3 - DNS domain
+#
+
+function prepPTRConfig()
+{
+  master=${1}
+  ptr_record=${2}
+  dns_domain=${3}
+
+  in_addr=`getInAddrArpa ${ptr_record}`
+
+  in_addr_arpa_zone="zone \\\"${in_addr}.in-addr.arpa\\\" IN \{\n              type master\;\n              file \\\"static\/${in_addr}.in-addr.arpa.db\\\"\;\n        \}\;\n\n        # IN_ADDR_ARPA_ZONE"
+
+  ${SSH_CMD} root@${master} "
+  [ -e "${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db" ] && exit 0
+  cp -f ${VAR_NAMED_STATIC_DIR}/INV_IP_ADDR.in-addr.arpa.db ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
+  sed -i \"s/OSE_DNS_DOMAIN/${dns_domain}/g\" ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
+  sed -i \"s/INV_IP_ADDR/${in_addr}/g\" ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
+  sed -i \"s/# IN_ADDR_ARPA_ZONE/${in_addr_arpa_zone}/g\" /etc/named.conf
 "
 
-  [ $? -ne 0 ] && echo "Failed to create DNS record(${5}) for ${4} on ${1}" && exit 1
+  [ $? -ne 0 ] && echo "Failed to set PTR configuration on ${1}" && exit 1
 }
 
 
@@ -211,7 +294,7 @@ function createDNSrecord()
 function setACLlist()
 {
   ${SSH_CMD} root@${1} "
-  sed -i \"s/ACL_PRIVATE_IP_ADDRESSES;/${2}/g\" /etc/named.conf
+  sed -i \"s/\t# ACL_PRIVATE_IP_ADDRESSES/${2}/g\" /etc/named.conf
 "
 
   [ $? -ne 0 ] && echo "Failed to set ACL list on ${1}" && exit 1
@@ -277,7 +360,6 @@ then
   exit 1
 fi
 
-declare -a acllist
 
 IFS=',' read -a masters <<< "${MASTER}"
 IFS=',' read -a nodes <<< "${NODES}"
@@ -298,15 +380,17 @@ do
   fi
 
   installDNSserver ${privateip}
-  prepDNSserver ${privateip} ${BASE_DOMAIN} ${privateip} ${publicip}
+  prepDNSserver ${privateip} ${publicip} ${BASE_DOMAIN}
+
   setDNSservers ${privateip} ${BASE_DOMAIN} ${privateip}
+  prepPTRConfig ${privateip} ${privateip} ${BASE_DOMAIN}
   setIPtables ${privateip}
-  setHostname ${privateip} master${i}.${BASE_DOMAIN}
 
   createDNSrecord ${privateip} ${privateip} ${publicip} ns1 "A"
   createDNSrecord ${privateip} ${privateip} ${publicip} master${i} "A"
+  createDNSrecord ${privateip} ${privateip} ${publicip} master${i}.${BASE_DOMAIN} "PTR"
 
-  acllist+=(${privateip})
+  A_ACLlist+=(${privateip})
 
   i=$((i+1))
 done
@@ -331,27 +415,40 @@ do
   do
     masterip=${m%|*}
 
+    prepPTRConfig ${masterip} ${privateip} ${BASE_DOMAIN}
     setDNSservers ${privateip} ${BASE_DOMAIN} ${masterip}
     createDNSrecord ${masterip} ${privateip} ${publicip} node${i} "A"
+    createDNSrecord ${masterip} ${privateip} ${publicip} node${i}.${BASE_DOMAIN} "PTR"
   done
 
-  acllist+=(${privateip})
+  A_ACLlist+=(${privateip})
 
   i=$((i+1))
 done
 
 fullacllist=
-for a in "${acllist[@]}"
+for a in "${A_ACLlist[@]}"
 do
   fullacllist="${fullacllist}\\t${a}\/32;\\n"
 done
 
+
+i=
+[ ${#masters[@]} -gt 1 ] && i=1
+
 for m in "${masters[@]}"
 do
-  masterip=${m%|*}
-  setACLlist ${masterip} ${fullacllist}
-  restartDNSserver ${masterip}
+  privateip=${m%|*}
+  publicip=${m#*|}
+
+  setACLlist ${privateip} ${fullacllist}
+  setHostname ${privateip} master${i}.${BASE_DOMAIN}
+
+  restartDNSserver ${privateip}
+
+  i=$((i+1))
 done
 
 echo "DNS configuration completed successfully!"
 exit 0
+
