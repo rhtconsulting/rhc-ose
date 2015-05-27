@@ -1,15 +1,67 @@
 #!/bin/bash
+<<<<<<< HEAD
+
+#
+#   Copyright 2015 Red Hat Inc.
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+#
+
+#
+# osc-provision - Full script-based provisioning of an OpenShift Enterprise 3 envioronment
+#
+# Usage: See usage function below
+#
+# TODO:
+#  - Pull together all scripts to provision a complete environment
+
+usage() {
+  echo "
+  Usage: $0 --num-nodes=<integer> [options]
+
+  Options:
+  --openshift-domain <domain>   : Base domain name for your OpenShift environment (default: ose.example.com)
+  --cloudapp-domain <domain>    : Wildcard domain for your applications (default: *.ose.example.com)
+  --master-is-node              : Master will also be provisioned as a node (set to false if not passed)
+  "
+}
+
+
+
 SSH_CMD='ssh -tt -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
+SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+# Set Default Values
+num_of_masters=1
+openshift_domain="ose.example.com"
+cloudapp_domain="*.ose.example.com"
+master_is_node=false
 
 # Process input
 for i in "$@"
 do
   case $i in
-    -m=*|--master=*)
-      MASTER="${i#*=}"
+    --num-nodes=*)
+      NUM_NODES="${i#*=}"
       shift;;
-    -n=*|--nodes=*)
-      NODES="${i#*=}"
+    --openshift-domain=*)
+      openshift_domain="${i#*=}"
+      shift;;
+    --cloudapp-domain=*)
+      cloudapp_domain="${i#*=}"
+      shift;;
+    --master-is-node)
+      master_is_node=true;
       shift;;
     *)
       echo "Invalid Option: ${i#*=}"
@@ -18,6 +70,13 @@ do
   esac
 done
 
+if [ -z $num_of_nodes ]; then
+  echo "Missing argument: --num_of_nodes <integer>"
+  usage
+  exit 1;
+fi
 
-${SSH_CMD} root@${MASTER} "git clone https://github.com/etsauer/ose-utils.git --branch openshift-enterprise-3"
-${SSH_CMD} root@${MASTER} "bash ~/ose-utils/provisioning/osc-install -m=${MASTER} -n=${NODES} -a=prep,dns,install,post"
+${SCRIPT_BASE_DIR}/osc-sync-keys -m=${MASTER#*|} -n=${NODES#*|}
+${SSH_CMD} root@${MASTER#*|} "rm -rf ~/ose-utils"
+${SSH_CMD} root@${MASTER#*|} "git clone https://github.com/etsauer/ose-utils.git --branch openshift-enterprise-3 ~/ose-utils"
+${SSH_CMD} root@${MASTER#*|} "bash ~/ose-utils/provisioning/osc-install -m=\"${MASTER}\" -n=\"${NODES}\" -a=dns"
