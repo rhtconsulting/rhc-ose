@@ -94,7 +94,7 @@ do
       options="${options} --file /root/.ssh/authorized_keys=$1";
       shift;;
     "--security-groups")
-      options="${options} --security-groups=$1";
+      options="${options} --security-groups $1";
       shift;;
     "--num-instances")
       num_instances=$1;
@@ -117,16 +117,10 @@ done
 openstack_cred=${OPENSTACK_CRED_HOME:-~/.openstack/openrc.sh}
 image_name_search=${image_name:-"rhel-guest-image-7.0-20140618.1"}
 rc_file="${openstack_cred}"
-#security_groups="default,osebroker,osenode"
-security_groups="default"
 flavor="m1.large"
 if [ ! -f $rc_file ]; then
   safe_out "error" "OpenStack API Credentials not found. Default location is ${rc_file}, or set OPENSTACK_CRED_HOME."
   exit 1
-fi
-
-if [ ! -z $security_groups ]; then
-  options="${options} --security-groups ${security_groups}"
 fi
 
 if [ ! -z $num_instances ]; then
@@ -175,9 +169,9 @@ for instance_id in ${instance_ids//$'\n'/ }; do
   safe_out "info" "Instance ${instance_name} is accessible and ready to use."
 
   if [ "$interactive" = "true" ]; then
-    echo "Instance IP: ${instance_ip}"
+    echo "Instance IP: ${instance_ip//,/|}"
   else
-    echo "$instance_ip"
+    echo "${instance_ip//,/|}"
   fi
-  
+
 done
