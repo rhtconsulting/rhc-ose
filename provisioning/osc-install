@@ -131,12 +131,12 @@ do_install() {
 
   echo "Install"
 
-  setup_ansible
   setup_training_repo
+  setup_ansible
 
   # Run ansible
-  command="ansible-playbook ~/openshift-ansible/playbooks/byo/config.yml"
-  [ $command ] || error_out "Ansible install had failures" $ERROR_CODE_ANSIBLE_INSTALL_FAILURE
+  command="ansible-playbook /root/openshift-ansible/playbooks/byo/config.yml"
+  $command || error_out "Ansible install had failures" $ERROR_CODE_ANSIBLE_INSTALL_FAILURE
 }
 
 do_post(){
@@ -190,7 +190,7 @@ ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=$ansible_branch}
 OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
 MASTER_HOSTNAME=$(get_hostnames $(get_private_ips "${MASTER}"))
-NODE_HOSTNAMES==$(get_hostnames $(get_private_ips "${NODES}"))
+NODE_HOSTNAMES=$(get_hostnames $(get_private_ips "${NODES}"))
 
 # Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}
