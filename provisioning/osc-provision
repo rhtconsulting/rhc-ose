@@ -1,5 +1,4 @@
 #!/bin/bash
-<<<<<<< HEAD
 
 #
 #   Copyright 2015 Red Hat Inc.
@@ -22,9 +21,13 @@
 #
 # Usage: See usage function below
 #
-# TODO:
-#  - Pull together all scripts to provision a complete environment
+SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
+## Functions
+
+source ${SCRIPT_BASE_DIR}/lib/helpers
+
+# Show script usage
 usage() {
   echo "
   Usage: $0 --num-nodes=<integer> [options]
@@ -33,26 +36,57 @@ usage() {
   --openshift-domain <domain>   : Base domain name for your OpenShift environment (default: ose.example.com)
   --cloudapp-domain <domain>    : Wildcard domain for your applications (default: *.ose.example.com)
   --master-is-node              : Master will also be provisioned as a node (set to false if not passed)
+  --no-install                  : Provision instances and sync keys, but do not run the OpenShift installer
   "
 }
 
+random_string() {
+  cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w ${1:-16} | head -n 1
+}
 
+provision_masters() {
+  instance_name="master-${ENV_ID}"
+  command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
+  --instance-name ${instance_name} \
+  --key esauer \
+  --image-name ${IMAGE_NAME} \
+  --security-groups ${SECURITY_GROUP_MASTER} \
+  --n \
+  --debug"
+  $command || error_out "Master Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
+}
 
-SSH_CMD='ssh -tt -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
-SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+provision_nodes() {
+  instance_name="node-${ENV_ID}"
+  command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
+  --instance-name ${instance_name} \
+  --key esauer \
+  --image-name ${IMAGE_NAME} \
+  --security-groups ${SECURITY_GROUP_NODE} \
+  --num-instances $num_of_nodes \
+  --n \
+  --debug"
+  $command || error_out "Node Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
+}
+
+source ${SCRIPT_BASE_DIR}/lib/error_codes
 
 # Set Default Values
-num_of_masters=1
+num_of_masters=1 # Not used; currently only support a single master
 openshift_domain="ose.example.com"
 cloudapp_domain="*.ose.example.com"
 master_is_node=false
+platform="openstack" # Only one we support
+image_name="ose3-base"
+security_group_master="ose3-master"
+security_group_node="ose3-node"
 
 # Process input
 for i in "$@"
 do
   case $i in
     --num-nodes=*)
-      NUM_NODES="${i#*=}"
+      num_of_nodes="${i#*=}"
       shift;;
     --openshift-domain=*)
       openshift_domain="${i#*=}"
@@ -63,20 +97,54 @@ do
     --master-is-node)
       master_is_node=true;
       shift;;
+    --no-install)
+      no_install=true;
+      shift;;
     *)
-      echo "Invalid Option: ${i#*=}"
+      echo "Invalid Option: ${i%=*}"
       exit 1;
       ;;
   esac
 done
 
 if [ -z $num_of_nodes ]; then
-  echo "Missing argument: --num_of_nodes <integer>"
+  echo "Missing argument: --num-nodes <integer>"
   usage
   exit 1;
 fi
 
-${SCRIPT_BASE_DIR}/osc-sync-keys -m=${MASTER#*|} -n=${NODES#*|}
-${SSH_CMD} root@${MASTER#*|} "rm -rf ~/ose-utils"
-${SSH_CMD} root@${MASTER#*|} "git clone https://github.com/etsauer/ose-utils.git --branch openshift-enterprise-3 ~/ose-utils"
-${SSH_CMD} root@${MASTER#*|} "bash ~/ose-utils/provisioning/osc-install -m=\"${MASTER}\" -n=\"${NODES}\" -a=dns"
+# Set up environment based on default values and User input
+SSH_CMD='ssh -tt -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
+ENV_ID="$(random_string 8)"
+IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name}
+SECURITY_GROUP_MASTER=${CONF_SECURITY_GROUP_MASTER:-$security_group_master}
+SECURITY_GROUP_NODE=${CONF_SECURITY_GROUP_NODE:-$security_group_node}
+
+# Provision instances
+echo "Provisioning master. This could take several minutes."
+master_ip=$(provision_masters)
+echo "Complete!"
+echo "Provisioning $num_of_nodes nodes. This could take several minutes."
+node_ips=$(provision_nodes)
+echo "Complete!"
+
+master_public=$(get_public_ips "${master_ip}")
+node_publics=$(get_public_ips "${node_ips}")
+
+# Sync SSH keys
+${SCRIPT_BASE_DIR}/osc-sync-keys -m="${master_public}" -n="${master_public},${node_publics}"
+
+if $master_is_node; then
+  node_publics="${master_public},${node_publics}"
+fi
+
+echo "Master: ${master_ip}"
+echo "Nodes: ${node_ips//$'\n'/,}"
+
+# TODO:
+#  - Pull together all scripts to provision a complete environment
+
+# Pull Repo into master so we can continue installation
+#${SSH_CMD} root@${MASTER#*|} "rm -rf ~/ose-utils"
+#${SSH_CMD} root@${MASTER#*|} "git clone https://github.com/etsauer/ose-utils.git --branch openshift-enterprise-3 ~/ose-utils"
+#${SSH_CMD} root@${MASTER#*|} "bash ~/ose-utils/provisioning/osc-install -m=\"${MASTER}\" -n=\"${NODES}\" -a=dns"
