@@ -1,0 +1,260 @@
+{
+    "kind": "Config",
+    "apiVersion": "v1beta1",
+    "metadata": {
+        "creationTimestamp": null
+    },
+    "items": [
+        {
+            "kind": "Service",
+            "id": "kitchensink-http-service",
+            "creationTimestamp": null,
+            "apiVersion": "v1beta1",
+            "annotations": {
+                "description": "The web server's http port."
+            },
+            "port": 8080,
+            "protocol": "TCP",
+            "containerPort": 8080,
+            "labels": {
+                "application": "kitchensink",
+                "template": "eap6-basic-sti"
+            },
+            "selector": {
+                "deploymentConfig": "kitchensink"
+            },
+            "sessionAffinity": "None",
+            "ports": [
+                {
+                    "name": "",
+                    "protocol": "TCP",
+                    "port": 8080,
+                    "containerPort": 8080
+                }
+            ]
+        },
+        {
+            "kind": "Service",
+            "id": "kitchensink-ping",
+            "creationTimestamp": null,
+            "apiVersion": "v1beta1",
+            "annotations": {
+                "description": "Ping service for clustered applications."
+            },
+            "port": 8888,
+            "protocol": "TCP",
+            "containerPort": 8888,
+            "labels": {
+                "application": "kitchensink",
+                "template": "eap6-basic-sti"
+            },
+            "selector": {
+                "deploymentConfig": "kitchensink"
+            },
+            "portalIP": "None",
+            "sessionAffinity": "None",
+            "ports": [
+                {
+                    "name": "",
+                    "protocol": "TCP",
+                    "port": 8888,
+                    "containerPort": 8888
+                }
+            ]
+        },
+        {
+            "kind": "Route",
+            "apiVersion": "v1beta1",
+            "metadata": {
+                "name": "kitchensink-http-route",
+                "creationTimestamp": null,
+                "labels": {
+                    "application": "kitchensink",
+                    "template": "eap6-basic-sti"
+                },
+                "annotations": {
+                    "description": "Route for application's http service."
+                }
+            },
+            "host": "kitchensink.ose.example.com",
+            "serviceName": "kitchensink-http-service"
+        },
+        {
+            "kind": "ImageStream",
+            "apiVersion": "v1beta1",
+            "metadata": {
+                "name": "kitchensink",
+                "creationTimestamp": null,
+                "labels": {
+                    "application": "kitchensink",
+                    "template": "eap6-basic-sti"
+                }
+            },
+            "spec": {},
+            "status": {
+                "dockerImageRepository": ""
+            }
+        },
+        {
+            "kind": "BuildConfig",
+            "apiVersion": "v1beta1",
+            "metadata": {
+                "name": "kitchensink",
+                "creationTimestamp": null,
+                "labels": {
+                    "application": "kitchensink",
+                    "template": "eap6-basic-sti"
+                }
+            },
+            "triggers": [
+                {
+                    "type": "github",
+                    "github": {
+                        "secret": "${GITHUB_TRIGGER_SECRET}"
+                    }
+                },
+                {
+                    "type": "generic",
+                    "generic": {
+                        "secret": "secret}"
+                    }
+                },
+                {
+                    "type": "imageChange",
+                    "imageChange": {
+                        "image": "registry.access.redhat.com/jboss-eap-6/eap-openshift:6.4}",
+                        "from": {
+                            "name": "jboss-eap6-openshift"
+                        },
+                        "imageRepositoryRef": {
+                            "name": "jboss-eap6-openshift"
+                        },
+                        "tag": "6.4}"
+                    }
+                }
+            ],
+            "parameters": {
+                "source": {
+                    "type": "Git",
+                    "git": {
+                        "uri": "https://github.com/jboss-developer/jboss-eap-quickstarts",
+                        "ref": "6.4.x"
+                    },
+                    "contextDir": "kitchensink"
+                },
+                "strategy": {
+                    "type": "STI",
+                    "stiStrategy": {
+                        "tag": "6.4",
+                        "from": {
+                            "kind": "ImageStream",
+                            "name": "jboss-eap6-openshift",
+			    "namespace": "openshift"
+                        },
+                        "clean": true
+                    }
+                },
+                "output": {
+                    "to": {
+                        "name": "kitchensink"
+                    }
+                }
+            }
+        },
+        {
+            "kind": "DeploymentConfig",
+            "apiVersion": "v1beta1",
+            "metadata": {
+                "name": "kitchensink",
+                "creationTimestamp": null,
+                "labels": {
+                    "application": "kitchensink",
+                    "template": "eap6-basic-sti"
+                }
+            },
+            "triggers": [
+                {
+                    "type": "ImageChange",
+                    "imageChangeParams": {
+                        "automatic": true,
+                        "containerNames": [
+                            "kitchensink"
+                        ],
+                        "from": {
+                            "name": "kitchensink"
+                        },
+                        "tag": "latest",
+                        "lastTriggeredImage": ""
+                    }
+                }
+            ],
+            "template": {
+                "strategy": {
+                    "type": "Recreate"
+                },
+                "controllerTemplate": {
+                    "replicas": 1,
+                    "replicaSelector": {
+                        "deploymentConfig": "kitchensink"
+                    },
+                    "podTemplate": {
+                        "desiredState": {
+                            "manifest": {
+                                "version": "v1beta2",
+                                "id": "",
+                                "volumes": null,
+                                "containers": [
+                                    {
+                                        "name": "kitchensink",
+                                        "image": "kitchensink",
+                                        "ports": [
+                                            {
+                                                "name": "kitchensink-tcp-8080",
+                                                "containerPort": 8080,
+                                                "protocol": "TCP"
+                                            },
+                                            {
+                                                "name": "kitchensink-ping-8888",
+                                                "containerPort": 8888,
+                                                "protocol": "TCP"
+                                            }
+                                        ],
+                                        "env": [
+                                            {
+                                                "name": "OPENSHIFT_PING_SERVICE",
+                                                "key": "OPENSHIFT_PING_SERVICE",
+                                                "value": "eap-app-ping"
+                                            },
+                                            {
+                                                "name": "OPENSHIFT_PING_NAMESPACE",
+                                                "key": "OPENSHIFT_PING_NAMESPACE"
+                                            },
+                                            {
+                                                "name": "OPENSHIFT_PING_DOMAIN",
+                                                "key": "OPENSHIFT_PING_DOMAIN",
+                                                "value": "local"
+                                            }
+                                        ],
+                                        "resources": {},
+                                        "terminationMessagePath": "/dev/termination-log",
+                                        "imagePullPolicy": "PullAlways",
+                                        "capabilities": {}
+                                    }
+                                ],
+                                "restartPolicy": {
+                                    "always": {}
+                                },
+                                "dnsPolicy": "ClusterFirst"
+                            }
+                        },
+                        "labels": {
+                            "application": "kitchensink",
+                            "deploymentConfig": "kitchensink",
+                            "template": "eap6-basic-sti"
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
