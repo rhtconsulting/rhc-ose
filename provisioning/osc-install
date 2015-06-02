@@ -189,8 +189,8 @@ OPENSHIFT_VERSION=${CONF_OPENSHIFT_VERSION:=$openshift_version}
 ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=$ansible_branch}
 OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
-MASTER_HOSTNAME=$(get_hostnames $(get_private_ips "${MASTER}"))
-NODE_HOSTNAMES=$(get_hostnames $(get_private_ips "${NODES}"))
+MASTER_HOSTNAME=$(get_hostnames $(get_private_ips "${MASTER}")) ${OPENSHIFT_BASE_DOMAIN}
+NODE_HOSTNAMES=$(get_hostnames $(get_private_ips "${NODES}")) ${OPENSHIFT_BASE_DOMAIN}
 
 # Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}

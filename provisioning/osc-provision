@@ -26,6 +26,7 @@ SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 ## Functions
 
 source ${SCRIPT_BASE_DIR}/lib/helpers
+source ${SCRIPT_BASE_DIR}/lib/constants
 
 # Show script usage
 usage() {
@@ -114,7 +115,7 @@ if [ -z $num_of_nodes ]; then
 fi
 
 # Set up environment based on default values and User input
-SSH_CMD='ssh -tt -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
+
 ENV_ID="$(random_string 8)"
 IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name}
 SECURITY_GROUP_MASTER=${CONF_SECURITY_GROUP_MASTER:-$security_group_master}
