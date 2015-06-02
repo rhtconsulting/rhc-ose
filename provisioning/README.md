@@ -5,24 +5,21 @@ No warranty is offered or implied and use of these scripts may destroy your enti
 ## Semi-automated install (byo VMs)
 
 1. Create VMs (1 master, N nodes) to which you have root access via SSH keys.
-2. Run osc-sync-keys to give master SSH access to Nodes
-1. Install both MASTER and NODE to master instance ONLY:
+2. Run osc-sync-keys from your local machine to give master SSH access to Nodes
 ```bash
-./osc-install --master=mymaster.ose.example.com --nodes=node1.ose.example.com,nodeN.ose.example.com --actions=prep,dns,install,post
+[me@localhost]$ ./osc-sync-keys --master="<master ip>" --nodes="<node1 ip>,<node2 ip>,...,<nodeN ip>"
 ```
-3. When prompted, configure named on your Master, such that you can refer to all VMs by hostname on any VM.
-4. Create a wildcard entry for all applications (i.e. *.cloudapps.example.com) which resolves to the Master
-5. Press enter in your script session to continue.
+3. Log into your master and clone the repository
+```bash
+[me@localhost]$ ssh root@<master ip>
+[root@<master>]# git clone git@github.com:redhat-consulting/ose-utils.git
+```
+4. Run the installer.
+```bash
+[root@<master>]# ./osc-install --master="<master private ip>|<master public ip>" --nodes="<node1 private ip>|<node1 public ip>,...,<nodeN private ip|nodeN public ip>" --actions=prep,dns,install,post
+```
 
-6. Create your router and docker registry:
-```bash
-openshift ex router --create
-openshift ex registry --create
-```
-7. Re-run install to add the nodes:
-```bash
-./osc-install --master=mymaster.ose.example.com --nodes=node1.ose.example.com,node2.ose.example.com,...
-```
+You'll need to create you openshift router and registry (see https://github.com/openshift/training/) once the installation finishes.
 
 ## Fully Automated Environment Provisioning
 
