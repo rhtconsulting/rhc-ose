@@ -29,11 +29,10 @@
 #
 
 
+
 #
 # CONSTANTS
 #
-SSH_CMD='ssh -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
-SCP_CMD='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 VAR_NAMED_STATIC_DIR="/var/named/static"
 
@@ -41,6 +40,11 @@ VAR_NAMED_STATIC_DIR="/var/named/static"
 # GLOBALS
 #
 declare -a A_ACLlist
+
+#
+# Source common features
+#
+source ${SCRIPT_BASE_DIR}/lib/constants
 
 #
 # FUNCTIONS
@@ -134,7 +138,7 @@ function setIPtables()
   tcp='\-A INPUT \-p tcp \-m state \-\-state NEW \-m tcp \-\-dport 53 \-j ACCEPT'
 
   ${SSH_CMD} root@${1} "
-  [ ! -e "/etc/sysconfig/iptables" ] && exit 1
+  yum -y install iptables-services
 
   [ \$(grep -c '"$udp"' /etc/sysconfig/iptables) == 0 ] && \
   sed -i \"/-A INPUT -j REJECT/i $udp\" /etc/sysconfig/iptables
@@ -221,6 +225,7 @@ function getInAddrArpa()
 # $3 - public ip
 # $4 - hostname
 # $5 - DNS record type
+# $6 - TTL value
 #
 
 function createDNSrecord()
@@ -230,19 +235,26 @@ function createDNSrecord()
   publicip=${3}
   hostname=${4}
   dnstype=${5}
+  ttlvalue=${6}
+
+  ttl="3600"
+  if [ -n "${ttlvalue}" ]
+  then
+    ttl="${ttlvalue}"
+  fi
 
   if [ "${dnstype}" = "A" ]
   then
     ${SSH_CMD} root@${masterip} "
-    echo \"${hostname}          ${dnstype}      ${privateip}\" >> ${VAR_NAMED_STATIC_DIR}/private-*
-    echo \"${hostname}          ${dnstype}      ${publicip}\" >> ${VAR_NAMED_STATIC_DIR}/public-*
+    echo \"${hostname}  ${ttl}  IN   ${dnstype}   ${privateip}\" >> ${VAR_NAMED_STATIC_DIR}/private-*
+    echo \"${hostname}  ${ttl}  IN   ${dnstype}   ${publicip}\" >> ${VAR_NAMED_STATIC_DIR}/public-*
   "
   elif [ "${dnstype}" = "PTR" ]
   then
     in_addr=`getInAddrArpa ${privateip}`
     ptrrecord=`echo ${privateip} | awk -F . '{print $4"."$3}'`
     ${SSH_CMD} root@${1} "
-    echo \"${ptrrecord}          ${dnstype}      ${hostname}\" >> ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
+    echo \"${ptrrecord}  ${ttl}  IN  ${dnstype}   ${hostname}\" >> ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
   "
   fi
 
@@ -343,6 +355,11 @@ do
       shift
     ;;
 
+    -h|--help)
+      usage
+      exit 0
+    ;;
+
     *)
       echo "Invalid Option: ${i#*=}"
       exit 1;
@@ -380,15 +397,17 @@ do
   fi
 
   installDNSserver ${privateip}
-  prepDNSserver ${privateip} ${publicip} ${BASE_DOMAIN}
-
-  setDNSservers ${privateip} ${BASE_DOMAIN} ${privateip}
-  prepPTRConfig ${privateip} ${privateip} ${BASE_DOMAIN}
   setIPtables ${privateip}
 
-  createDNSrecord ${privateip} ${privateip} ${publicip} ns1 "A"
-  createDNSrecord ${privateip} ${privateip} ${publicip} master${i} "A"
-  createDNSrecord ${privateip} ${privateip} ${publicip} master${i}.${BASE_DOMAIN} "PTR"
+  prepDNSserver ${privateip} ${publicip} ${BASE_DOMAIN}
+  prepPTRConfig ${privateip} ${privateip} ${BASE_DOMAIN}
+
+  createDNSrecord ${privateip} ${privateip} ${publicip} 'ns1' "A"
+  createDNSrecord ${privateip} ${privateip} ${publicip} "master${i}" "A"
+  createDNSrecord ${privateip} ${privateip} ${publicip} '*' "A" 300 
+  createDNSrecord ${privateip} ${privateip} ${publicip} "master${i}.${BASE_DOMAIN}" "PTR"
+
+  setDNSservers ${privateip} ${BASE_DOMAIN} ${privateip}
 
   A_ACLlist+=(${privateip})
 
@@ -417,8 +436,8 @@ do
 
     prepPTRConfig ${masterip} ${privateip} ${BASE_DOMAIN}
     setDNSservers ${privateip} ${BASE_DOMAIN} ${masterip}
-    createDNSrecord ${masterip} ${privateip} ${publicip} node${i} "A"
-    createDNSrecord ${masterip} ${privateip} ${publicip} node${i}.${BASE_DOMAIN} "PTR"
+    createDNSrecord ${masterip} ${privateip} ${publicip} "node${i}" "A"
+    createDNSrecord ${masterip} ${privateip} ${publicip} "node${i}.${BASE_DOMAIN}" "PTR"
   done
 
   A_ACLlist+=(${privateip})
