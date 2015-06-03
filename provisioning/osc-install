@@ -4,6 +4,7 @@ SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 ## Functions
 source ${SCRIPT_BASE_DIR}/lib/helpers
+source ${SCRIPT_BASE_DIR}/lib/constants
 
 # Show script usage
 usage() {
@@ -37,6 +38,9 @@ process_actions() {
 
 setup_ansible() {
   for node in ${NODE_HOSTNAMES//,/ }; do
+    # This is a hack to make sure we don't get host key checks during ansible run
+    validate_ssh ${node}
+
     nodestring="$nodestring
     ${node} openshift_hostname=${node} openshift_public_hostname=${node}"
   done
@@ -106,6 +110,12 @@ setup_training_repo() {
   cd
 }
 
+# Usage: validate_ssh <hostname>
+validate_ssh() {
+    ${SSH_CMD} root@${1} exit
+    [ $? -eq 0 ] || error_out "Could not establish ssh connection to ${1}" ${ERROR_CODE_SSH_FAILURE}
+}
+
 ## Action functions
 do_prep() {
   echo "Beginning action: Prep"
@@ -146,8 +156,14 @@ do_post(){
   # Setup infrastructure topology
 
   # Create router infrastructure
+  osadm router --create \
+  --credentials=/var/lib/openshift/openshift.local.certificates/openshift-router/.kubeconfig \
+  --images='registry.access.redhat.com/openshift3_beta/ose-${component}:${version}'
 
   # Create registry
+  osadm registry --create \
+  --credentials=/var/lib/openshift/openshift.local.certificates/openshift-registry/.kubeconfig \
+  --images='registry.access.redhat.com/openshift3_beta/ose-${component}:${version}'
 }
 
 # Process input
@@ -189,8 +205,8 @@ OPENSHIFT_VERSION=${CONF_OPENSHIFT_VERSION:=$openshift_version}
 ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=$ansible_branch}
 OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
-MASTER_HOSTNAME=$(get_hostnames $(get_private_ips "${MASTER}")) ${OPENSHIFT_BASE_DOMAIN}
-NODE_HOSTNAMES=$(get_hostnames $(get_private_ips "${NODES}")) ${OPENSHIFT_BASE_DOMAIN}
+MASTER_HOSTNAME=$(get_hostnames $(get_private_ips "${MASTER}") "${OPENSHIFT_BASE_DOMAIN}")
+NODE_HOSTNAMES=$(get_hostnames $(get_private_ips "${NODES}") "${OPENSHIFT_BASE_DOMAIN}")
 
 # Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}
