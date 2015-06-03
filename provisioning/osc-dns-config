@@ -254,7 +254,7 @@ function createDNSrecord()
     in_addr=`getInAddrArpa ${privateip}`
     ptrrecord=`echo ${privateip} | awk -F . '{print $4"."$3}'`
     ${SSH_CMD} root@${1} "
-    echo \"${ptrrecord}  ${ttl}  IN  ${dnstype}   ${hostname}\" >> ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
+    echo \"${ptrrecord}  ${ttl}  IN  ${dnstype}   ${hostname}.\" >> ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
   "
   fi
 
