@@ -397,16 +397,17 @@ do
   fi
 
   installDNSserver ${privateip}
-  prepDNSserver ${privateip} ${publicip} ${BASE_DOMAIN}
-
-  setDNSservers ${privateip} ${BASE_DOMAIN} ${privateip}
-  prepPTRConfig ${privateip} ${privateip} ${BASE_DOMAIN}
   setIPtables ${privateip}
 
+  prepDNSserver ${privateip} ${publicip} ${BASE_DOMAIN}
+  prepPTRConfig ${privateip} ${privateip} ${BASE_DOMAIN}
+
   createDNSrecord ${privateip} ${privateip} ${publicip} 'ns1' "A"
-  createDNSrecord ${privateip} ${privateip} ${publicip} master${i} "A"
+  createDNSrecord ${privateip} ${privateip} ${publicip} "master${i}" "A"
   createDNSrecord ${privateip} ${privateip} ${publicip} '*' "A" 300 
-  createDNSrecord ${privateip} ${privateip} ${publicip} master${i}.${BASE_DOMAIN} "PTR"
+  createDNSrecord ${privateip} ${privateip} ${publicip} "master${i}.${BASE_DOMAIN}" "PTR"
+
+  setDNSservers ${privateip} ${BASE_DOMAIN} ${privateip}
 
   A_ACLlist+=(${privateip})
 
@@ -435,8 +436,8 @@ do
 
     prepPTRConfig ${masterip} ${privateip} ${BASE_DOMAIN}
     setDNSservers ${privateip} ${BASE_DOMAIN} ${masterip}
-    createDNSrecord ${masterip} ${privateip} ${publicip} node${i} "A"
-    createDNSrecord ${masterip} ${privateip} ${publicip} node${i}.${BASE_DOMAIN} "PTR"
+    createDNSrecord ${masterip} ${privateip} ${publicip} "node${i}" "A"
+    createDNSrecord ${masterip} ${privateip} ${publicip} "node${i}.${BASE_DOMAIN}" "PTR"
   done
 
   A_ACLlist+=(${privateip})
