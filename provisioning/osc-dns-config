@@ -398,10 +398,6 @@ fi
 IFS=',' read -a masters <<< "${MASTER}"
 IFS=',' read -a nodes <<< "${NODES}"
 
-i=
-[ ${#masters[@]} -gt 1 ] && i=1
-
-
 dh_private_ip=${DNS_HOST%|*}
 dh_public_ip=${DNS_HOST#*|}
 if [ -z "${dh_private_ip}" -o \
@@ -416,31 +412,6 @@ installDNSserver ${dh_private_ip}
 setIPtables ${dh_private_ip}
 prepDNSserver ${dh_private_ip} ${BASE_DOMAIN}
 createDNSrecord ${dh_private_ip} ${dh_private_ip} ${dh_public_ip} 'ns1' "A"
-
-for m in "${masters[@]}"
-do
-  privateip=${m%|*}
-  publicip=${m#*|}
-  if [ -z "${privateip}" -o \
-       -z "${publicip}" ]
-  then
-    echo "Invalid master IP combination for ${m}"
-    usage
-    exit 1
-  fi
-
-  prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN}
-
-  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "master${i}" "A"
-  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} '*' "A" 300 
-  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "master${i}.${BASE_DOMAIN}" "PTR"
-
-  setDNSservers ${privateip} ${BASE_DOMAIN} ${dh_private_ip}
-
-  A_ACLlist+=(${privateip})
-
-  i=$((i+1))
-done
 
 
 i=1
@@ -468,12 +439,6 @@ do
   i=$((i+1))
 done
 
-fullacllist=
-for a in "${A_ACLlist[@]}"
-do
-  fullacllist="${fullacllist}\\t${a}\/32;\\n"
-done
-
 
 i=
 [ ${#masters[@]} -gt 1 ] && i=1
@@ -482,12 +447,37 @@ for m in "${masters[@]}"
 do
   privateip=${m%|*}
   publicip=${m#*|}
+  if [ -z "${privateip}" -o \
+       -z "${publicip}" ]
+  then
+    echo "Invalid master IP combination for ${m}"
+    usage
+    exit 1
+  fi
 
-  setACLlist ${dh_private_ip} ${fullacllist}
+  prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN}
+
+  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "master${i}" "A"
+  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} '*' "A" 300 
+  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "master${i}.${BASE_DOMAIN}" "PTR"
+
+  setDNSservers ${privateip} ${BASE_DOMAIN} ${dh_private_ip}
+
+  A_ACLlist+=(${privateip})
+
   setHostname ${privateip} master${i}.${BASE_DOMAIN}
 
   i=$((i+1))
 done
+
+fullacllist=
+for a in "${A_ACLlist[@]}"
+do
+  fullacllist="${fullacllist}\\t${a}\/32;\\n"
+done
+
+# Finally, set the ACP list
+setACLlist ${dh_private_ip} ${fullacllist}
 
 # Make sure all configurations are activated
 restartDNSserver ${dh_private_ip}
