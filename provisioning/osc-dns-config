@@ -61,11 +61,13 @@ function usage()
   echo "  $0 -m=|--master=\"<master1 private ip|master1 public ip>,...,<masterN private ip|masterN public ip>\""
   echo "                   -n=|--nodes=\"<node1 private ip|node1 public ip>,...,<nodeN private ip|nodeN public ip>\""
   echo "                   -b=|--base_domain=\"<base domain>\""
+  echo "                   -d=|--dns_host=\"<DNS host private ip|DHS host public ip>\""
   echo ""
   echo "  where:"
   echo "    -m|--master      : comma separated list of master instances, private and public IPs separated by '|'"
   echo "    -n|--nodes       : comma separated list of node instances, private and public IPs separated by '|'"
   echo "    -b|--base_domain : base DNS domain for use with the master(s) and nodes"
+  echo "    -d|--dns_host    : server to use for hosting DNS (bind), private and public IPs separated by '|'"
 }
 
 
@@ -73,14 +75,16 @@ function usage()
 # Function to install the DNS server (bind/named)
 #
 # Parameters:
-# $1 - IP address for remote host
+# $1 - IP address for DNS server
 #
 
 function installDNSserver()
 {
-  ${SSH_CMD} root@${1} 'yum -y install bind bind-utils'
+  dns_host=${1}
 
-  [ $? -ne 0 ] && echo "Failed to install DNS server on ${1}" && exit 1
+  ${SSH_CMD} root@${dns_host} 'yum -y install bind bind-utils'
+
+  [ $? -ne 0 ] && echo "Failed to install DNS server on ${dns_host}" && exit 1
 }
 
 
@@ -88,40 +92,31 @@ function installDNSserver()
 # Function to prepare DNS server
 #
 # Parameters:
-# $1 - IP address for remote host
+# $1 - IP address for DNS server
 # $2 - base DNS domain name
-# $3 - private master IP address
-# $4 - public master IP address
 #
 
 function prepDNSserver()
 {
-  master_private_ip_address=${1}
-  master_public_ip_address=${2}
-  dns_domain=${3}
+  dns_host=${1}
+  dns_domain=${2}
 
-  ${SSH_CMD} root@${master_private_ip_address} "rm -rf ${VAR_NAMED_STATIC_DIR}/*"
+  ${SSH_CMD} root@${dns_host} "rm -rf ${VAR_NAMED_STATIC_DIR}/*"
 
-  ${SCP_CMD} -r ${SCRIPT_BASE_DIR}/templates/bind/* root@${master_private_ip_address}:/
-  [ $? -ne 0 ] && echo "Failed to copy template DNS files to master ${master_private_ip_address}" && exit 1
+  ${SCP_CMD} -r ${SCRIPT_BASE_DIR}/templates/bind/* root@${dns_host}:/
+  [ $? -ne 0 ] && echo "Failed to copy template DNS files to host ${dns_host}" && exit 1
 
-  ${SSH_CMD} root@${master_private_ip_address} "
+  ${SSH_CMD} root@${dns_host} "
   sed -i \"s/OSE_DNS_DOMAIN/${dns_domain}/g\" /etc/named.conf
-  sed -i \"s/MASTER_PRIVATE_IP_ADDRESS/${master_private_ip_address}/g\" /etc/named.conf
-  sed -i \"s/MASTER_PUBLIC_IP_ADDRESS/${master_public_ip_address}/g\" /etc/named.conf
 
   mv -f ${VAR_NAMED_STATIC_DIR}/private-OSE_DNS_DOMAIN.db ${VAR_NAMED_STATIC_DIR}/private-${dns_domain}.db
   sed -i \"s/OSE_DNS_DOMAIN/${dns_domain}/g\" ${VAR_NAMED_STATIC_DIR}/private-${dns_domain}.db
 
   mv -f ${VAR_NAMED_STATIC_DIR}/public-OSE_DNS_DOMAIN.db ${VAR_NAMED_STATIC_DIR}/public-${dns_domain}.db
   sed -i \"s/OSE_DNS_DOMAIN/${dns_domain}/g\" ${VAR_NAMED_STATIC_DIR}/public-${dns_domain}.db
-
-  netsize=`ip addr show | sed -ne "s/.*inet ${master_private_ip_address}\/\([0-9]*\).*/\1/p"`
-  subnet=`ipcalc -n ${master_private_ip_address}/${netsize} | sed -ne 's/^NETWORK=\(.*\)/\1/p'`
-
 "
 
-  [ $? -ne 0 ] && echo "Failed to prep DNS server on ${master_private_ip_address}" && exit 1
+  [ $? -ne 0 ] && echo "Failed to prep DNS server on ${dns_host}" && exit 1
 }
 
 
@@ -129,15 +124,17 @@ function prepDNSserver()
 # Function to set the IPtables rules to allow for DNS traffic
 #
 # Parameters:
-# $1 - IP address for remote host
+# $1 - IP address for DNS server 
 #
 
 function setIPtables()
 {
+  dns_host=${1}
+
   udp='\-A INPUT \-p udp \-m state \-\-state NEW \-m udp \-\-dport 53 \-j ACCEPT'
   tcp='\-A INPUT \-p tcp \-m state \-\-state NEW \-m tcp \-\-dport 53 \-j ACCEPT'
 
-  ${SSH_CMD} root@${1} "
+  ${SSH_CMD} root@${dns_host} "
   yum -y install iptables-services
 
   [ \$(grep -c '"$udp"' /etc/sysconfig/iptables) == 0 ] && \
@@ -149,7 +146,7 @@ function setIPtables()
   systemctl restart iptables
 "
 
-  [ $? -ne 0 ] && echo "Failed to set iptables on ${1}" && exit 1
+  [ $? -ne 0 ] && echo "Failed to set iptables on ${dns_host}" && exit 1
 }
 
 
@@ -158,22 +155,26 @@ function setIPtables()
 # nameserver(s) and search domain
 #
 # Parameters:
-# $1 - IP address for remote host
+# $1 - IP address for host server 
 # $2 - DNS search domain
 # $3 - nameserver(s)
 #
 
 function setDNSservers()
 {
-  ${SSH_CMD} root@${1} "
+  host=${1}
+  search_domain=${2}
+  nameserver=${3} 
+
+  ${SSH_CMD} root@${host} "
   sed -i 's/^PEERDNS=.*/PEERDNS=\"no\"/' /etc/sysconfig/network-scripts/ifcfg-*
   sed -i 's/^\(nameserver.*\)/# \1/g' /etc/resolv.conf
   sed -i 's/^\(search.*\)/# \1/g' /etc/resolv.conf
-  echo \"search ${2}\" >> /etc/resolv.conf
-  echo \"nameserver ${3}\" >> /etc/resolv.conf
+  echo \"search ${search_domain}\" >> /etc/resolv.conf
+  echo \"nameserver ${nameserver}\" >> /etc/resolv.conf
 "
 
-  [ $? -ne 0 ] && echo "Failed to configure DNS on ${1}" && exit 1
+  [ $? -ne 0 ] && echo "Failed to configure DNS on ${host}" && exit 1
 }
 
 
@@ -181,23 +182,26 @@ function setDNSservers()
 # Function to update the hostname
 #
 # Parameters:
-# $1 - IP address for remote host
+# $1 - IP address for DNS server
 # $2 - new hostname for host/instance
 #
 
 function setHostname()
 {
-  ${SSH_CMD} root@${1} "
+  dns_host=${1}
+  hname=${2}
+
+  ${SSH_CMD} root@${dns_host} "
   if [ -e \"/etc/cloud/cloud.cfg\" ]
   then
     sed -i 's/\(.*- set_hostname.*\)/# \1/' /etc/cloud/cloud.cfg
     sed -i 's/\(.*- update_hostname.*\)/# \1/' /etc/cloud/cloud.cfg
   fi
 
-  hostnamectl set-hostname ${2}
+  hostnamectl set-hostname ${hname}
 "
 
-  [ $? -ne 0 ] && echo "Failed to set hostname on ${1}" && exit 1
+  [ $? -ne 0 ] && echo "Failed to set hostname on ${dns_host}" && exit 1
 }
 
 
@@ -210,7 +214,9 @@ function setHostname()
 
 function getInAddrArpa()
 {
-  subnet=`ipcalc -n ${1}/16 | sed -ne 's/^NETWORK=\(.*\)/\1/p'`
+  subnet_address=${1}
+
+  subnet=`ipcalc -n ${subnet_address}/16 | sed -ne 's/^NETWORK=\(.*\)/\1/p'`
   in_addr=`echo ${subnet} | awk -F . '{print $2"."$1}'`
   echo "${in_addr}"
 }
@@ -220,7 +226,7 @@ function getInAddrArpa()
 # Function to create a new DNS record
 #
 # Parameters:
-# $1 - IP address for master / DNS server
+# $1 - IP address for DNS server
 # $2 - private ip
 # $3 - public ip
 # $4 - hostname
@@ -230,7 +236,7 @@ function getInAddrArpa()
 
 function createDNSrecord()
 {
-  masterip=${1}
+  dns_host=${1}
   privateip=${2}
   publicip=${3}
   hostname=${4}
@@ -245,7 +251,7 @@ function createDNSrecord()
 
   if [ "${dnstype}" = "A" ]
   then
-    ${SSH_CMD} root@${masterip} "
+    ${SSH_CMD} root@${dns_host} "
     echo \"${hostname}  ${ttl}  IN   ${dnstype}   ${privateip}\" >> ${VAR_NAMED_STATIC_DIR}/private-*
     echo \"${hostname}  ${ttl}  IN   ${dnstype}   ${publicip}\" >> ${VAR_NAMED_STATIC_DIR}/public-*
   "
@@ -253,12 +259,12 @@ function createDNSrecord()
   then
     in_addr=`getInAddrArpa ${privateip}`
     ptrrecord=`echo ${privateip} | awk -F . '{print $4"."$3}'`
-    ${SSH_CMD} root@${1} "
+    ${SSH_CMD} root@${dns_host} "
     echo \"${ptrrecord}  ${ttl}  IN  ${dnstype}   ${hostname}.\" >> ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
   "
   fi
 
-  [ $? -ne 0 ] && echo "Failed to create DNS record(${dnstype}) for ${hostname} on ${masterip}" && exit 1
+  [ $? -ne 0 ] && echo "Failed to create DNS record(${dnstype}) for ${hostname} on ${dns_host}" && exit 1
 }
 
 
@@ -268,14 +274,14 @@ function createDNSrecord()
 # /etc/named.conf + specific in-addr.arpa files
 #
 # Parameters:
-# $1 - IP address for master / DNS server
+# $1 - IP address for DNS server
 # $2 - IP address for PTR record
 # $3 - DNS domain
 #
 
 function prepPTRConfig()
 {
-  master=${1}
+  dns_host=${1}
   ptr_record=${2}
   dns_domain=${3}
 
@@ -283,7 +289,7 @@ function prepPTRConfig()
 
   in_addr_arpa_zone="zone \\\"${in_addr}.in-addr.arpa\\\" IN \{\n              type master\;\n              file \\\"static\/${in_addr}.in-addr.arpa.db\\\"\;\n        \}\;\n\n        # IN_ADDR_ARPA_ZONE"
 
-  ${SSH_CMD} root@${master} "
+  ${SSH_CMD} root@${dns_host} "
   [ -e "${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db" ] && exit 0
   cp -f ${VAR_NAMED_STATIC_DIR}/INV_IP_ADDR.in-addr.arpa.db ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
   sed -i \"s/OSE_DNS_DOMAIN/${dns_domain}/g\" ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
@@ -291,7 +297,7 @@ function prepPTRConfig()
   sed -i \"s/# IN_ADDR_ARPA_ZONE/${in_addr_arpa_zone}/g\" /etc/named.conf
 "
 
-  [ $? -ne 0 ] && echo "Failed to set PTR configuration on ${1}" && exit 1
+  [ $? -ne 0 ] && echo "Failed to set PTR configuration on ${dns_host}" && exit 1
 }
 
 
@@ -299,17 +305,20 @@ function prepPTRConfig()
 # Function to set the ACL list in the /etc/named.conf file
 #
 # Parameters:
-# $1 - IP address for master / DNS server
+# $1 - IP address for DNS server
 # $2 - ACL list
 #
 
 function setACLlist()
 {
-  ${SSH_CMD} root@${1} "
-  sed -i \"s/\t# ACL_PRIVATE_IP_ADDRESSES/${2}/g\" /etc/named.conf
+  dns_host=${1}
+  acl_list=${2}
+
+  ${SSH_CMD} root@${dns_host} "
+  sed -i \"s/\t# ACL_PRIVATE_IP_ADDRESSES/${acl_list}/g\" /etc/named.conf
 "
 
-  [ $? -ne 0 ] && echo "Failed to set ACL list on ${1}" && exit 1
+  [ $? -ne 0 ] && echo "Failed to set ACL list on ${dns_host}" && exit 1
 }
 
 
@@ -317,14 +326,16 @@ function setACLlist()
 # Function to restart DNS server to activate new settings
 #
 # Parameters:
-# $1 - IP address for master / DNS server
+# $1 - IP address for DNS server
 #
 
 function restartDNSserver()
 {
-  ${SSH_CMD} root@${1} 'systemctl restart named && systemctl enable named'
+  dns_host=${1}
 
-  [ $? -ne 0 ] && echo "Failed to reload DNS server on ${1}" && exit 1
+  ${SSH_CMD} root@${dns_host} 'systemctl restart named && systemctl enable named'
+
+  [ $? -ne 0 ] && echo "Failed to reload DNS server on ${dns_host}" && exit 1
 }
 
 
@@ -355,6 +366,11 @@ do
       shift
     ;;
 
+    -d=*|--dns_host=*)
+      DNS_HOST="${i#*=}"
+      shift
+    ;;
+
     -h|--help)
       usage
       exit 0
@@ -370,7 +386,8 @@ done
 
 if [ -z "${MASTER}" -o \
      -z "${NODES}"  -o \
-     -z "${BASE_DOMAIN}" ]
+     -z "${BASE_DOMAIN}" -o \
+     -z "${DNS_HOST}" ]
 then
   echo "Missing required args"
   usage
@@ -384,6 +401,22 @@ IFS=',' read -a nodes <<< "${NODES}"
 i=
 [ ${#masters[@]} -gt 1 ] && i=1
 
+
+dh_private_ip=${DNS_HOST%|*}
+dh_public_ip=${DNS_HOST#*|}
+if [ -z "${dh_private_ip}" -o \
+     -z "${dh_public_ip}" ]
+then
+  echo "Invalid DNS host IP combination for ${DNS_HOST}"
+  usage
+  exit 1
+fi
+
+installDNSserver ${dh_private_ip}
+setIPtables ${dh_private_ip}
+prepDNSserver ${dh_private_ip} ${BASE_DOMAIN}
+createDNSrecord ${dh_private_ip} ${dh_private_ip} ${dh_public_ip} 'ns1' "A"
+
 for m in "${masters[@]}"
 do
   privateip=${m%|*}
@@ -396,18 +429,13 @@ do
     exit 1
   fi
 
-  installDNSserver ${privateip}
-  setIPtables ${privateip}
+  prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN}
 
-  prepDNSserver ${privateip} ${publicip} ${BASE_DOMAIN}
-  prepPTRConfig ${privateip} ${privateip} ${BASE_DOMAIN}
+  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "master${i}" "A"
+  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} '*' "A" 300 
+  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "master${i}.${BASE_DOMAIN}" "PTR"
 
-  createDNSrecord ${privateip} ${privateip} ${publicip} 'ns1' "A"
-  createDNSrecord ${privateip} ${privateip} ${publicip} "master${i}" "A"
-  createDNSrecord ${privateip} ${privateip} ${publicip} '*' "A" 300 
-  createDNSrecord ${privateip} ${privateip} ${publicip} "master${i}.${BASE_DOMAIN}" "PTR"
-
-  setDNSservers ${privateip} ${BASE_DOMAIN} ${privateip}
+  setDNSservers ${privateip} ${BASE_DOMAIN} ${dh_private_ip}
 
   A_ACLlist+=(${privateip})
 
@@ -429,16 +457,11 @@ do
   fi
 
   setHostname ${privateip} node${i}.${BASE_DOMAIN}
+  setDNSservers ${privateip} ${BASE_DOMAIN} ${dh_private_ip}
 
-  for m in "${masters[@]}"
-  do
-    masterip=${m%|*}
-
-    prepPTRConfig ${masterip} ${privateip} ${BASE_DOMAIN}
-    setDNSservers ${privateip} ${BASE_DOMAIN} ${masterip}
-    createDNSrecord ${masterip} ${privateip} ${publicip} "node${i}" "A"
-    createDNSrecord ${masterip} ${privateip} ${publicip} "node${i}.${BASE_DOMAIN}" "PTR"
-  done
+  prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN}
+  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "node${i}" "A"
+  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "node${i}.${BASE_DOMAIN}" "PTR"
 
   A_ACLlist+=(${privateip})
 
@@ -460,13 +483,14 @@ do
   privateip=${m%|*}
   publicip=${m#*|}
 
-  setACLlist ${privateip} ${fullacllist}
+  setACLlist ${dh_private_ip} ${fullacllist}
   setHostname ${privateip} master${i}.${BASE_DOMAIN}
-
-  restartDNSserver ${privateip}
 
   i=$((i+1))
 done
+
+# Make sure all configurations are activated
+restartDNSserver ${dh_private_ip}
 
 echo "DNS configuration completed successfully!"
 exit 0
