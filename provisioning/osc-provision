@@ -78,7 +78,7 @@ openshift_domain="ose.example.com"
 cloudapp_domain="*.ose.example.com"
 master_is_node=false
 platform="openstack" # Only one we support
-image_name="ose3-base"
+image_name="ose3-beta4-base"
 security_group_master="ose3-master"
 security_group_node="ose3-node"
 
