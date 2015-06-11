@@ -10,9 +10,37 @@ Options:
   --auth-key-file <file location>     : Pass a custom authorized keys file to the root user (for multiple user access).
   --security-groups <security groups> : Specift security groups for your instance
   --num-instances <number>            : Number of instances to create with this profile
+  --add-volume <size>                 : Add a volume of a given size (in GB)
   --debug                             : Set log level to Debug
   --n                                  : non-iteractive mode for use with scripts. Doesn't log anything to the console
   "
+
+}
+
+# Usage: attach_volume <name> <size (in GB)>
+attach_volume() {
+  # Create Volume
+  volume_info="$(nova volume-create --display-name ${1} ${2})"
+  volume_id=$(echo "$volume_info" | awk '/ id / {print $4}')
+  creating=$(echo "$volume_info" | awk '/status/ {print $4}')
+  if [ "$creating" != "creating" ]; then
+    safe_out "error" "Volume create failed."
+    exit 2
+  fi
+
+  # Wait for it to be available
+  available_command="[ \$( nova volume-show ${volume_id} | grep -cE \"status.*available\" ) -eq 1 ]"
+  run_cmd_with_timeout "$available_command" 10
+
+#  volume_info="$( cinder show ${volume_id})"
+#  status=$(echo "$volume_info" | awk '/status/ {print $4}')
+
+  # Attach volume to instance
+  attached="$(nova volume-attach ${1} ${volume_id} /dev/vdb | awk '/ id / {print $4}')"
+  if [ $? -ne 0 ]; then
+    safe_out "error" "Failed to attach volume"
+    exit 2
+  fi
 
 }
 
@@ -54,7 +82,8 @@ run_cmd_with_timeout() {
   next_wait_time=0
   until eval "$command" || [ $next_wait_time -eq $timeout ]; do
     safe_out "debug" "Ran command at $next_wait_time: $command"
-    sleep $(( next_wait_time++ ))
+    sleep 1
+    ((next_wait_time++))
   done
   [ $next_wait_time -eq $timeout ] && safe_out "error" "Command $command timed out after $timeout seconds."
 }
@@ -85,6 +114,8 @@ do
       key="$1"; shift;;
     "--n")
       unset interactive;;
+    "--add-volume")
+      volume_size=$1; shift;;
     "--instance-name")
       instance_name="$1"; shift;;
     "--image-name")
@@ -159,12 +190,17 @@ for instance_id in ${instance_ids//$'\n'/ }; do
   instance_name=$(nova show $instance_id | awk "/ name/"'{print $4}')
 
   # need to wait for instance to be in running state
-  wait_for_instance_running $instance_name
+  wait_for_instance_running $instance_id
   safe_out "info" "Instance ${instance_name} is active. Waiting for ssh service to be ready..."
-  instance_ip=$(nova show ${instance_name} | awk '/os1-internal.*network/ {print $5$6}')
+  instance_ip=$(nova show ${instance_id} | awk '/os1-internal.*network/ {print $5$6}')
 
   # need to wait until ssh service comes up on instance
   wait_for_ssh ${instance_ip#*,} 20
+
+  if [ -n $volume_size ]; then
+    safe_out "info" "Adding a Volume"
+    attach_volume $instance_id $volume_size
+  fi
 
   safe_out "info" "Instance ${instance_name} is accessible and ready to use."
 

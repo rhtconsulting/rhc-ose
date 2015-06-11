@@ -52,6 +52,7 @@ provision_masters() {
   --key esauer \
   --image-name ${IMAGE_NAME} \
   --security-groups ${SECURITY_GROUP_MASTER} \
+  --add-volume 25 \
   --n \
   --debug"
   $command || error_out "Master Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
@@ -65,6 +66,7 @@ provision_nodes() {
   --image-name ${IMAGE_NAME} \
   --security-groups ${SECURITY_GROUP_NODE} \
   --num-instances $num_of_nodes \
+  --add-volume 25 \
   --n \
   --debug"
   $command || error_out "Node Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
@@ -78,7 +80,7 @@ openshift_domain="ose.example.com"
 cloudapp_domain="*.ose.example.com"
 master_is_node=false
 platform="openstack" # Only one we support
-image_name="ose3-beta4-base"
+image_name="ose3-base"
 security_group_master="ose3-master"
 security_group_node="ose3-node"
 
