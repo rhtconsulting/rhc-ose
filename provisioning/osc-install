@@ -4,6 +4,7 @@ SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 ## Functions
 source ${SCRIPT_BASE_DIR}/lib/helpers
+source ${SCRIPT_BASE_DIR}/lib/constants
 
 # Show script usage
 usage() {
@@ -37,6 +38,9 @@ process_actions() {
 
 setup_ansible() {
   for node in ${NODE_HOSTNAMES//,/ }; do
+    # This is a hack to make sure we don't get host key checks during ansible run
+    validate_ssh ${node}
+
     nodestring="$nodestring
     ${node} openshift_hostname=${node} openshift_public_hostname=${node}"
   done
@@ -106,6 +110,74 @@ setup_training_repo() {
   cd
 }
 
+setup_storage() {
+  yum -y install docker
+
+  vgdisplay vg-docker &>/dev/null
+  vgd=$?
+
+  vgdisplay vg-openshift &>/dev/null
+  vgo=$?
+
+  if [ ${vgd} -eq 0 ] && [ ${vgo} -eq 0 ]; then
+    echo "Storage already configured!"
+    return 0
+  fi
+
+  # Create partition table for the disk:
+  # /dev/vdb1 - 20GB for docker
+  # /dev/vdb2 - 2GB for openshift (/var/lib/openshift)
+  cat << EOF > /tmp/ose_vdb_layout.txt
+# partition table of /dev/vdb
+unit: sectors
+
+/dev/vdb1 : start=     2048, size= 41943040, Id=8e
+/dev/vdb2 : start= 41945088, size=  4194304, Id=8e
+/dev/vdb3 : start=        0, size=        0, Id= 0
+/dev/vdb4 : start=        0, size=        0, Id= 0
+EOF
+
+  sfdisk /dev/vdb < /tmp/ose_vdb_layout.txt
+  rm -f /tmp/ose_vdb_layout.txt
+
+  pvcreate /dev/vdb1
+  vgcreate vg-docker /dev/vdb1
+
+  cat << EOF > /etc/sysconfig/docker-storage-setup
+VG=vg-docker
+SETUP_LVM_THIN_POOL=yes
+EOF
+
+  # Let docker setup the storage based on the above config file
+  docker-storage-setup
+
+  # Create LVM and set up /var/lib/openshift
+  pvcreate /dev/vdb2
+  vgcreate vg-openshift /dev/vdb2
+  lvcreate -l 100%FREE -n lv-ose vg-openshift
+
+  mkfs.xfs -q -f /dev/vg-openshift/lv-ose
+
+  mkdir -p /var/lib/openshift
+  echo "/dev/vg-openshift/lv-ose        /var/lib/openshift              xfs defaults 0 0" >> /etc/fstab
+
+  mount -a
+
+  return 0
+}
+
+setup_storage_on_all_hosts() {
+  for host in ${MASTER_HOSTNAME} ${NODE_HOSTNAMES//,/ }; do
+    ${SSH_CMD} root@${host} "$(typeset -f); setup_storage"
+  done
+}
+
+# Usage: validate_ssh <hostname>
+validate_ssh() {
+    ${SSH_CMD} root@${1} exit
+    [ $? -eq 0 ] || error_out "Could not establish ssh connection to ${1}" ${ERROR_CODE_SSH_FAILURE}
+}
+
 ## Action functions
 do_prep() {
   echo "Beginning action: Prep"
@@ -118,8 +190,11 @@ do_prep() {
 
 do_dns() {
   echo "Beginning action: DNS"
-  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN}"
+  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN} -d=${NODES%%,*}"
   $command || error_out "DNS Install & Configuration failed." $ERROR_CODE_DNS_FAILURE
+
+  MASTER_HOSTNAME=$(get_hostnames $(get_private_ips "${MASTER}") "${OPENSHIFT_BASE_DOMAIN}")
+  NODE_HOSTNAMES=$(get_hostnames $(get_private_ips "${NODES}") "${OPENSHIFT_BASE_DOMAIN}")
 }
 
 do_install() {
@@ -131,6 +206,7 @@ do_install() {
 
   echo "Install"
 
+  setup_storage_on_all_hosts || error_out "Storage Setup had failures" $ERROR_CODE_STORAGE_FAILURE
   setup_training_repo
   setup_ansible
 
@@ -146,8 +222,14 @@ do_post(){
   # Setup infrastructure topology
 
   # Create router infrastructure
+  osadm router --create \
+  --credentials=/var/lib/openshift/openshift.local.certificates/openshift-router/.kubeconfig \
+  --images='registry.access.redhat.com/openshift3_beta/ose-${component}:${version}'
 
   # Create registry
+  osadm registry --create \
+  --credentials=/var/lib/openshift/openshift.local.certificates/openshift-registry/.kubeconfig \
+  --images='registry.access.redhat.com/openshift3_beta/ose-${component}:${version}'
 }
 
 # Process input
@@ -179,7 +261,7 @@ fi
 source ${SCRIPT_BASE_DIR}/lib/error_codes
 
 # Set up default values
-openshift_version='beta3'
+openshift_version='beta4'
 ansible_branch="v3-$openshift_version"
 openshift_users="joe:redhat alice:redhat"
 openshift_base_domain="ose.example.com"
@@ -189,8 +271,6 @@ OPENSHIFT_VERSION=${CONF_OPENSHIFT_VERSION:=$openshift_version}
 ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=$ansible_branch}
 OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
-MASTER_HOSTNAME=$(get_hostnames $(get_private_ips "${MASTER}")) ${OPENSHIFT_BASE_DOMAIN}
-NODE_HOSTNAMES=$(get_hostnames $(get_private_ips "${NODES}")) ${OPENSHIFT_BASE_DOMAIN}
 
 # Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}
