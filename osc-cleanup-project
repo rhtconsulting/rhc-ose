@@ -1,8 +1,8 @@
 #!/bin/bash
 if [ -f ~/.kube/.kubeconfig ]; then
   OSC_CONFIG=~/.kube/.kubeconfig
-elif [ -f ~/.config/openshift/.config ]; then
-  OSC_CONFIG=~/.config/openshift/.config
+elif [ -f ~/.config/openshift/config ]; then
+  OSC_CONFIG=~/.config/openshift/config
 else
   echo "Error: No login config. Please log in using osc login first."
   exit 1
