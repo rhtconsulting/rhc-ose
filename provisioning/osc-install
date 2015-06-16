@@ -85,14 +85,14 @@ setup_authentication() {
   yum -y install httpd-tools
   touch /etc/openshift-passwd
   for user in $users; do
-    htpasswd -b /etc/openshift-passwd ${user%:*} ${user#*:}
+    htpasswd -b /etc/openshift/openshift-passwd ${user%:*} ${user#*:}
   done
 
   # edit master.yml oauth settings
   sed -i -e 's/name: anypassword/name: apache_auth/' \
   -e 's/kind: AllowAllPasswordIdentityProvider/kind: HTPasswdPasswordIdentityProvider/' \
   -e '/kind: HTPasswdPasswordIdentityProvider/i \      file: \/etc\/openshift-passwd' \
-  /etc/openshift/master.yaml
+  ${OPENSHIFT_MASTER_CONFIG}
 
   systemctl restart openshift-master
 }
@@ -262,6 +262,7 @@ source ${SCRIPT_BASE_DIR}/lib/error_codes
 
 # Set up default values
 openshift_version='beta4'
+openshift_master_config='/etc/openshift/master/master-config.yaml'
 ansible_branch="v3-$openshift_version"
 openshift_users="joe:redhat alice:redhat"
 openshift_base_domain="ose.example.com"
@@ -271,6 +272,7 @@ OPENSHIFT_VERSION=${CONF_OPENSHIFT_VERSION:=$openshift_version}
 ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=$ansible_branch}
 OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
+OPENSHIFT_MASTER_CONFIG=$openshift_master_config
 
 # Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}
