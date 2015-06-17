@@ -50,7 +50,7 @@ provision_masters() {
   instance_name="master-${ENV_ID}"
   command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
   --instance-name ${instance_name} \
-  --key esauer \
+  --key ${key} \
   --image-name ${IMAGE_NAME} \
   --security-groups ${SECURITY_GROUP_MASTER} \
   --add-volume 25 \
@@ -63,7 +63,7 @@ provision_nodes() {
   instance_name="node-${ENV_ID}"
   command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
   --instance-name ${instance_name} \
-  --key esauer \
+  --key ${key} \
   --image-name ${IMAGE_NAME} \
   --security-groups ${SECURITY_GROUP_NODE} \
   --num-instances $num_of_nodes \
