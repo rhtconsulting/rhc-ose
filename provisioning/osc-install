@@ -116,16 +116,10 @@ setup_authentication() {
 
   # Set up authentication
   yum -y install httpd-tools
-  touch /etc/openshift-passwd
+  touch /etc/openshift/openshift-passwd
   for user in $users; do
     htpasswd -b /etc/openshift/openshift-passwd ${user%:*} ${user#*:}
   done
-
-  # edit master.yml oauth settings
-  sed -i -e 's/name: anypassword/name: apache_auth/' \
-  -e 's/kind: AllowAllPasswordIdentityProvider/kind: HTPasswdPasswordIdentityProvider/' \
-  -e '/kind: HTPasswdPasswordIdentityProvider/i \      file: \/etc\/openshift-passwd' \
-  ${OPENSHIFT_MASTER_CONFIG}
 
   systemctl restart openshift-master
 }
