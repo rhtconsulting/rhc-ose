@@ -48,7 +48,7 @@ do
 done
 
 # Setup
-resource_types="build buildconfig images imagerepository deploymentconfig route replicationcontroller service pod"
+resource_types="build buildconfig images imagestreams imagerepository deploymentconfig route replicationcontroller service pod"
 
 # Get current project namespace
 context=$(awk '/current-context/ {print $2}' $OSC_CONFIG)

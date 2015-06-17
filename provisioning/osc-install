@@ -11,10 +11,30 @@ usage() {
   echo "Usage: $0 -m=|--master=\"<master1 private ip|master1 public ip>\" -n=|--nodes=\"<node1 private ip|node1 public ip>,...,<nodeN private ip|nodeN public ip>\" -a|--actions=\"action1,action2,...actionN\""
 }
 
+# Usage: contains "term" "string"
+# Returns 0 if term found, 1 otherwise
 contains() {
   local e
   for e in "${@:2}"; do [[ "$e" == "$1" ]] && return 0; done
   return 1
+}
+
+# Determine whether master is a node, and if not, make node1 the 'infra' node
+find_infra_node() {
+  contains "master.${OPENSHIFT_BASE_DOMAIN}" ${NODE_HOSTNAMES//,/ }
+  if [ $? -eq 0 ]; then
+    echo "master.${OPENSHIFT_BASE_DOMAIN}"
+  else
+    echo "node1.${OPENSHIFT_BASE_DOMAIN}"
+  fi
+}
+
+# Randomly selects zone
+select_zone() {
+  # Seed random generator
+  RANDOM=$$$(date +%s)
+
+  echo ${openshift_zones[$RANDOM % ${#openshift_zones[@]} ]}
 }
 
 process_actions() {
@@ -37,36 +57,49 @@ process_actions() {
 }
 
 setup_ansible() {
+  infra_node=$(find_infra_node)
   for node in ${NODE_HOSTNAMES//,/ }; do
+    if contains "${infra_node}" "${node}"; then
+      region="infra"
+      zone="default"
+    else
+      region="primary"
+      zone="$( select_zone )"
+    fi
     # This is a hack to make sure we don't get host key checks during ansible run
     validate_ssh ${node}
 
     nodestring="$nodestring
-    ${node} openshift_hostname=${node} openshift_public_hostname=${node}"
+    ${node} openshift_hostname=${node} openshift_public_hostname=${node} openshift_node_labels=\"{'region': '${region}', 'zone': '${zone}'}\""
   done
 
   ansible_hosts_file="# This is an example of a bring your own (byo) host inventory
 
-  [OSEv3:children]
-  masters
-  nodes
+[OSEv3:children]
+masters
+nodes
 
-  [OSEv3:vars]
-  deployment_type=enterprise
-  ansible_ssh_user=root
-  # Pre-release registry URL
-  #openshift_registry_url=docker-buildvm-rhose.usersys.redhat.com:5000/openshift3_beta/ose-${component}:${version}
-  # Pre-release additional repo
-  #openshift_additional_repos=[{'id': 'ose-devel', 'name': 'ose-devel', 'baseurl': 'http://buildvm-devops.usersys.redhat.com/puddle/build/OpenShiftEnterprise/3.0/latest/RH7-RHOSE-3.0/$basearch/os', 'enabled': 1, 'gpgcheck': 0}]
+[OSEv3:vars]
+deployment_type=enterprise
+ansible_ssh_user=root
 
-  # host group for masters
-  [masters]
-  ${MASTER_HOSTNAME} openshift_hostname=${MASTER_HOSTNAME} openshift_public_hostname=${MASTER_HOSTNAME}
+# Pre-release registry URL
+#openshift_registry_url=docker-buildvm-rhose.usersys.redhat.com:5000/openshift3_beta/ose-\${component}:\${version}
 
-  # host group for nodes
-  [nodes]
-  ${nodestring}
-  "
+# Pre-release additional repo
+#openshift_additional_repos=[{'id': 'ose-devel', 'name': 'ose-devel', 'baseurl': 'http://buildvm-devops.usersys.redhat.com/puddle/build/OpenShiftEnterprise/3.0/latest/RH7-RHOSE-3.0/$basearch/os', 'enabled': 1, 'gpgcheck': 0}]
+
+# enable htpasswd authentication
+openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '/etc/openshift/openshift-passwd'}]
+
+# host group for masters
+[masters]
+${MASTER_HOSTNAME} openshift_hostname=${MASTER_HOSTNAME} openshift_public_hostname=${MASTER_HOSTNAME}
+
+# host group for nodes
+[nodes]
+$(echo "${nodestring}" | sed '/^\s*$/d')
+"
 
   cd
   rm -rf ~/openshift-ansible
@@ -83,16 +116,10 @@ setup_authentication() {
 
   # Set up authentication
   yum -y install httpd-tools
-  touch /etc/openshift-passwd
+  touch /etc/openshift/openshift-passwd
   for user in $users; do
-    htpasswd -b /etc/openshift-passwd ${user%:*} ${user#*:}
+    htpasswd -b /etc/openshift/openshift-passwd ${user%:*} ${user#*:}
   done
-
-  # edit master.yml oauth settings
-  sed -i -e 's/name: anypassword/name: apache_auth/' \
-  -e 's/kind: AllowAllPasswordIdentityProvider/kind: HTPasswdPasswordIdentityProvider/' \
-  -e '/kind: HTPasswdPasswordIdentityProvider/i \      file: \/etc\/openshift-passwd' \
-  /etc/openshift/master.yaml
 
   systemctl restart openshift-master
 }
@@ -183,18 +210,14 @@ do_prep() {
   echo "Beginning action: Prep"
   yum -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
   sed -i -e "s/^enabled=1/enabled=0/" /etc/yum.repos.d/epel.repo
-  sed -i -e "s/^enabled=1/enabled=0/" /etc/yum.repos.d/ose.repo
   yum -y update
   yum -y --enablerepo=epel install https://kojipkgs.fedoraproject.org//packages/ansible/1.8.4/1.el7/noarch/ansible-1.8.4-1.el7.noarch.rpm
 }
 
 do_dns() {
   echo "Beginning action: DNS"
-  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN} -d=${NODES%%,*}"
+  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN} -d=${NODES##*,}"
   $command || error_out "DNS Install & Configuration failed." $ERROR_CODE_DNS_FAILURE
-
-  MASTER_HOSTNAME=$(get_hostnames $(get_private_ips "${MASTER}") "${OPENSHIFT_BASE_DOMAIN}")
-  NODE_HOSTNAMES=$(get_hostnames $(get_private_ips "${NODES}") "${OPENSHIFT_BASE_DOMAIN}")
 }
 
 do_install() {
@@ -203,6 +226,9 @@ do_install() {
     usage
     exit 1
   fi
+
+  MASTER_HOSTNAME=$(get_hostnames $(get_private_ips "${MASTER}") "${OPENSHIFT_BASE_DOMAIN}")
+  NODE_HOSTNAMES=$(get_hostnames $(get_private_ips "${NODES}") "${OPENSHIFT_BASE_DOMAIN}")
 
   echo "Install"
 
@@ -219,17 +245,28 @@ do_post(){
   echo "Post Install"
   setup_authentication
 
-  # Setup infrastructure topology
-
   # Create router infrastructure
-  osadm router --create \
-  --credentials=/var/lib/openshift/openshift.local.certificates/openshift-router/.kubeconfig \
+  CA=/etc/openshift/master
+
+  osadm create-server-cert --signer-cert=$CA/ca.crt \
+  --signer-key=$CA/ca.key --signer-serial=$CA/ca.serial.txt \
+  --hostnames="*.${OPENSHIFT_BASE_DOMAIN}" \
+  --cert=$CA/cloudapps.crt --key=$CA/cloudapps.key
+
+  cat $CA/cloudapps.crt $CA/cloudapps.key $CA/ca.crt > $CA/cloudapps.router.pem
+
+  osadm router --default-cert=$CA/cloudapps.router.pem \
+  --credentials=/etc/openshift/master/openshift-router.kubeconfig \
+  --selector='region=infra' \
   --images='registry.access.redhat.com/openshift3_beta/ose-${component}:${version}'
 
   # Create registry
+  mkdir -p /mnt/registry
   osadm registry --create \
-  --credentials=/var/lib/openshift/openshift.local.certificates/openshift-registry/.kubeconfig \
-  --images='registry.access.redhat.com/openshift3_beta/ose-${component}:${version}'
+  --credentials=/etc/openshift/master/openshift-registry.kubeconfig \
+  --images='registry.access.redhat.com/openshift3_beta/ose-${component}:${version}' \
+  --selector="region=infra" --mount-host=/mnt/registry
+
 }
 
 # Process input
@@ -262,15 +299,19 @@ source ${SCRIPT_BASE_DIR}/lib/error_codes
 
 # Set up default values
 openshift_version='beta4'
+openshift_master_config='/etc/openshift/master/master-config.yaml'
 ansible_branch="v3-$openshift_version"
 openshift_users="joe:redhat alice:redhat"
 openshift_base_domain="ose.example.com"
+openshift_zones=("east" "west")
 
 # Set up environment based on default values and User input
 OPENSHIFT_VERSION=${CONF_OPENSHIFT_VERSION:=$openshift_version}
 ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=$ansible_branch}
 OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
+OPENSHIFT_MASTER_CONFIG=$openshift_master_config
+OPENSHIFT_ZONES=$openshift_zones
 
 # Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}
