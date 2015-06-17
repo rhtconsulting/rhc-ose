@@ -428,6 +428,7 @@ do
   fi
 
   setHostname ${privateip} node${i}.${BASE_DOMAIN}
+  sleep 1
   setDNSservers ${privateip} ${BASE_DOMAIN} ${dh_private_ip}
 
   prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN}
@@ -461,11 +462,11 @@ do
   createDNSrecord ${dh_private_ip} ${privateip} ${publicip} '*' "A" 300 
   createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "master${i}.${BASE_DOMAIN}" "PTR"
 
+  setHostname ${privateip} master${i}.${BASE_DOMAIN}
+  sleep 1
   setDNSservers ${privateip} ${BASE_DOMAIN} ${dh_private_ip}
 
   A_ACLlist+=(${privateip})
-
-  setHostname ${privateip} master${i}.${BASE_DOMAIN}
 
   i=$((i+1))
 done
