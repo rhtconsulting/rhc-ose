@@ -68,6 +68,7 @@ function usage()
   echo "    -n|--nodes       : comma separated list of node instances, private and public IPs separated by '|'"
   echo "    -b|--base_domain : base DNS domain for use with the master(s) and nodes"
   echo "    -d|--dns_host    : server to use for hosting DNS (bind), private and public IPs separated by '|'"
+  echo "    -w|--wildcard    : server to use for wildcard DNS entry, private and public IPs separated by '|'"
 }
 
 
@@ -371,6 +372,11 @@ do
       shift
     ;;
 
+    -w=*|--wildcard=*)
+      WILDCARD_HOST="${i#*=}"
+      shift
+    ;;
+
     -h|--help)
       usage
       exit 0
@@ -387,7 +393,8 @@ done
 if [ -z "${MASTER}" -o \
      -z "${NODES}"  -o \
      -z "${BASE_DOMAIN}" -o \
-     -z "${DNS_HOST}" ]
+     -z "${DNS_HOST}" -o \
+     -z "${WILDCARD_HOST}" ]
 then
   echo "Missing required args"
   usage
@@ -408,10 +415,22 @@ then
   exit 1
 fi
 
+wildcard_private_ip=${WILDCARD_HOST%|*}
+wildcard_public_ip=${WILDCARD_HOST#*|}
+if [ -z "${wildcard_private_ip}" -o \
+     -z "${wildcard_public_ip}" ]
+then
+  echo "Invalid wildcard IP combination for ${WILDCARD_HOST}"
+  usage
+  exit 1
+fi
+
+
 installDNSserver ${dh_private_ip}
 setIPtables ${dh_private_ip}
 prepDNSserver ${dh_private_ip} ${BASE_DOMAIN}
 createDNSrecord ${dh_private_ip} ${dh_private_ip} ${dh_public_ip} 'ns1' "A"
+createDNSrecord ${dh_private_ip} ${wildcard_private_ip} ${wildcard_public_ip} '*' "A" 300 
 
 
 i=1
@@ -459,7 +478,6 @@ do
   prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN}
 
   createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "master${i}" "A"
-  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} '*' "A" 300 
   createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "master${i}.${BASE_DOMAIN}" "PTR"
 
   setHostname ${privateip} master${i}.${BASE_DOMAIN}
