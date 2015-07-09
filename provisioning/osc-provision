@@ -136,22 +136,36 @@ node_ips=$(provision_nodes)
 echo "Complete!"
 
 master_public=$(get_public_ips "${master_ip}")
-node_publics=$(get_public_ips "${node_ips}")
+node_publics=$(get_public_ips "${node_ips//$'\n'/,}")
 
 # Sync SSH keys
 ${SCRIPT_BASE_DIR}/osc-sync-keys -m="${master_public}" -n="${master_public},${node_publics}"
+[ $? -eq 0 ] || error_out "Key Sync Failed."
 
 if $master_is_node; then
   node_publics="${master_public},${node_publics}"
 fi
 
-echo "Master: ${master_ip}"
-echo "Nodes: ${node_ips//$'\n'/,}"
-
 # TODO:
 #  - Pull together all scripts to provision a complete environment
 
 # Pull Repo into master so we can continue installation
-#${SSH_CMD} root@${MASTER#*|} "rm -rf ~/ose-utils"
-#${SSH_CMD} root@${MASTER#*|} "git clone https://github.com/etsauer/ose-utils.git --branch openshift-enterprise-3 ~/ose-utils"
-#${SSH_CMD} root@${MASTER#*|} "bash ~/ose-utils/provisioning/osc-install -m=\"${MASTER}\" -n=\"${NODES}\" -a=dns"
+${SSH_CMD} root@${master_public} "rm -rf ~/ose-utils"
+# Script is executed from ose-utils/provisioning, so we need to strip two directories
+pushd $(dirname $(dirname ${SCRIPT_BASE_DIR})) >/dev/null
+  tar cf - ose-utils | ${SSH_CMD} root@${master_public} tar xf -
+popd >/dev/null
+${SSH_CMD} root@${master_public} "bash ~/ose-utils/provisioning/osc-install -m=\"${master_ip}\" -n=\"${node_ips//$'\n'/,}\" -a=\"prep,dns,install,post\""
+
+dns_server=${node_publics##*,}
+
+echo "Master:
+- Hostname: $( get_hostnames $(get_private_ips $master_ip) $openshift_domain $dns_server)
+- IPs: ${master_ip}"
+echo "Nodes: "
+for node in $node_ips; do
+  echo "- Node"
+  echo "-- Hostname: $(get_hostnames $(get_private_ips \"${node}\") $openshift_domain $dns_server)"
+  echo "-- IPs: ${node}"
+done
+echo "DNS Server: $(get_hostnames $dns_server $openshift_domain $dns_server)"
