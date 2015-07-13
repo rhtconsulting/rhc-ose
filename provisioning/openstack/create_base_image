@@ -48,3 +48,5 @@ cp -r ${SCRIPT_BASE_DIR}/../../ose3eval/files/* /
 >/root/.ssh/authorized_keys
 >/home/cloud-user/.ssh/authorized_keys
 rm -rf ${SCRIPT_BASE_DIR}/../../
+history -c
+shutdown -h now
