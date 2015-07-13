@@ -24,7 +24,7 @@ case $i in
 esac
 done
 
-if [ -z $MASTER ] || [ -z $NODES ]; then
+if [ -z "$MASTER" ] || [ -z "$NODES" ]; then
   echo "Missing required args"
   usage
   exit 1

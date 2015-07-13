@@ -1,0 +1,52 @@
+#!/bin/bash
+# Create a base image for OpenShift Enterprise 3
+
+# Instructions to run:
+
+# git clone https://github.com/redhat-consulting/ose-utils -b openshift-enterprise-3
+# (create a new instance based on rhel 7)
+# tar cf - ./ose-utils | ssh cloud-user@<instsance ip> tar xf -
+# ssh cloud-user@<instance-ip>
+# [cloud-user@ip]$ sudo -i
+# [root@ip]# export RHN_USERNAME=<>
+# [root@ip]# export RHN_PASSWORD=<>
+# [root@ip]# export RHN_POOL_ID=<>
+# [root@ip]# bash /home/cloud-user/ose-utils/provisioning/openstack/create_base_image
+
+# Shutdown instance and take snapshot
+# DONE
+
+# Check for prereqs
+if [ -z $RHN_USERNAME ] || [ -z $RHN_PASSWORD ] || [ -z $RHN_POOL_ID ]; then
+  echo "Missing some environment info. Please make sure to export the following to your env:"
+  echo " - RHN_USERNAME"
+  echo " - RHN_PASSWORD"
+  echo " - RHN_POOL_ID"
+  exit 1
+fi
+
+# Enable root access
+sed -i 's/disable_root: 1/disable_root: 0/' /etc/cloud/cloud.cfg
+
+subscription-manager register --username=$RHN_USERNAME --password=$RHN_PASSWORD
+subscription-manager attach --pool=$RHN_POOL_ID
+subscription-manager repos --disable="*"
+subscription-manager repos \
+--enable="rhel-7-server-rpms" \
+--enable="rhel-7-server-extras-rpms" \
+--enable="rhel-7-server-optional-rpms" \
+--enable="rhel-7-server-ose-3.0-rpms"
+yum remove -y NetworkManager*
+yum install -y wget git net-tools bind-utils iptables-services bridge-utils
+yum update -y
+
+# Copy some files
+SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+cp -r ${SCRIPT_BASE_DIR}/../../ose3eval/files/* /
+
+# Self distruct
+>/root/.ssh/authorized_keys
+>/home/cloud-user/.ssh/authorized_keys
+rm -rf ${SCRIPT_BASE_DIR}/../../
+history -c
+shutdown -h now
