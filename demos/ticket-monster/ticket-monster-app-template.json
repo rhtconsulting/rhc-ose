@@ -21,25 +21,13 @@
             "name": "APPLICATION_HOSTNAME"
         },
         {
-            "description": "Remote host containing the packaged artifact.",
-            "name": "ARTIFACT_REMOTE_HOST"
+            "description": "Location of the prepackaged application.",
+            "name": "SRC_APP_URL"
         },
         {
-            "description": "Maven group ID of the packaged artifact.",
-            "name": "ARTIFACT_GROUP_ID"
-        },
-        {
-            "description": "Maven artifact ID of the packaged artifact.",
-            "name": "ARTIFACT_ID"
-        },
-        {
-            "description": "Maven version of the packaged artifact.",
-            "name": "ARTIFACT_VERSION"
-        },
-        {
-            "description": "Maven packaging type of the packaged artifact.",
-            "name": "ARTIFACT_PACKAGING",
-            "value": "war"
+            "description": "Final name of the deployed application.",
+            "name": "SRC_APP_NAME",
+            "value": "ROOT.war"
         },
         {
             "description": "Image used to run the application.",
@@ -64,6 +52,12 @@
         {
             "description": "HornetQ cluster admin password",
             "name": "HORNETQ_CLUSTER_PASSWORD",
+            "from": "[a-zA-Z0-9]{8}",
+            "generate": "expression"
+        },
+        {
+            "description": "Generic build trigger secret",
+            "name": "GENERIC_TRIGGER_SECRET",
             "from": "[a-zA-Z0-9]{8}",
             "generate": "expression"
         }
@@ -169,24 +163,12 @@
                         "exposeDockerSocket": true,
 					    "env": [
 			              {
-			                "name": "ARTIFACT_REMOTE_HOST",
-			                "value": "${ARTIFACT_REMOTE_HOST}"
+			                "name": "SRC_APP_URL",
+			                "value": "${SRC_APP_URL}"
 			              },
 			             {
-			                "name": "ARTIFACT_GROUP_ID",
-			                "value": "${ARTIFACT_GROUP_ID}"
-			              },
-			              {
-			                "name": "ARTIFACT_ID",
-			                "value": "${ARTIFACT_ID}"
-			              },
-			              {
-			                "name": "ARTIFACT_VERSION",
-			                "value": "${ARTIFACT_VERSION}"
-			              },
-			              {
-			                "name": "ARTIFACT_PACKAGING",
-			                "value": "${ARTIFACT_PACKAGING}"
+			                "name": "SRC_APP_NAME",
+			                "value": "${SRC_APP_NAME}"
 			              },
                           {
 						    "name": "IMAGE_NAME",
@@ -199,7 +181,7 @@
 	                {
 	                    "type": "generic",
 	                    "generic": {
-	                        "secret": "secret"
+	                        "secret": "${GENERIC_TRIGGER_SECRET}"
 	                    }
 	                }
 	            ],
