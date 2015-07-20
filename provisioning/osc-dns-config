@@ -283,6 +283,7 @@ function createDNSrecord()
 # $1 - IP address for DNS server
 # $2 - IP address for PTR record
 # $3 - DNS domain
+# #4 - scope (i.e.: "PUBLIC" or "PRIVATE")
 #
 
 function prepPTRConfig()
@@ -290,17 +291,18 @@ function prepPTRConfig()
   dns_host=${1}
   ptr_record=${2}
   dns_domain=${3}
+  scope=${4}
 
   in_addr=`getInAddrArpa ${ptr_record}`
 
-  in_addr_arpa_zone="zone \\\"${in_addr}.in-addr.arpa\\\" IN \{\n              type master\;\n              file \\\"static\/${in_addr}.in-addr.arpa.db\\\"\;\n        \}\;\n\n        # IN_ADDR_ARPA_ZONE"
+  in_addr_arpa_zone="zone \\\"${in_addr}.in-addr.arpa\\\" IN \{\n              type master\;\n              file \\\"static\/${in_addr}.in-addr.arpa.db\\\"\;\n        \}\;\n\n        # IN_ADDR_ARPA_ZONE_${scope}"
 
   ${SSH_CMD} root@${dns_host} "
   [ -e "${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db" ] && exit 0
   cp -f ${VAR_NAMED_STATIC_DIR}/INV_IP_ADDR.in-addr.arpa.db ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
   sed -i \"s/OSE_DNS_DOMAIN/${dns_domain}/g\" ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
   sed -i \"s/INV_IP_ADDR/${in_addr}/g\" ${VAR_NAMED_STATIC_DIR}/${in_addr}.in-addr.arpa.db
-  sed -i \"s/# IN_ADDR_ARPA_ZONE/${in_addr_arpa_zone}/g\" /etc/named.conf
+  sed -i \"s/# IN_ADDR_ARPA_ZONE_${scope}/${in_addr_arpa_zone}/g\" /etc/named.conf
 "
 
   [ $? -ne 0 ] && echo "Failed to set PTR configuration on ${dns_host}" && exit 1
@@ -455,8 +457,8 @@ do
   sleep 1
   setDNSservers ${privateip} ${BASE_DOMAIN} ${dh_private_ip}
 
-  prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN}
-  prepPTRConfig ${dh_private_ip} ${publicip} ${BASE_DOMAIN}
+  prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN} PRIVATE
+  prepPTRConfig ${dh_private_ip} ${publicip} ${BASE_DOMAIN} PUBLIC
   createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "node${i}" "A"
   createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "node${i}.${BASE_DOMAIN}" "PTR"
 
@@ -481,8 +483,8 @@ do
     exit 1
   fi
 
-  prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN}
-  prepPTRConfig ${dh_private_ip} ${publicip} ${BASE_DOMAIN}
+  prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN} PRIVATE
+  prepPTRConfig ${dh_private_ip} ${publicip} ${BASE_DOMAIN} PUBLIC
 
   createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "master${i}" "A"
   createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "master${i}.${BASE_DOMAIN}" "PTR"
