@@ -173,12 +173,12 @@ install_openshift
 dns_server=${node_publics##*,}
 
 echo "Master:
-- Hostname: $( get_hostnames $(get_private_ips $master_ip) $openshift_domain $dns_server)
+- Hostname: $( get_hostnames $master_public $openshift_domain $dns_server)
 - IPs: ${master_ip}"
 echo "Nodes: "
-for node in $node_ips; do
+for node in $node_publics; do
   echo "- Node"
-  echo "-- Hostname: $(get_hostnames $(get_private_ips \"${node}\") $openshift_domain $dns_server)"
+  echo "-- Hostname: $(get_hostnames $node $openshift_domain $dns_server)"
   echo "-- IPs: ${node}"
 done
 echo "DNS Server: $(get_hostnames $dns_server $openshift_domain $dns_server)"

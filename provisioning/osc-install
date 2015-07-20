@@ -207,12 +207,17 @@ validate_ssh() {
 ## Action functions
 do_prep() {
   echo "Beginning action: Prep"
+  yum clean all
   yum -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm &>/dev/null \
    || error_out "Failed to install package http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm"
   sed -i -e "s/^enabled=1/enabled=0/" /etc/yum.repos.d/epel.repo
   yum -y update &>/dev/null || error_out "Failed to run yum update during Prep phase."
   yum -y --enablerepo=epel install https://kojipkgs.fedoraproject.org//packages/ansible/1.8.4/1.el7/noarch/ansible-1.8.4-1.el7.noarch.rpm &>/dev/null \
    || error_out "Failed to install package https://kojipkgs.fedoraproject.org//packages/ansible/1.8.4/1.el7/noarch/ansible-1.8.4-1.el7.noarch.rpm"
+
+   for host in $(get_private_ips ${NODES}); do
+     ${SSH_CMD} root@${host} "yum clean all; yum update -y"
+   done
 }
 
 do_dns() {
