@@ -176,9 +176,9 @@ echo "Master:
 - Hostname: $( get_hostnames $master_public $openshift_domain $dns_server)
 - IPs: ${master_ip}"
 echo "Nodes: "
-for node in $node_publics; do
+for node in ${node_ips//$'\n'/ }; do
   echo "- Node"
-  echo "-- Hostname: $(get_hostnames $node $openshift_domain $dns_server)"
+  echo "-- Hostname: $(get_hostnames $(get_public_ips ${node}) $openshift_domain $dns_server)"
   echo "-- IPs: ${node}"
 done
 echo "DNS Server: $(get_hostnames $dns_server $openshift_domain $dns_server)"
