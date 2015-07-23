@@ -27,6 +27,9 @@ fi
 
 # Enable root access
 sed -i 's/disable_root: 1/disable_root: 0/' /etc/cloud/cloud.cfg
+sed -i 's/datasource_list/# datasource_list/' /etc/cloud/cloud.cfg
+echo "datasource_list: [ None ]" >> /etc/cloud/cloud.cfg
+
 
 subscription-manager register --username=$RHN_USERNAME --password=$RHN_PASSWORD
 subscription-manager attach --pool=$RHN_POOL_ID
@@ -36,17 +39,38 @@ subscription-manager repos \
 --enable="rhel-7-server-extras-rpms" \
 --enable="rhel-7-server-optional-rpms" \
 --enable="rhel-7-server-ose-3.0-rpms"
-yum remove -y NetworkManager*
-yum install -y wget git net-tools bind-utils iptables-services bridge-utils
+yum clean all
+yum install -y wget git net-tools bind-utils iptables-services bridge-utils rsync
 yum update -y
+
+# Create the /var/log partition
+(echo n; echo p; echo; echo; echo t; echo 4; echo 8e; echo w;) | fdisk /dev/vda
+partprobe
+pvcreate /dev/vda4 
+vgcreate vg_var /dev/vda4
+lvcreate -l 100%VG -n lv_log vg_var
+mkfs.xfs /dev/vg_var/lv_log 
+mkdir /mnt/log
+mount /dev/mapper/vg_var-lv_log /mnt/log
+rsync -a -A -X /var/log/ /mnt/log
+umount /mnt/log
+echo "/dev/mapper/vg_var-lv_log /var/log xfs defaults 0 0" >> /etc/fstab 
 
 # Copy some files
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 cp -r ${SCRIPT_BASE_DIR}/../../ose3eval/files/* /
 
+# Remove NetworkManager + 
+# Ensure networking is enabled
+# - have to use 'chkconfig' and 'service' for this
+yum remove -y NetworkManager*
+chkconfig network on
+
 # Self distruct
 >/root/.ssh/authorized_keys
 >/home/cloud-user/.ssh/authorized_keys
+>/home/fedora/.ssh/authorized_keys
 rm -rf ${SCRIPT_BASE_DIR}/../../
 history -c
+> ~/.bash_history
 shutdown -h now
