@@ -31,6 +31,7 @@ read RHN_USERNAME
 
 echo -n "RHN password: "
 read -s RHN_PASSWORD
+echo
 
 echo -n "RHN pool id: "
 read RHN_POOL_ID
@@ -91,8 +92,8 @@ yum remove -y NetworkManager*
 chkconfig network on
 
 # Self distruct
->/root/.ssh/authorized_keys
->/home/cloud-user/.ssh/authorized_keys
+2>/dev/null >/root/.ssh/authorized_keys
+2>/dev/null >/home/cloud-user/.ssh/authorized_keys
 rm -rf ${SCRIPT_BASE_DIR}/../../
 history -c
 > ~/.bash_history
