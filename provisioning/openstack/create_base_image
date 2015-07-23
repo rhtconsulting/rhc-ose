@@ -68,7 +68,7 @@ cp -r ${SCRIPT_BASE_DIR}/../../ose3eval/files/* /
 
 # Remove NetworkManager + 
 # Ensure networking is enabled
-# - have to use 'chkconfig' and 'service' for this
+# - have to use 'chkconfig' for this
 yum remove -y NetworkManager*
 chkconfig network on
 
