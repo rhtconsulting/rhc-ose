@@ -8,22 +8,40 @@
 # tar cf - ./ose-utils | ssh cloud-user@<instsance ip> tar xf -
 # ssh cloud-user@<instance-ip>
 # [cloud-user@ip]$ sudo -i
-# [root@ip]# export RHN_USERNAME=<>
-# [root@ip]# export RHN_PASSWORD=<>
-# [root@ip]# export RHN_POOL_ID=<>
 # [root@ip]# bash /home/cloud-user/ose-utils/provisioning/openstack/create_base_image
 
 # Shutdown instance and take snapshot
 # DONE
 
+echo "This tool will run RHN subscription-manager."
+echo "Please provide your RHN username/password, and a subscription pool id, when prompted."
+echo "Please exit now (ctrl+c) if you don't have this information available."
+
+i=9
+while [ $i -gt 0 ]
+do
+	echo -ne "  ${i} ...\033[0K\r"
+	i=$((i-1))
+	sleep 1
+done
+
+echo
+echo -n "RHN Username: "
+read RHN_USERNAME
+
+echo -n "RHN password: "
+read -s RHN_PASSWORD
+
+echo -n "RHN pool id: "
+read RHN_POOL_ID
+
 # Check for prereqs
 if [ -z $RHN_USERNAME ] || [ -z $RHN_PASSWORD ] || [ -z $RHN_POOL_ID ]; then
-  echo "Missing some environment info. Please make sure to export the following to your env:"
-  echo " - RHN_USERNAME"
-  echo " - RHN_PASSWORD"
-  echo " - RHN_POOL_ID"
+  echo "Missing some RHN info. Please retry..."
   exit 1
 fi
+
+echo "Thank you! Proceeding..."
 
 # Enable root access
 sed -i 's/disable_root: 1/disable_root: 0/' /etc/cloud/cloud.cfg
@@ -75,7 +93,6 @@ chkconfig network on
 # Self distruct
 >/root/.ssh/authorized_keys
 >/home/cloud-user/.ssh/authorized_keys
->/home/fedora/.ssh/authorized_keys
 rm -rf ${SCRIPT_BASE_DIR}/../../
 history -c
 > ~/.bash_history
