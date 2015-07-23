@@ -30,6 +30,12 @@ sed -i 's/disable_root: 1/disable_root: 0/' /etc/cloud/cloud.cfg
 sed -i 's/datasource_list/# datasource_list/' /etc/cloud/cloud.cfg
 echo "datasource_list: [ None ]" >> /etc/cloud/cloud.cfg
 
+# Setup a more suitable log rotate pattern for "standard" syslog files
+sed -i "s/    postrotate/ \
+   rotate 10\n \
+   maxsize 500M\n \
+   delaycompress\n \
+   postrotate/" /etc/logrotate.d/syslog
 
 subscription-manager register --username=$RHN_USERNAME --password=$RHN_PASSWORD
 subscription-manager attach --pool=$RHN_POOL_ID
