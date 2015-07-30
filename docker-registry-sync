@@ -10,7 +10,7 @@ Usage: $0 --from <public-registry-hostname> --local <local-registry> --file <ima
 
 Options:
   --from <public-registry-hostname> : Name of the public registry you wish to PULL images from (i.e. docker.io, registry.access.redhat.com)
-  --local <local-registry>          : Location of private registry you with to PUSH images to (i.e. localhost:5000, registry.mydomain.com)
+  --local <local-registry>          : Location of private registry you wish to PUSH images to (i.e. localhost:5000, registry.mydomain.com)
   --file <image-file>               : Text file containing a list of image names (one image name per line)
 "
 }
