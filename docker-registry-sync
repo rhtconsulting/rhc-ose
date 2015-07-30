@@ -11,7 +11,8 @@ do_sync() {
 
   echo "(1/3) Pulling Image ${image_url}..." | tee ${LOGFILE}
   docker pull ${image_url} &>>${LOGFILE} || error_out "Failed to PULL image: docker pull ${image_url}"
-  image_id=`docker images | awk "/${image_url//\//\\/}/"' {print $3}'`
+  image_awk="${registry_url}/$(echo ${image} | sed -r 's/:([^:]*)$/.*\1/')"
+  image_id=`docker images | awk "/${image_awk//\//\\/}/"' {print $3}'`
 
   echo "(2/3) Tagging Image ${image_id}|${image}..." | tee ${LOGFILE}
   docker tag -f ${image_id} ${local_registry_url}/${image} &>>${LOGFILE} || error_out "Failed to tag image: docker tag -f ${image_id} ${local_registry_url}/${image}"
