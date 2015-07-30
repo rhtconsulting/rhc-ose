@@ -1,0 +1,73 @@
+#!/bin/bash
+
+usage() {
+  echo "$0:
+
+Description: Syncs images from a public docker registry to a private registry. Use this to populate private registries in a closed off environment.
+Must be run from a linux host capable of running docker commands which has access both to the internet and the private registry.
+
+Usage: $0 --from <public-registry-hostname> --local <local-registry> --file <image-file>
+
+Options:
+  --from <public-registry-hostname> : Name of the public registry you wish to PULL images from (i.e. docker.io, registry.access.redhat.com)
+  --local <local-registry>          : Location of private registry you wish to PUSH images to (i.e. localhost:5000, registry.mydomain.com)
+  --file <image-file>               : Text file containing a list of image names (one image name per line)
+"
+}
+
+LOGFILE=~/docker_image_sync.log
+touch ${LOGFILE}
+
+for i in "$@"
+do
+  case $i in
+    --from=*)
+      registry_url="${i#*=}"
+      shift;;
+    --file=*)
+      file_path="${i#*=}"
+      shift;;
+    --local=*)
+      local_registry_url="${i#*=}"
+      shift;;
+    *)
+      echo "Invalid Option: ${i%=*}"
+      exit 1;
+      ;;
+  esac
+done
+
+for arg in "from:$registry_url" "file:$file_path" "local:$local_registry_url"; do
+  if [ -z ${arg#*:} ]; then
+    echo "Missing argument --${arg%:*}."
+    usage
+    exit 1;
+  fi
+done
+
+images=`cat ${file_path}`
+
+for image in $images; do
+(
+  image_url="${registry_url}/${image}"
+  docker pull ${image_url} &>${LOGFILE}
+  image_id=`docker images | awk "/${image_url//\//\\/}/"' {print $3}'`
+  docker tag ${image_id} ${local_registry_url}/${image} &>${LOGFILE}
+  docker push ${local_registry_url}/${image} &>${LOGFILE}
+  echo "Completed Push of image: ${image}"
+) &
+bg_pids="$bg_pids $!"
+done
+
+count=1
+while [ $count -ne 0 ] ; do
+  count=0
+  for pid in $bg_pids; do
+    if [ -n "$(ps -p $pid --no-header)" ]; then
+      ((count++))
+    fi
+  done
+  sleep 1
+done
+
+echo "Completed all images"

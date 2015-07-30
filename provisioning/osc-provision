@@ -164,6 +164,7 @@ ${SCRIPT_BASE_DIR}/osc-sync-keys -m="${master_public}" -n="${master_public},${no
 
 if $master_is_node; then
   node_publics="${master_public},${node_publics}"
+  node_ips="${master_ip},${node_ips}"
 fi
 
 # TODO:
