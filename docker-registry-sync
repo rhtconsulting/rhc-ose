@@ -6,7 +6,13 @@ usage() {
 Description: Syncs images from a public docker registry to a private registry. Use this to populate private registries in a closed off environment.
 Must be run from a linux host capable of running docker commands which has access both to the internet and the private registry.
 
-Usage: $0 --from <public-registry-hostname> --local <local-registry-url> --file <image-file>"
+Usage: $0 --from <public-registry-hostname> --local <local-registry> --file <image-file>
+
+Options:
+  --from <public-registry-hostname> : Name of the public registry you wish to PULL images from (i.e. docker.io, registry.access.redhat.com)
+  --local <local-registry>          : Location of private registry you with to PUSH images to (i.e. localhost:5000, registry.mydomain.com)
+  --file <image-file>               : Text file containing a list of image names (one image name per line)
+"
 }
 
 LOGFILE=~/docker_image_sync.log
