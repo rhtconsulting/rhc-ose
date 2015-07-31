@@ -11,19 +11,22 @@ The Ticket-Monster is a moderately complex application that demonstrates how to 
 OpenShift provides three options for building applications:
 
 1. Docker Build
-2. Source to image (S2I)
+2. Source to image (S2I) 
 3. Custom Image Builder
 
 Examples of retrieving a pre-packaged application from a remote source is demonstrated in this repository using a custom image builder and a source to image. While the overall outcome is the same, there are reasons for choosing each type of build.
 
-## Source to Image (S2I Build)
+## Source to Image (S2I Build) 
 
 A Source to Image (S2I) is a tool for building repeatable docker images.  It will take existing source code and produce a new layer that is built on top of an existing image. One of the benefits of a S2I is that is supports the concept of *incremental builds*, which will save a previous build on the image for use in subsequent builds. S2I features a configurable platform for defining the build steps and ultimate execution of an images. S2I scripts can be defined within a image or in source code. 
+
+This is the recommended strategy moving forward.
 
 ## Custom Builder 
 
 A custom build is similar to a traditional docker build, with the exception of specifically controlling the functionality and execution of the build itself. By default, images are built using the generic OpenShift *docker-builder*. This option is desirable when it is desired to customize the process of building and deploying a Docker image.
 
+The Custom Builder strategy for this implementation was developed to overcome a limitation during the OSE beta phase where it was not possible to inject environment variables into the build process.
 
 ## Installing the Configurations
 
