@@ -4,12 +4,12 @@
     "metadata": {
         "annotations": {
             "iconClass" : "icon-jboss",
-            "description": "Application template for EAP 6 applications built using pre-packaged application."
+            "description": "Application template for EAP 6 applications for pre-packaged application build using S2I."
         },
-        "name": "eap6-packaged"
+        "name": "eap6-s2i-packaged"
     },
     "labels": {
-        "template": "eap6-packaged"
+        "template": "eap6-s2i-packaged"
     },
     "parameters": [
         {
@@ -32,12 +32,22 @@
         {
             "description": "Image used to run the application.",
             "name": "UPSTREAM_IMAGE",
-            "value": "registry.access.redhat.com/jboss-eap-6/eap-openshift"
+            "value": "jboss-eap6-openshift"
         },
         {
             "description": "Tag of the image used to run the application.",
             "name": "UPSTREAM_IMAGE_TAG",
             "value": "latest"
+        },
+        {
+            "description": "Git source URI for the S2I application scripts",
+            "name": "GIT_URI",
+            "value": "https://github.com/sabre1041/jboss-eap-packaged-builder"
+        },
+        {
+            "description": "Git branch/tag reference for the S2I application scripts",
+            "name": "GIT_REF",
+            "value": "3.0"
         },
         {
             "description": "Queue names",
@@ -152,15 +162,21 @@
                 }
             },
 			"spec": {
+		        "source": {
+                     "type": "Git",
+                     "git": {
+                         "uri": "${GIT_URI}",
+                         "ref": "${GIT_REF}"
+                     }
+		        },
                 "strategy": {
-                    "type": "Custom",
-                    "customStrategy": {	
+                    "type": "Source",
+                    "sourceStrategy": {	
                         "from": {
                             "kind": "ImageStreamTag",
 							"namespace": "openshift",
-                            "name": "jboss-eap-packaged-builder:3.0"
+                            "name": "${UPSTREAM_IMAGE}:${UPSTREAM_IMAGE_TAG}"
                         },
-                        "exposeDockerSocket": true,
 					    "env": [
 			              {
 			                "name": "SRC_APP_URL",
@@ -169,11 +185,7 @@
 			             {
 			                "name": "SRC_APP_NAME",
 			                "value": "${SRC_APP_NAME}"
-			              },
-                          {
-						    "name": "IMAGE_NAME",
-                            "value": "${UPSTREAM_IMAGE}:${UPSTREAM_IMAGE_TAG}"
-						  }
+			              }
 			            ]
                     }
                 },
