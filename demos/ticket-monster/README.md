@@ -8,10 +8,22 @@ The Ticket-Monster is a moderately complex application that demonstrates how to 
 
 ## Build and deployment Options
 
-Two types of technologies can be chosen to build and run the TicketMonster application. 
+OpenShift provides three options for building applications:
 
-1. Custom Image Builder
-2. Source to Image (S2I)
+1. Docker Build
+2. Source to image (S2I)
+3. Custom Image Builder
+
+Examples of retrieving a pre-packaged application from a remote source is demonstrated in this repository using a custom image builder and a source to image. While the overall outcome is the same, there are reasons for choosing each type of build.
+
+## Source to Image (S2I Build)
+
+A Source to Image (S2I) is a tool for building repeatable docker images.  It will take existing source code and produce a new layer that is built on top of an existing image. One of the benefits of a S2I is that is supports the concept of *incremental builds*, which will save a previous build on the image for use in subsequent builds. S2I features a configurable platform for defining the build steps and ultimate execution of an images. S2I scripts can be defined within a image or in source code. 
+
+## Custom Builder 
+
+A custom build is similar to a traditional docker build, with the exception of specifically controlling the functionality and execution of the build itself. By default, images are built using the generic OpenShift *docker-builder*. This option is desirable when it is desired to customize the process of building and deploying a Docker image.
+
 
 ## Installing the Configurations
 
@@ -99,4 +111,6 @@ The template has been configured to deploy the newly created image as soon as it
 
 ## Resources
 
-* [Builds](https://github.com/openshift/origin/blob/master/docs/builds.md)
+* Builds
+	* [Origin Builds](https://github.com/openshift/origin/blob/master/docs/builds.md)
+	* [OSE Builds](https://docs.openshift.com/enterprise/3.0/dev_guide/builds.html)
