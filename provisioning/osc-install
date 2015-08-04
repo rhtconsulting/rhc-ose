@@ -66,11 +66,16 @@ setup_ansible() {
       region="primary"
       zone="$( select_zone )"
     fi
+
+    # The node is a master, then we want to make it unschedulable
+    if contains "master" "${node}"; then
+      node_opts="openshift_scheduleable=False"
+    fi
     # This is a hack to make sure we don't get host key checks during ansible run
     validate_ssh ${node}
 
     nodestring="$nodestring
-${node} openshift_hostname=${node} openshift_public_hostname=${node} openshift_node_labels=\"{'region': '${region}', 'zone': '${zone}'}\""
+${node} openshift_hostname=${node} openshift_public_hostname=${node} openshift_node_labels=\"{'region': '${region}', 'zone': '${zone}'}\" ${node_opts}"
   done
 
   ansible_hosts_file="# This is an example of a bring your own (byo) host inventory
@@ -208,12 +213,10 @@ validate_ssh() {
 do_prep() {
   echo "Beginning action: Prep"
   yum clean all
-  yum -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm &>/dev/null \
-   || error_out "Failed to install package http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm"
+  yum_install "" https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm true
   sed -i -e "s/^enabled=1/enabled=0/" /etc/yum.repos.d/epel.repo
   yum -y update &>/dev/null || error_out "Failed to run yum update during Prep phase."
-  yum -y --enablerepo=epel install https://kojipkgs.fedoraproject.org//packages/ansible/1.8.4/1.el7/noarch/ansible-1.8.4-1.el7.noarch.rpm &>/dev/null \
-   || error_out "Failed to install package https://kojipkgs.fedoraproject.org//packages/ansible/1.8.4/1.el7/noarch/ansible-1.8.4-1.el7.noarch.rpm"
+  yum_install --enablerepo=epel ansible true
 
    for host in $(get_private_ips ${NODES}); do
      ${SSH_CMD} root@${host} "yum clean all; yum update -y"
@@ -254,17 +257,26 @@ do_post(){
   # Create router infrastructure
   CA=/etc/openshift/master
 
-  oadm create-server-cert --signer-cert=$CA/ca.crt \
+  oadm ca create-server-cert --signer-cert=$CA/ca.crt \
   --signer-key=$CA/ca.key --signer-serial=$CA/ca.serial.txt \
   --hostnames="*.${OPENSHIFT_BASE_DOMAIN}" \
   --cert=$CA/cloudapps.crt --key=$CA/cloudapps.key
 
+
   cat $CA/cloudapps.crt $CA/cloudapps.key $CA/ca.crt > $CA/cloudapps.router.pem
+
+  echo '{"kind":"ServiceAccount","apiVersion":"v1","metadata":{"name":"router"}}' | oc create -f -
+  oc get scc privileged -o yaml > priv.yaml
+  if [ $(grep -c 'system:serviceaccount:default:router' priv.yaml) -eq 0 ]; then
+    echo '- system:serviceaccount:default:router' >> priv.yaml
+    oc replace scc privileged -f priv.yaml
+  fi
 
   oadm router router-default --replicas=2 --default-cert=$CA/cloudapps.router.pem \
   --credentials=/etc/openshift/master/openshift-router.kubeconfig \
   --selector='region=infra' \
-  --images='registry.access.redhat.com/openshift3/ose-${component}:${version}'
+  --images='registry.access.redhat.com/openshift3/ose-${component}:${version}' \
+  --service-account=router
 
   # Create registry
   mkdir -p /mnt/registry
@@ -273,7 +285,7 @@ do_post(){
   oc get scc privileged -o yaml > priv.yaml
   if [ $(grep -c 'system:serviceaccount:default:registry' priv.yaml) -eq 0 ]; then
     echo '- system:serviceaccount:default:registry' >> priv.yaml
-    oc update scc privileged -f priv.yaml
+    oc replace scc privileged -f priv.yaml
   fi
 
   oadm registry --service-account=registry \
@@ -281,22 +293,22 @@ do_post(){
   --credentials=/etc/openshift/master/openshift-registry.kubeconfig \
   --images='registry.access.redhat.com/openshift3/ose-${component}:${version}' \
   --selector='region=infra' \
-  --mount-host=/mnt/registry
+  --mount-host=/mnt/registry \
 
   ### Workarounds for current issues
 
   # Apply node labels after install (https://bugzilla.redhat.com/show_bug.cgi?id=1235953)
-  infra_node=$(find_infra_node)
-  for node in ${NODE_HOSTNAMES//,/ }; do
-    if contains "${infra_node}" "${node}"; then
-      region="infra"
-      zone="default"
-    else
-      region="primary"
-      zone="$( select_zone )"
-    fi
-    oc label node/${node} region=$region zone=$zone
-  done
+#  infra_node=$(find_infra_node)
+#  for node in ${NODE_HOSTNAMES//,/ }; do
+#    if contains "${infra_node}" "${node}"; then
+#      region="infra"
+#      zone="default"
+#    else
+#      region="primary"
+#      zone="$( select_zone )"
+#    fi
+#    oc label node/${node} region=$region zone=$zone
+#  done
   ###
 }
 

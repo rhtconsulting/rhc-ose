@@ -4,6 +4,23 @@ error_out() {
   exit $2
 }
 
+# Usage: yum_install <yum options> <packages> <Exit on failure? true|false> <exit code>
+yum_install() {
+  options=${1}
+  packages=${2?"No Packages Declared for Install. Something went wrong."}
+  exit_on_failure=${3:-true}
+  exit_code=${4:-$ERROR_CODE_YUM_FAILURE}
+
+  message=$(yum -y ${options} install ${packages} 2>&1)
+  if [ $? -ne 0 ]; then
+    if [ $(echo ${message} | grep -c 'Error: Nothing to do') -eq 0 ] && $exit_on_failure; then
+      error_out "Failed to install packages ${packages}
+Message:
+${message}" $exit_code
+    fi
+  fi
+}
+
 # Usage: get_hostnames "<ip address>,<ip address>,...,<ip address>" "<base dn>" "[<dns server ip>]"
 get_hostnames() {
   # Can reverse lookup hostname for an ip with
