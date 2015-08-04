@@ -93,7 +93,7 @@ source ${SCRIPT_BASE_DIR}/lib/error_codes
 num_of_masters=1 # Not used; currently only support a single master
 openshift_domain="ose.example.com"
 cloudapp_domain="*.ose.example.com"
-master_is_node=false
+master_is_node=true
 platform="openstack" # Only one we support
 image_name="ose3-base"
 security_group_master="ose3-master"
