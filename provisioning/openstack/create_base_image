@@ -58,7 +58,7 @@ sed -i "s/    postrotate/ \
 
 subscription-manager register --username=$RHN_USERNAME --password=$RHN_PASSWORD
 subscription-manager attach --pool=$RHN_POOL_ID
-subscription-manager repos --disable="*"
+subscription-manager repos --disable='*'
 subscription-manager repos \
 --enable="rhel-7-server-rpms" \
 --enable="rhel-7-server-extras-rpms" \
