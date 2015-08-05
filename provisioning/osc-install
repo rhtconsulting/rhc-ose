@@ -83,6 +83,7 @@ ${node} openshift_hostname=${node} openshift_public_hostname=${node} openshift_n
 [OSEv3:children]
 masters
 nodes
+etcd
 
 [OSEv3:vars]
 deployment_type=enterprise
@@ -94,6 +95,9 @@ openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 
 # host group for masters
 [masters]
 ${MASTER_HOSTNAME} openshift_hostname=${MASTER_HOSTNAME} openshift_public_hostname=${MASTER_HOSTNAME}
+
+[etcd]
+${MASTER_HOSTNAME}
 
 # host group for nodes
 [nodes]
