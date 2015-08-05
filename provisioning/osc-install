@@ -215,7 +215,7 @@ do_prep() {
   yum -y update &>/dev/null || error_out "Failed to run yum update during Prep phase."
   yum_install --enablerepo=epel ansible true
 
-   for host in $(get_private_ips ${NODES}); do
+   for host in $(get_private_ips ${NODES} | sed 's/,/ /g'); do
      ${SSH_CMD} root@${host} "yum clean all; yum update -y"
    done
 }
