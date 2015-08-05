@@ -103,9 +103,6 @@ $(echo "${nodestring}" | sed '/^\s*$/d')
   cd
   rm -rf ~/openshift-ansible
   git clone https://github.com/openshift/openshift-ansible
-  cd ~/openshift-ansible
-  /bin/cp -r ~/training/beta3/ansible/* /etc/ansible/
-  cd
 
   echo "$ansible_hosts_file" > /etc/ansible/hosts
 
