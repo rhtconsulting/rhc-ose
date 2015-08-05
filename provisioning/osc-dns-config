@@ -145,6 +145,9 @@ function setIPtables()
   [ \$(grep -c '"$tcp"' /etc/sysconfig/iptables) == 0 ] && \
   sed -i \"/-A INPUT -j REJECT/i $tcp\" /etc/sysconfig/iptables
 
+  systemctl stop firewalld
+  systemctl disable firewalld
+  sleep 1
   systemctl restart iptables
 "
 
