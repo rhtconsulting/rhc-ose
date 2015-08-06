@@ -19,7 +19,7 @@ JAVA_VERSION=7u79
 JAVA_VERSION_BUILD=b15
 CICD_SETUP_DIR=/tmp/cicd-setup
 CLOUD_ENV=0
-NEXUS_VERSION=2.11.3-01
+NEXUS_VERSION=2.11.4-01
 MAVEN_VERSION=3.3.3
 
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
@@ -54,7 +54,7 @@ fi
 #
 
 function install_prereqs() {
-	yum install -y wget git
+	yum install -y wget git vim
 }
 
 #
@@ -113,12 +113,9 @@ function install_jenkins() {
   
   chown -R jenkins:jenkins /var/lib/jenkins
   
-  iptables_jenkins='\-A INPUT \-p tcp \-m state \-\-state NEW \-m tcp \-\-dport 8080 \-j ACCEPT'
-  [ $(grep -c '"$iptables_jenkins"' /etc/sysconfig/iptables) == 0 ] && \
-  sed -i "/-A INPUT -j REJECT/i $iptables_jenkins" /etc/sysconfig/iptables
-  
-  service iptables restart
-  
+  firewall-cmd --zone=public --add-port=8080/tcp --permanent
+  firewall-cmd --reload
+
   chkconfig jenkins on
   service jenkins start
 
@@ -157,22 +154,22 @@ function install_nexus() {
   cp -f ${SCRIPT_BASE_DIR}/cicd/nexus/nexus.xml /usr/local/sonatype-work/nexus/conf/
   
   chown -R nexus:nexus /usr/local/nexus* /usr/local/sonatype-work /var/run/nexus
-  cp /usr/local/nexus/bin/nexus /etc/init.d/
-  chmod 755 /etc/init.d/nexus
-  chown root /etc/init.d/nexus
-  sed -i "s/NEXUS_HOME=\"..\"/NEXUS_HOME=\"\/usr\/local\/nexus\"/g" /etc/init.d/nexus
-  sed -i "s/#PIDDIR=\".\"/PIDDIR=\"\/var\/run\/nexus\"/g" /etc/init.d/nexus
-  sed -i "s/#RUN_AS_USER=/RUN_AS_USER=\"nexus\"/g" /etc/init.d/nexus
+  #cp /usr/local/nexus/bin/nexus /etc/init.d/
+  #chmod 755 /etc/init.d/nexus
+  #chown root /etc/init.d/nexus
+  sed -i "s/NEXUS_HOME=\"..\"/NEXUS_HOME=\"\/usr\/local\/nexus\"/g" /usr/local/nexus/bin/nexus
+  sed -i "s/#PIDDIR=\".\"/PIDDIR=\"\/var\/run\/nexus\"/g" /usr/local/nexus/bin/nexus
+  sed -i "s/#RUN_AS_USER=/RUN_AS_USER=\"nexus\"/g" /usr/local/nexus/bin/nexus
   
-  iptables_nexus='\-A INPUT \-p tcp \-m state \-\-state NEW \-m tcp \-\-dport 8081 \-j ACCEPT'
-  [ $(grep -c '"$iptables_nexus"' /etc/sysconfig/iptables) == 0 ] && \
-  sed -i "/-A INPUT -j REJECT/i $iptables_nexus" /etc/sysconfig/iptables
-   
-  service iptables restart
+  firewall-cmd --zone=public --add-port=8081/tcp --permanent
+  firewall-cmd --reload
   
-  chkconfig --add nexus
-  chkconfig --levels 345 nexus on
-  service nexus start
+  cp -f ${SCRIPT_BASE_DIR}/cicd/nexus/nexus.service /etc/systemd/system/
+  chmod 664 /etc/systemd/system/nexus.service
+  
+  systemctl daemon-reload
+  systemctl start nexus
+  systemctl enable nexus
 
 }
 
