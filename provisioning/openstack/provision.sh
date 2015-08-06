@@ -44,6 +44,12 @@ attach_volume() {
 
 }
 
+# Usage: error_out <message> <error_code>
+error_out() {
+  safe_out "error" "${1}"
+  exit $2
+}
+
 get_fault_info() {
   local instance_info="$1"
 
@@ -71,7 +77,7 @@ wait_for_instance_running() {
 wait_for_ssh() {
   local instance_ip=$1
 
-  command="ssh -o StrictHostKeyChecking=no cloud-user@${instance_ip} 'ls' &>/dev/null"
+  command="ssh -o StrictHostKeyChecking=no root@${instance_ip} 'ls' &>/dev/null"
   run_cmd_with_timeout "$command" ${2:-60}
 }
 
@@ -85,7 +91,7 @@ run_cmd_with_timeout() {
     sleep 1
     ((next_wait_time++))
   done
-  [ $next_wait_time -eq $timeout ] && safe_out "error" "Command $command timed out after $timeout seconds."
+  [ $next_wait_time -eq $timeout ] && error_out "Command $command timed out after $timeout seconds." 11
 }
 
 safe_out() {
@@ -195,7 +201,7 @@ for instance_id in ${instance_ids//$'\n'/ }; do
   instance_ip=$(nova show ${instance_id} | awk '/os1-internal.*network/ {print $5$6}')
 
   # need to wait until ssh service comes up on instance
-  wait_for_ssh ${instance_ip#*,} 20
+  wait_for_ssh ${instance_ip#*,} 120
 
   if [ -n $volume_size ]; then
     safe_out "info" "Adding a Volume"

@@ -93,12 +93,13 @@ source ${SCRIPT_BASE_DIR}/lib/error_codes
 num_of_masters=1 # Not used; currently only support a single master
 openshift_domain="ose.example.com"
 cloudapp_domain="*.ose.example.com"
-master_is_node=false
+master_is_node=true
 platform="openstack" # Only one we support
 image_name="ose3-base"
 security_group_master="ose3-master"
 security_group_node="ose3-node"
 logfile="~/openstack_provision.log"
+no_install=false
 
 # Process input
 for i in "$@"
@@ -164,12 +165,17 @@ ${SCRIPT_BASE_DIR}/osc-sync-keys -m="${master_public}" -n="${master_public},${no
 
 if $master_is_node; then
   node_publics="${master_public},${node_publics}"
-  node_ips="${master_ip},${node_ips}"
+  node_ips="${master_ip}
+${node_ips}"
 fi
 
 # TODO:
 #  - Pull together all scripts to provision a complete environment
-install_openshift
+if $no_install; then
+  echo "Skipping Installation Step. You'll need to do this manually."
+else
+  install_openshift
+fi
 
 dns_server=${node_publics##*,}
 
