@@ -35,6 +35,8 @@
 #
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 VAR_NAMED_STATIC_DIR="/var/named/static"
+WILDCARD_PREFIX="apps"
+
 
 #
 # GLOBALS
@@ -440,7 +442,7 @@ installDNSserver ${dh_private_ip}
 setIPtables ${dh_private_ip}
 prepDNSserver ${dh_private_ip} ${BASE_DOMAIN}
 createDNSrecord ${dh_private_ip} ${dh_private_ip} ${dh_public_ip} 'ns1' "A"
-createDNSrecord ${dh_private_ip} ${wildcard_private_ip} ${wildcard_public_ip} '*' "A" 300 
+createDNSrecord ${dh_private_ip} ${wildcard_private_ip} ${wildcard_public_ip} "*.${WILDCARD_PREFIX}" "A" 300 
 
 
 i=1
