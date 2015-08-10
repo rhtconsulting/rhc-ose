@@ -3,7 +3,7 @@ AUTHORIZED_KEYS_FILE='https://raw.githubusercontent.com/redhat-consulting/ose-ut
 
 # Usage: added_lines oldfile newfile
 added_lines() {
-  diff --changed-group-format='%>' --unchanged-group-format='' $1 $2
+  diff --changed-group-format='%>' --unchanged-group-format='' --ignore-all-space $1 $2
 }
 
 pushd ~ > /dev/null
