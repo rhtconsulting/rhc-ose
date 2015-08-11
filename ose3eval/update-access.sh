@@ -8,6 +8,7 @@ added_lines() {
 
 pushd ~ > /dev/null
   curl -o public_keys.tmp -sS ${AUTHORIZED_KEYS_FILE}
-  echo "$(added_lines .ssh/authorized_keys public_keys.tmp)" >> .ssh/authorized_keys
+  new_keys=$(added_lines .ssh/authorized_keys public_keys.tmp)
+  [ -n "$new_keys" ] && echo "$new_keys" >> .ssh/authorized_keys
   rm public_keys.tmp
-popd
+popd > /dev/null
