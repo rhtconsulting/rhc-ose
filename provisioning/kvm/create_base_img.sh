@@ -84,7 +84,12 @@ function install()
       --os-variant=rhel7 \
       --location ${source_iso} \
       --extra-args="inst.sshd inst.ks=hd:vdb:/ks.cfg" \
-      --noreboot 
+      --noreboot \
+      --noautoconsole \
+      --wait=-1
+
+  rc=$?
+  [ ${rc} -ne 0 ] && echo "virt-install failed with rc=${rc}." && exit 1
 }
 
 
