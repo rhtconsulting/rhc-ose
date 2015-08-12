@@ -100,6 +100,7 @@ function postInstallSteps()
 
   FinalName=`date +%Y-%m-%d-%H%M`
   qemu-img convert -c ${TmpDir}/${IMAGE_NAME}.qcow2 -O qcow2 ${TmpDir}/${IMAGE_NAME}-${FinalName}.qcow2
+  qemu-img amend -f qcow2 -o compat=0.10 ${TmpDir}/${IMAGE_NAME}-${FinalName}.qcow2
 }
 
 
