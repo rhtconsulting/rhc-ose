@@ -1,0 +1,242 @@
+#!/bin/bash
+
+#
+# Installs and Configures the CI/CD Server
+#
+# * Java JDK
+# * Apache Maven
+# * Jenkins CI Server
+# * Sonatype Nexus Artifact Repository
+# * Docker Server
+#
+
+set -e
+
+#
+# Constants
+#
+
+#JAVA_VERSION=7u79
+#JAVA_VERSION_BUILD=b15
+CICD_SETUP_DIR=/tmp/cicd-setup
+CLOUD_ENV=0
+NEXUS_VERSION=2.11.4-01
+#MAVEN_VERSION=3.3.3
+
+SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+## Functions
+source ${SCRIPT_BASE_DIR}/lib/helpers
+source ${SCRIPT_BASE_DIR}/lib/constants
+
+# Set Trap
+trap clean_up EXIT
+
+function clean_up() {
+
+  if [ $? -eq 0 ]; then
+	echo
+	echo "====================================================="  
+	echo "= CICD Server Provisioning Completed Successfully!  ="
+	echo "====================================================="  
+	echo
+  else
+  	echo
+  	echo "====================================================="  
+  	echo "= CICD Server Provisioning Failed!                  ="
+  	echo "====================================================="  
+  	echo
+fi
+
+  # Cleanup
+  rm -rf ${CICD_SETUP_DIR}
+
+}
+
+
+#
+# Function to install prerequisite packages
+#
+
+function check_prereqs() {
+	
+	# Validate Docker volume exists
+	[ ! -b /dev/vdc ] || error_out "Docker Volume (/dev/vdb) does not exist"
+}
+
+#
+# Function to install prerequisite packages
+#
+
+function install_prereqs() {
+	yum install -y wget git vim &>/dev/null || error_out "Failed to install prerequisite software"
+}
+
+#
+# Function to install the Java JDK
+#
+
+function install_java_jdk() {
+   yum install -y java-1.7.0-oracle-devel &>/dev/null || error_out "Failed to install Java JDK"
+}
+
+
+#
+# Function to install additional Jenkins plugins
+#
+# Parameters:
+# $1 - Name of the Jenkins plugin
+# $2 - Version of the Jenkins plugin
+#
+
+function install_jenkins_plugin() {
+	
+	plugin_name=${1}
+	plugin_version=${2}
+	
+	wget -O /var/lib/jenkins/plugins/${plugin_name}.hpi https://updates.jenkins-ci.org/download/plugins/${plugin_name}/${plugin_version}/${plugin_name}.hpi 
+	
+}
+
+
+#
+# Function to install and configure the Jenkins CI server
+#
+
+function install_jenkins() {
+
+  wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat-stable/jenkins.repo
+  rpm --import https://jenkins-ci.org/redhat/jenkins-ci.org.key
+  yum install -y jenkins  &>/dev/null || error_out "Failed to install Jenkins"
+  
+  cp -R ${SCRIPT_BASE_DIR}/cicd/jenkins/* /var/lib/jenkins
+  
+  # Install plugins
+  mkdir -p /var/lib/jenkins/plugins
+  
+  install_jenkins_plugin 'github' '1.11.3'
+  install_jenkins_plugin 'github-api' '1.68'
+  install_jenkins_plugin 'git' '2.3.5'
+  install_jenkins_plugin 'git-client' '1.17.1'
+  install_jenkins_plugin 'credentials' '1.22'
+  install_jenkins_plugin 'scm-api' '0.2'
+  
+  chown -R jenkins:jenkins /var/lib/jenkins
+  
+  firewall-cmd --zone=public --add-port=8080/tcp --permanent
+  firewall-cmd --reload
+
+  chkconfig jenkins on
+  service jenkins start
+
+}
+
+#
+# Function to install Apache Maven
+#
+
+function install_maven() {
+
+  yum install -y maven  &>/dev/null || error_out "Failed to install Maven"
+  
+  cp -f ${SCRIPT_BASE_DIR}/cicd/maven/settings.xml /usr/share/maven/conf/
+}
+
+#
+# Function to install the Nexus repository manager
+#
+
+function install_nexus() {
+ 
+  wget -O ${CICD_SETUP_DIR}/nexus-${NEXUS_VERSION}-bundle.tar.gz https://sonatype-download.global.ssl.fastly.net/nexus/oss/nexus-${NEXUS_VERSION}-bundle.tar.gz
+  tar xzf ${CICD_SETUP_DIR}/nexus-${NEXUS_VERSION}-bundle.tar.gz -C /usr/local 
+  ln -s /usr/local/nexus-${NEXUS_VERSION} /usr/local/nexus
+  useradd -m -d /usr/local/nexus -s /bin/bash nexus
+  echo "export NEXUS_HOME=/usr/local/nexus" >> /etc/profile
+  mkdir -p /var/run/nexus
+  
+  # Copy Configuration File
+  mkdir -p /usr/local/sonatype-work/nexus/conf
+  cp -f ${SCRIPT_BASE_DIR}/cicd/nexus/nexus.xml /usr/local/sonatype-work/nexus/conf/
+  
+  chown -R nexus:nexus /usr/local/nexus* /usr/local/sonatype-work /var/run/nexus
+
+  sed -i "s/NEXUS_HOME=\"..\"/NEXUS_HOME=\"\/usr\/local\/nexus\"/g" /usr/local/nexus/bin/nexus
+  sed -i "s/#PIDDIR=\".\"/PIDDIR=\"\/var\/run\/nexus\"/g" /usr/local/nexus/bin/nexus
+  sed -i "s/#RUN_AS_USER=/RUN_AS_USER=\"nexus\"/g" /usr/local/nexus/bin/nexus
+  
+  firewall-cmd --zone=public --add-port=8081/tcp --permanent
+  firewall-cmd --reload
+  
+  cp -f ${SCRIPT_BASE_DIR}/cicd/nexus/nexus.service /etc/systemd/system/
+  chmod 664 /etc/systemd/system/nexus.service
+  
+  systemctl daemon-reload
+  systemctl start nexus
+  systemctl enable nexus
+
+}
+
+#
+# Function to install and configure Docker
+#
+
+function install_docker() {
+	yum -y install docker &>/dev/null || error_out "Failed to install Docker"
+	sed -i "s/OPTIONS='--selinux-enabled'/OPTIONS='--selinux-enabled --insecure-registry 172.30.0.0\/16'/" /etc/sysconfig/docker
+	
+	# Allocate an entire volume for Docker Storage
+	cat <<EOF > /etc/sysconfig/docker-storage-setup
+DEVS=/dev/vdb
+VG=docker-vg
+EOF
+	
+	docker-storage-setup
+	
+	systemctl start docker
+	systemctl enable docker
+}
+
+
+echo "===================================="
+echo "=   Installing CI/CD Environment   ="
+echo "===================================="
+
+# Create a scratch directory
+mkdir -p ${CICD_SETUP_DIR}
+
+echo
+echo "--- Validating Prerequisites ---"
+echo
+check_prereqs
+
+echo
+echo "--- Installing Prerequisite Software ---"
+echo
+install_prereqs
+
+echo
+echo "--- Installing Java ---"
+echo
+install_java_jdk
+
+echo
+echo "--- Installing Maven ---" 
+echo
+install_maven
+
+echo
+echo "--- Installing Jenkins ---" 
+echo
+install_jenkins
+
+echo
+echo "--- Installing Nexus ---" 
+echo
+install_nexus
+
+echo
+echo "--- Installing Docker ---" 
+echo
+install_docker
+
