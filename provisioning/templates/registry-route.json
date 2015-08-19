@@ -1,0 +1,22 @@
+{
+  "kind": "Route",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "registry",
+    "namespace": "default",
+    "labels": {
+      "SERVICE_NAME": "default"
+    }
+  },
+  "spec": {
+    "host": "HOSTNAME",
+    "to": {
+      "kind": "Service",
+      "name": "SERVICE_NAME"
+    },
+    "tls": {
+      "termination": "passthrough"
+    }
+  },
+  "status": {}
+}
