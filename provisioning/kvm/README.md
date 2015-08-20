@@ -10,7 +10,12 @@
  - run as "root" (or a user with "root" level access")
  - execute on a system with libvirt/virt-manager installed
  - for a successfully upload to "OpenStack/Glance", make sure the "glance" client is installed and 100% functional
- - also make sure the following tools are installed and functional: virt-sysprep mcopy qemu-img virt-install virsh
+ - also make sure the following tools are installed and functional: 
+  - virt-sysprep
+  - mcopy
+  - qemu-img
+  - virt-install
+  - virsh
  - ensure that enough space is available in /tmp (2GB+) for image creation
  - have a valid RHN username/password + a pool id available (the tool will prompt for the details)
  - with the current version of the tool the full RHEL 7.x DVD ISO _must_ be used
@@ -29,6 +34,7 @@ For example:
 
 **_ks.cfg_**
 
-This is the kickstart file used to generate the image file. If anything different is needed for your image needs, feel free to modify this ks.cfg to your liking before running the *create_base_img.sh* script. For more information about RHEL 7.x and kickstart, take a look here:
+This is the kickstart file used to generate the image file. If anything different is needed for your image needs, feel free to modify this ks.cfg to your liking before running the *create_base_img.sh* script. For more information about RHEL 7.x and kickstart, take a look at the official documentation:
+
 https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux/7/html/Installation_Guide/chap-kickstart-installations.html
 
