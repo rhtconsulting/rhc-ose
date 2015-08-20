@@ -4,6 +4,7 @@ usage() {
 Usage: $0 --instance-name <name> --key <key name>[options]
 
 Options:
+  --action <action>                   : Action to execute -- boot, delete (default: boot)
   --instance-name <name>              : *Name of your instance
   --key <openstack ssh key name>      : *Name of your SSH key in OpenStack dashboard.
   --image-name <image-name>           : Specify an image (or snapshot) to use for boot
@@ -42,6 +43,92 @@ attach_volume() {
     exit 2
   fi
 
+}
+
+do_boot() {
+  boot_servers
+}
+
+do_delete_by_ip() {
+  delete_servers_by_ip $IP_ADDRESSES
+}
+
+do_delete_by_name() {
+  delete_servers
+}
+
+boot_servers() {
+  for arg in "key:$key" "instance-name:$instance_name"; do
+    if [ -z ${arg#*:} ]; then
+      echo "Missing argument --${arg%:*}."
+      usage
+      exit 1;
+    fi
+  done
+
+  # Provision VMs
+  image_ami=$(nova image-list | awk "/$image_name_search/"'{print $2}')
+  [ $(echo "$image_ami" | grep -c ".*") != 1 ] && safe_out "error" "--image-name $image_name_search gave multiple matches. Be more specific" && exit 2
+
+  safe_out "debug" "nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} ${options} ${instance_name}"
+  instance_status=$(nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} ${options} ${instance_name} | awk '/^\| id/ || /^\| status/ {print $4}')
+  safe_out "debug" "${instance_status}"
+  instance_status=${instance_status//$'\n'/ }
+  instance_id=${instance_status%' '*}
+  status=${instance_status#*' '}
+
+  if [ "$status" != "BUILD" ]; then
+    echo "Something went wrong during image creation."
+    echo "Status expected: BUILD"
+    echo "Status received: $status"
+    exit 1
+  fi
+
+  # added to support multiple instances
+  instance_ids=$(nova list --name ${instance_name} | awk "/${instance_name}/"'{print $2}')
+
+  for instance_id in ${instance_ids//$'\n'/ }; do
+
+    instance_name=$(nova show $instance_id | awk "/ name/"'{print $4}')
+
+    # need to wait for instance to be in running state
+    wait_for_instance_running $instance_id
+    safe_out "info" "Instance ${instance_name} is active. Waiting for ssh service to be ready..."
+    instance_ip=$(nova show ${instance_id} | awk '/os1-internal.*network/ {print $5$6}')
+
+    # need to wait until ssh service comes up on instance
+    wait_for_ssh ${instance_ip#*,} 120
+
+    if [ -n $volume_size ]; then
+      safe_out "info" "Adding a Volume"
+      attach_volume $instance_id $volume_size
+    fi
+
+    safe_out "info" "Instance ${instance_name} is accessible and ready to use."
+
+    if [ "$interactive" = "true" ]; then
+      echo "Instance IP: ${instance_ip//,/|}"
+    else
+      echo "${instance_ip//,/|}"
+    fi
+
+  done
+
+}
+
+delete_servers() {
+  servers=$1
+  nova delete $servers
+}
+
+delete_servers_by_ip() {
+  ip_addrs=$1
+  [ -z $ip_addrs ] && echo "Missing argument: --ips <ip1,ip2,...ipN>" && exit 1
+
+  for ip in ${ip_addrs//,/ }; do
+    servers="$servers $(nova list | awk "/$ip/"'{print$2}')"
+  done
+  delete_servers $servers
 }
 
 # Usage: error_out <message> <error_code>
@@ -105,6 +192,7 @@ log() {
 }
 
 # Initialize environment
+action="boot"
 interactive="true"
 LOGFILE=~/openstack_provision.log
 LOG_LEVEL="info"
@@ -120,12 +208,16 @@ do
       key="$1"; shift;;
     "--n")
       unset interactive;;
+    "--action")
+      action=$1; shift;;
     "--add-volume")
       volume_size=$1; shift;;
     "--instance-name")
       instance_name="$1"; shift;;
     "--image-name")
       image_name="$1"; shift;;
+    "--ips")
+      IP_ADDRESSES="$1"; shift;;
     "--auth-key-file")
       auth_key_file=true;
       options="${options} --file /root/.ssh/authorized_keys=$1";
@@ -140,14 +232,6 @@ do
       LOG_LEVEL="debug";;
     *) echo >&2 "Invalid option: $@"; exit 1;;
   esac
-done
-
-for arg in "key:$key" "instance-name:$instance_name"; do
-  if [ -z ${arg#*:} ]; then
-    echo "Missing argument --${arg%:*}."
-    usage
-    exit 1;
-  fi
 done
 
 # Setup Environment and Gather Requirements
@@ -170,50 +254,12 @@ if [ "$interactive" = "true" ]; then
   echo "Tail Logfile for More Info: ${LOGFILE}"
 fi
 
-# Provision VMs
-image_ami=$(nova image-list | awk "/$image_name_search/"'{print $2}')
-[ $(echo "$image_ami" | grep -c ".*") != 1 ] && safe_out "error" "--image-name $image_name_search gave multiple matches. Be more specific" && exit 2
+actions="boot delete_by_ip delete_by_name"
 
-safe_out "debug" "nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} ${options} ${instance_name}"
-instance_status=$(nova boot --image ${image_ami} --flavor ${flavor} --key-name ${key} ${options} ${instance_name} | awk '/^\| id/ || /^\| status/ {print $4}')
-safe_out "debug" "${instance_status}"
-instance_status=${instance_status//$'\n'/ }
-instance_id=${instance_status%' '*}
-status=${instance_status#*' '}
-
-if [ "$status" != "BUILD" ]; then
-  echo "Something went wrong during image creation."
-  echo "Status expected: BUILD"
-  echo "Status received: $status"
+if [[ $actions =~ (^| )$action($| ) ]]; then
+  do_$action
+else
+  echo "Invalid value for --action: $action"
+  echo "Valid actions: $actions"
   exit 1
 fi
-
-# added to support multiple instances
-instance_ids=$(nova list --name ${instance_name} | awk "/${instance_name}/"'{print $2}')
-
-for instance_id in ${instance_ids//$'\n'/ }; do
-
-  instance_name=$(nova show $instance_id | awk "/ name/"'{print $4}')
-
-  # need to wait for instance to be in running state
-  wait_for_instance_running $instance_id
-  safe_out "info" "Instance ${instance_name} is active. Waiting for ssh service to be ready..."
-  instance_ip=$(nova show ${instance_id} | awk '/os1-internal.*network/ {print $5$6}')
-
-  # need to wait until ssh service comes up on instance
-  wait_for_ssh ${instance_ip#*,} 120
-
-  if [ -n $volume_size ]; then
-    safe_out "info" "Adding a Volume"
-    attach_volume $instance_id $volume_size
-  fi
-
-  safe_out "info" "Instance ${instance_name} is accessible and ready to use."
-
-  if [ "$interactive" = "true" ]; then
-    echo "Instance IP: ${instance_ip//,/|}"
-  else
-    echo "${instance_ip//,/|}"
-  fi
-
-done
