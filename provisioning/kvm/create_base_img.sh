@@ -7,7 +7,7 @@
 #
 # Prerequisite:
 #  - run as "root" (or a user with "root" level access")
-#  - execute on a system with libvirt/virt-mangaer installed
+#  - execute on a system with libvirt/virt-manager installed
 #  - ensure that enough space is available in /tmp (2GB+) for image creation
 #  - have a valid RHN username/password + a pool id available
 #
