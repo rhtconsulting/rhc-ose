@@ -297,7 +297,7 @@ do_post(){
 
   # Remove --insecure-registry flag set by ansible (https://github.com/openshift/openshift-ansible/issues/497)
   for node in ${NODE_HOSTNAMES//,/ }; do
-    $SSH_CMD $node 'sed -i "s/--insecure-registry 172.30.0.0\/16//" /etc/sysconfig/docker && systemctl restart docker'
+    $SSH_CMD $node 'sed "s/--insecure-registry=172.30.0.0\/16//" /etc/sysconfig/docker && systemctl restart docker'
   done
 }
 
