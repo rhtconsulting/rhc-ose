@@ -36,7 +36,7 @@ Current implementations:
 3. Run provisioning script:
 ```bash
 # Run osc-provision with no options to show Usage output and options
-$ [esauer@eric-laptop ose-utils]$ ./provisioning/osc-provision
+$ ./ose-utils/provisioning/osc-provision
 Missing argument: --num-nodes <integer>
 
 Usage: ./provisioning/osc-provision --num-nodes=<integer> [options]
