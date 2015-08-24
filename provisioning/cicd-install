@@ -69,7 +69,9 @@ function check_prereqs() {
 #
 
 function install_prereqs() {
-	yum install -y wget git vim &>/dev/null || error_out "Failed to install prerequisite software" 2
+	
+	# EPEL and software packages	
+	yum install -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm wget git vim jq &>/dev/null || error_out "Failed to install prerequisite software" 2
 }
 
 #
