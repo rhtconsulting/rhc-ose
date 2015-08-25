@@ -282,19 +282,6 @@ do_post(){
   do_create_registry
   ### Workarounds for current issues
 
-  # Apply node labels after install (https://bugzilla.redhat.com/show_bug.cgi?id=1235953)
-  infra_node=$(find_infra_node)
-  for node in ${NODE_HOSTNAMES//,/ }; do
-    if contains "${infra_node}" "${node}"; then
-      region="infra"
-      zone="default"
-    else
-      region="primary"
-      zone="$( select_zone )"
-    fi
-    oc label node/${node} region=$region zone=$zone
-  done
-
   # Remove --insecure-registry flag set by ansible (https://github.com/openshift/openshift-ansible/issues/497)
   for node in ${NODE_HOSTNAMES//,/ }; do
     $SSH_CMD $node 'sed -i "s/--insecure-registry=172.30.0.0\/16//" /etc/sysconfig/docker && systemctl restart docker'
