@@ -29,6 +29,11 @@ GET() {
 
 ## Sample API Calls
 
+### Get Projects
+```bash
+GET /oapi/v1/projects
+```
+
 ### Create Project
 ```bash
 POST /oapi/v1/projectrequests '{
@@ -44,7 +49,7 @@ POST /oapi/v1/projectrequests '{
 
 ### Create Service
 ```bash
-POST /oapi/v1/namespaces/api-requests/services '{
+POST /api/v1/namespaces/api-project/services '{
   "apiVersion": "v1",
   "kind": "Service",
   "metadata": {
@@ -73,7 +78,7 @@ POST /oapi/v1/namespaces/api-requests/services '{
 
 ### Create ImageStream
 ```bash
-POST /oapi/v1/namespaces/api-requests/imagestreams '{
+POST /oapi/v1/namespaces/api-project/imagestreams '{
   "apiVersion": "v1",
   "kind": "ImageStream",
   "metadata": {
@@ -90,7 +95,7 @@ POST /oapi/v1/namespaces/api-requests/imagestreams '{
 
 ### Create Buildconfig
 ```bash
-POST /oapi/v1beta3/namespaces/api-requests/buildconfigs '{
+POST /oapi/v1beta3/namespaces/api-project/buildconfigs '{
   "apiVersion": "v1",
   "kind": "BuildConfig",
   "metadata": {
@@ -144,7 +149,7 @@ POST /oapi/v1beta3/namespaces/api-requests/buildconfigs '{
 
 ### Create DeploymentConfig
 ```bash
-POST /oapi/v1beta3/namespaces/api-requests/deploymentconfigs '{
+POST /oapi/v1beta3/namespaces/api-project/deploymentconfigs '{
   "apiVersion": "v1",
   "kind": "DeploymentConfig",
   "metadata": {
@@ -231,7 +236,7 @@ POST /oapi/v1beta3/namespaces/api-requests/deploymentconfigs '{
 
 ### Create Route
 ```bash
-POST /oapi/v1beta3/namespaces/api-requests/routes '{
+POST /oapi/v1beta3/namespaces/api-project/routes '{
   "apiVersion": "v1",
   "kind": "Route",
   "metadata": {
