@@ -31,32 +31,223 @@ GET() {
 
 ### Create Project
 ```bash
-POST /oapi/v1/projectrequests '{"apiVersion":"v1beta3","kind":"ProjectRequest","metadata":{"name":"api-project"},"displayName":"My Project","description":"Hello"}'
+POST /oapi/v1/projectrequests '{
+  "apiVersion": "v1beta3",
+  "description": "Hello",
+  "displayName": "My Project",
+  "kind": "ProjectRequest",
+  "metadata": {
+    "name": "api-project"
+  }
+}'
 ```
 
 ### Create Service
 ```bash
-POST /oapi/v1/namespaces/api-requests/services '{"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"description":"Exposes and load balances the application pods"},"labels":{"template":"nodejs-example"},"name":"nodejs-example"},"spec":{"ports":[{"name":"web","port":8080,"targetPort":8080}],"selector":{"name":"nodejs-example"}}}'
+POST /oapi/v1/namespaces/api-requests/services '{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "annotations": {
+      "description": "Exposes and load balances the application pods"
+    },
+    "labels": {
+      "template": "nodejs-example"
+    },
+    "name": "nodejs-example"
+  },
+  "spec": {
+    "ports": [
+    {
+      "name": "web",
+      "port": 8080,
+      "targetPort": 8080
+    }
+    ],
+    "selector": {
+      "name": "nodejs-example"
+    }
+  }
+}'
 ```
 
 ### Create ImageStream
 ```bash
-POST /oapi/v1/namespaces/api-requests/imagestreams '{"apiVersion":"v1","kind":"ImageStream","metadata":{"annotations":{"description":"Keeps track of changes in the application image"},"labels":{"template":"nodejs-example"},"name":"nodejs-example"}}'
+POST /oapi/v1/namespaces/api-requests/imagestreams '{
+  "apiVersion": "v1",
+  "kind": "ImageStream",
+  "metadata": {
+    "annotations": {
+      "description": "Keeps track of changes in the application image"
+    },
+    "labels": {
+      "template": "nodejs-example"
+    },
+    "name": "nodejs-example"
+  }
+}'
 ```
 
 ### Create Buildconfig
 ```bash
-POST /oapi/v1beta3/namespaces/api-requests/buildconfigs '{"apiVersion":"v1","kind":"BuildConfig","metadata":{"annotations":{"description":"Defines how to build the application"},"labels":{"template":"nodejs-example"},"name":"nodejs-example"},"spec":{"output":{"to":{"kind":"ImageStreamTag","name":"nodejs-example:latest"}},"source":{"contextDir":"","git":{"ref":"","uri":"https://github.com/openshift/nodejs-ex.git"},"type":"Git"},"strategy":{"sourceStrategy":{"from":{"kind":"ImageStreamTag","name":"nodejs:0.10","namespace":"openshift"}},"type":"Source"},"triggers":[{"type":"ImageChange"},{"github":{"secret":"QCQ1cRfqgysbQ7opST2HklJjJ1iYuwmqJ2bWPVQ5"},"type":"GitHub"}]}}'
+POST /oapi/v1beta3/namespaces/api-requests/buildconfigs '{
+  "apiVersion": "v1",
+  "kind": "BuildConfig",
+  "metadata": {
+    "annotations": {
+      "description": "Defines how to build the application"
+    },
+    "labels": {
+      "template": "nodejs-example"
+    },
+    "name": "nodejs-example"
+  },
+  "spec": {
+    "output": {
+      "to": {
+        "kind": "ImageStreamTag",
+        "name": "nodejs-example:latest"
+      }
+    },
+    "source": {
+      "contextDir": "",
+      "git": {
+        "ref": "",
+        "uri": "https://github.com/openshift/nodejs-ex.git"
+      },
+      "type": "Git"
+    },
+    "strategy": {
+      "sourceStrategy": {
+        "from": {
+          "kind": "ImageStreamTag",
+          "name": "nodejs:0.10",
+          "namespace": "openshift"
+        }
+      },
+      "type": "Source"
+    },
+    "triggers": [
+    {
+      "type": "ImageChange"
+    },
+    {
+      "github": {
+        "secret": "QCQ1cRfqgysbQ7opST2HklJjJ1iYuwmqJ2bWPVQ5"
+      },
+      "type": "GitHub"
+    }
+    ]
+  }
+}'
 ```
 
 ### Create DeploymentConfig
 ```bash
-POST /oapi/v1beta3/namespaces/api-requests/deploymentconfigs '{"apiVersion":"v1","kind":"DeploymentConfig","metadata":{"annotations":{"description":"Defines how to deploy the application server"},"labels":{"template":"nodejs-example"},"name":"nodejs-example"},"spec":{"replicas":1,"selector":{"name":"nodejs-example"},"strategy":{"type":"Rolling"},"template":{"metadata":{"labels":{"name":"nodejs-example"},"name":"nodejs-example"},"spec":{"containers":[{"env":[{"name":"DATABASE_SERVICE_NAME","value":""},{"name":"MONGODB_USER","value":""},{"name":"MONGODB_PASSWORD","value":""},{"name":"MONGODB_DATABASE","value":""},{"name":"MONGODB_ADMIN_PASSWORD","value":""}],"image":"nodejs-example","name":"nodejs-example","ports":[{"containerPort":8080}]}]}},"triggers":[{"imageChangeParams":{"automatic":true,"containerNames":["nodejs-example"],"from":{"kind":"ImageStreamTag","name":"nodejs-example:latest"}},"type":"ImageChange"},{"type":"ConfigChange"}]}}'
+POST /oapi/v1beta3/namespaces/api-requests/deploymentconfigs '{
+  "apiVersion": "v1",
+  "kind": "DeploymentConfig",
+  "metadata": {
+    "annotations": {
+      "description": "Defines how to deploy the application server"
+    },
+    "labels": {
+      "template": "nodejs-example"
+    },
+    "name": "nodejs-example"
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "name": "nodejs-example"
+    },
+    "strategy": {
+      "type": "Rolling"
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "name": "nodejs-example"
+        },
+        "name": "nodejs-example"
+      },
+      "spec": {
+        "containers": [
+        {
+          "env": [
+          {
+            "name": "DATABASE_SERVICE_NAME",
+            "value": ""
+          },
+          {
+            "name": "MONGODB_USER",
+            "value": ""
+          },
+          {
+            "name": "MONGODB_PASSWORD",
+            "value": ""
+          },
+          {
+            "name": "MONGODB_DATABASE",
+            "value": ""
+          },
+          {
+            "name": "MONGODB_ADMIN_PASSWORD",
+            "value": ""
+          }
+          ],
+          "image": "nodejs-example",
+          "name": "nodejs-example",
+          "ports": [
+          {
+            "containerPort": 8080
+          }
+          ]
+        }
+        ]
+      }
+    },
+    "triggers": [
+      {
+        "imageChangeParams": {
+          "automatic": true,
+          "containerNames": [
+            "nodejs-example"
+          ],
+          "from": {
+            "kind": "ImageStreamTag",
+            "name": "nodejs-example:latest"
+          }
+        },
+        "type": "ImageChange"
+      },
+      {
+        "type": "ConfigChange"
+      }
+    ]
+  }
+}'
 ```
 
 ### Create Route
 ```bash
-POST /oapi/v1beta3/namespaces/api-requests/routes '{"apiVersion":"v1","kind":"Route","metadata":{"labels":{"template":"nodejs-example"},"name":"nodejs-example"},"spec":{"host":"nodejs-example.openshiftapps.com","to":{"kind":"Service","name":"nodejs-example"}}}'
+POST /oapi/v1beta3/namespaces/api-requests/routes '{
+  "apiVersion": "v1",
+  "kind": "Route",
+  "metadata": {
+    "labels": {
+      "template": "nodejs-example"
+    },
+    "name": "nodejs-example"
+  },
+  "spec": {
+    "host": "nodejs-example.openshiftapps.com",
+    "to": {
+      "kind": "Service",
+      "name": "nodejs-example"
+    }
+  }
+}'
 ```
 
 ### Get Pods
