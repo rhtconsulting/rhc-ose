@@ -44,3 +44,35 @@ get_private_ips() {
 get_public_ips() {
   echo "$1" | sed 's/[0-9]*.[0-9]*.[0-9]*.[0-9]*|//g'
 }
+
+## Template Format ##
+
+# Variables take the form '{{VARNAME}}'
+# Sample template, /my/template/file:
+#
+# {
+#   "name": "{{NAME}}",
+#   "type": "{{TYPE}}"
+# }
+
+# Usage: process_template <template file> ENV_VAR1_NAME ENV_VAR2_NAME ...
+
+# ex.
+# MYVAR=something
+# MY_OTHER_VAR="here is a
+# multi-line variable"
+# process_template ./my/template/file MYVAR MY_OTHER_VAR
+process_template() {
+  local template_file=$1
+  shift
+  local vars=$@
+  local output="$(cat $template_file)"
+
+  for var in $vars; do
+    value=${!var}
+    echo "${value}" > /tmp/${var}
+    output=$(echo "$output" | perl -pe "s/{{$var}}/${value}/g")
+  done
+
+  echo "$output"
+}

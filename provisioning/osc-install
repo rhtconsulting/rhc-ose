@@ -74,35 +74,15 @@ setup_ansible() {
     # This is a hack to make sure we don't get host key checks during ansible run
     validate_ssh ${node}
 
-    nodestring="$nodestring
-${node} openshift_hostname=${node} openshift_public_hostname=${node} openshift_node_labels=\"{'region': '${region}', 'zone': '${zone}'}\" ${node_opts}"
+    read -d '' NODESTRING <<EOF
+$NODESTRING
+${node} openshift_hostname=${node} openshift_public_hostname=${node} openshift_node_labels="{'region': '${region}', 'zone': '${zone}'}" ${node_opts}
+EOF
+
   done
 
-  ansible_hosts_file="# This is an example of a bring your own (byo) host inventory
-
-[OSEv3:children]
-masters
-nodes
-etcd
-
-[OSEv3:vars]
-deployment_type=enterprise
-ansible_ssh_user=root
-
-# enable htpasswd authentication
-openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '/etc/openshift/openshift-passwd'}]
-
-# host group for masters
-[masters]
-${MASTER_HOSTNAME} openshift_hostname=${MASTER_HOSTNAME} openshift_public_hostname=${MASTER_HOSTNAME}
-
-[etcd]
-${MASTER_HOSTNAME}
-
-# host group for nodes
-[nodes]
-$(echo "${nodestring}" | sed '/^\s*$/d')
-"
+  echo "process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING"
+  ansible_hosts_file="$(process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING)"
 
   cd
   rm -rf ~/openshift-ansible
@@ -359,9 +339,9 @@ do_create_registry() {
   done
 
   # Create Route for External Access
-  route_resource=$(cat ${SCRIPT_BASE_DIR}/templates/registry-route.json)
-  route_resource=$(echo "$route_resource" | sed "s/SERVICE_NAME/$service_name/g")
-  route_resource=$(echo "$route_resource" | sed "s/HOSTNAME/registry.apps.${OPENSHIFT_BASE_DOMAIN}/g")
+  SERVICE_NAME=$service_name
+  HOSTNAME=registry.apps.${OPENSHIFT_BASE_DOMAIN}
+  route_resource=$(process_template ${SCRIPT_BASE_DIR}/templates/registry-route.json SERVICE_NAME HOSTNAME )
 
   echo "$route_resource" | oc create -f -
 }
