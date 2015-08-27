@@ -1,7 +1,7 @@
 # Functions
 usage() {
   echo "
-Usage: $0 --instance-name <name> --key <key name>[options]
+Usage: $0 --action <boot|delete_by_name|delete_by_ip> [options]
 
 Options:
   --action <action>                   : Action to execute -- boot, delete (default: boot)
@@ -13,7 +13,7 @@ Options:
   --num-instances <number>            : Number of instances to create with this profile
   --add-volume <size>                 : Add a volume of a given size (in GB)
   --debug                             : Set log level to Debug
-  --n                                  : non-iteractive mode for use with scripts. Doesn't log anything to the console
+  --n                                 : non-iteractive mode for use with scripts. Doesn't log anything to the console
   "
 
 }
@@ -54,17 +54,14 @@ do_delete_by_ip() {
 }
 
 do_delete_by_name() {
-  delete_servers
+  required_args="instance-name:$instance_name"
+  validate_args "$required_args"
+  delete_servers $instance_name
 }
 
 boot_servers() {
-  for arg in "key:$key" "instance-name:$instance_name"; do
-    if [ -z ${arg#*:} ]; then
-      echo "Missing argument --${arg%:*}."
-      usage
-      exit 1;
-    fi
-  done
+  required_args="key:$key instance-name:$instance_name"
+  validate_args "$required_args"
 
   # Provision VMs
   image_ami=$(nova image-list | awk "/$image_name_search/"'{print $2}')
@@ -99,7 +96,7 @@ boot_servers() {
     # need to wait until ssh service comes up on instance
     wait_for_ssh ${instance_ip#*,} 120
 
-    if [ -n $volume_size ]; then
+    if [ -n "$volume_size" ]; then
       safe_out "info" "Adding a Volume"
       attach_volume $instance_id $volume_size
     fi
@@ -142,6 +139,17 @@ get_fault_info() {
 
   echo "$instance_info" | grep '^| fault'
   safe_out "debug" "$instance_info"
+}
+
+validate_args() {
+  for arg in $1; do
+    if [ -z ${arg#*:} ]; then
+      echo "Missing argument --${arg%:*}."
+      usage
+      exit 1;
+    fi
+  done
+
 }
 
 wait_for_instance_running() {
