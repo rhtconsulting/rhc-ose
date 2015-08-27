@@ -15,15 +15,19 @@ SERVER=master.d1.rhc-ose.labs.redhat.com # Master IP
 AUTH="Authorization: Bearer $TOKEN"
 CONTENT_TYPE="Content-Type: application/json"
 
-
-POST() {
-  echo "curl -kI -H \"$AUTH\" -H \"$CONTENT_TYPE\" -X POST --data-binary \"${DATA}\" https://${SERVER}:8443$1"
-  curl -k -H "$AUTH" -H "$CONTENT_TYPE" -X POST --data-binary "${2}" https://${SERVER}:8443$1
-}
-
 GET() {
   echo "curl -kI -H \"$AUTH\" -H \"$CONTENT_TYPE\" -X GET https://${SERVER}:8443$1"
   curl -k -H "$AUTH" -H "$CONTENT_TYPE" -X GET https://${SERVER}:8443$1
+}
+
+POST() {
+  echo "curl -kI -H \"$AUTH\" -H \"$CONTENT_TYPE\" -X POST --data-binary \"${2}\" https://${SERVER}:8443$1"
+  curl -k -H "$AUTH" -H "$CONTENT_TYPE" -X POST --data-binary "${2}" https://${SERVER}:8443$1
+}
+
+PUT() {
+  echo "curl -kI -H \"$AUTH\" -H \"$CONTENT_TYPE\" -X PUT --data-binary \"${2}\" https://${SERVER}:8443$1"
+  curl -k -H "$AUTH" -H "$CONTENT_TYPE" -X POST --data-binary "${2}" https://${SERVER}:8443$1
 }
 ```
 
@@ -45,6 +49,106 @@ POST /oapi/v1/projectrequests '{
     "name": "api-project"
   }
 }'
+```
+
+### Get PolicyBindings for Project
+```bash
+GET /oapi/v1/namespaces/api-project/policybindings
+```
+
+### Edit a PolicyBinding to Give user access to a project
+```bash
+PUT /oapi/v1/namespaces/api-project/policybindings '{
+  "kind": "PolicyBinding",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": ":default",
+    "namespace": "api-project",
+  },
+  "lastModified": "2015-08-26T02:52:27Z",
+  "policyRef": {
+    "name": "default"
+  },
+  "roleBindings": [
+  {
+    "name": "admins",
+    "roleBinding": {
+      "metadata": {
+        "name": "admins",
+        "namespace": "api-project",
+        "uid": "7c095a38-4b9d-11e5-850c-fa163e81e19d",
+        "resourceVersion": "160671",
+        "creationTimestamp": "2015-08-26T02:52:26Z"
+      },
+      "userNames": [
+      "joe",
+      "alice"
+      ],
+      "groupNames": [],
+      "roleRef": {
+        "name": "admin"
+      }
+    }
+  },
+  {
+    "name": "system:deployers",
+    "roleBinding": {
+      "metadata": {
+        "name": "system:deployers",
+        "namespace": "api-project",
+        "uid": "7c484485-4b9d-11e5-850c-fa163e81e19d",
+        "resourceVersion": "160685",
+        "creationTimestamp": "2015-08-26T02:52:27Z"
+      },
+      "userNames": [
+      "system:serviceaccount:api-project:deployer"
+      ],
+      "groupNames": [],
+      "roleRef": {
+        "name": "system:deployer"
+      }
+    }
+    },
+    {
+      "name": "system:image-builders",
+      "roleBinding": {
+        "metadata": {
+          "name": "system:image-builders",
+          "namespace": "api-project",
+          "uid": "7c3c705e-4b9d-11e5-850c-fa163e81e19d",
+          "resourceVersion": "160681",
+          "creationTimestamp": "2015-08-26T02:52:27Z"
+          },
+          "userNames": [
+          "system:serviceaccount:api-project:builder"
+          ],
+          "groupNames": [],
+          "roleRef": {
+            "name": "system:image-builder"
+          }
+        }
+        },
+        {
+          "name": "system:image-pullers",
+          "roleBinding": {
+            "metadata": {
+              "name": "system:image-pullers",
+              "namespace": "api-project",
+              "uid": "7c2f8ff9-4b9d-11e5-850c-fa163e81e19d",
+              "resourceVersion": "160672",
+              "creationTimestamp": "2015-08-26T02:52:27Z"
+              },
+              "userNames": [],
+              "groupNames": [
+              "system:serviceaccounts:api-project"
+              ],
+              "roleRef": {
+                "name": "system:image-puller"
+              }
+            }
+          }
+        ]
+      }'
 ```
 
 ### Create Service
