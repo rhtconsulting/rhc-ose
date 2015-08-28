@@ -179,6 +179,7 @@ fi
 
 dns_server=${node_publics##*,}
 
+echo "Environment ID: $ENV_ID"
 echo "Master:
 - Hostname: $( get_hostnames $master_public $openshift_domain $dns_server)
 - IPs: ${master_ip}"

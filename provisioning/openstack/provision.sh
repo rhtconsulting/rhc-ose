@@ -114,8 +114,32 @@ boot_servers() {
 }
 
 delete_servers() {
-  servers=$1
-  nova delete $servers
+  server_name=$1
+  max_servers=6
+  # Ensure we have a decently non-generic server_name to search with, so that we don't match too many instances
+  [ ${#server_name} -lt 8 ] && error_out "Server name is too short. Risk of deleting too many servers." $ERROR_CODE_PROVISION_FAILURE
+  servers=$(nova list | awk "/$server_name/"'{print $2}' | sed ':a;N;$!ba;s/\n/ /g')
+
+  # Another safety check to make sure we're deleting a reasonable number of instances
+  if [ $(echo "$servers" | wc -w) -gt $max_servers ]; then
+    error_out "More than $max_servers. Please double check your instance-name: $server_name" $ERROR_CODE_PROVISION_FAILURE
+  elif [ $(echo "$servers" | wc -w) -le 0 ]; then
+    error_out "No servers match your instance-name." $ERROR_CODE_PROVISION_FAILURE
+  fi
+
+  # Before we delete, we need to grab the volumes attached.
+  volumes="$(nova volume-list)"
+  volumes_to_delete=""
+  for server in $servers; do
+    volumes_to_delete="$volumes_to_delete $(echo "$volumes" | awk "/$server/"'{print $2}')"
+  done
+
+  nova delete $servers && safe_out "info" "Deleted servers: $servers"
+
+  for volume in $volumes_to_delete; do
+    wait_for_volume_detached $volume
+  done
+  nova volume-delete $volumes_to_delete && safe_out "info" "Deleted volumes: $volumes_to_delete"
 }
 
 delete_servers_by_ip() {
@@ -174,6 +198,13 @@ wait_for_ssh() {
 
   command="ssh -o StrictHostKeyChecking=no root@${instance_ip} 'ls' &>/dev/null"
   run_cmd_with_timeout "$command" ${2:-60}
+}
+
+wait_for_volume_detached() {
+  local volume=$1
+
+  command="[ \$( nova volume-show $volume | grep -cE \"status.*available|status.*error\" ) -eq 1 ]"
+  run_cmd_with_timeout "$command" ${2:-30}
 }
 
 run_cmd_with_timeout() {
