@@ -11,7 +11,7 @@ It will produce the docker image based on a *Dockerfile* and run the docker cont
 
 ```
      --configdir=<configdir>       : Directory containing Openstack configuration files (Default: ~/.openstack/)
-	 --name=<name>                 : Name of the assembled image (Default: rhc-openstack-client)
+	 --name=<name>                 : Name of the assembled image (Default: rhtconsulting/rhc-openstack-client)
      --keep                        : Whether to keep the the container after exiting
      --ssh=<ssh>                   : Location of SSH keys to mount into the container (Default: ~/.ssh)
      --repository=<repository>     : Directory containing a repository to mount inside the container
