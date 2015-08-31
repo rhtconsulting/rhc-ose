@@ -72,6 +72,9 @@ function install_prereqs() {
 	
 	# EPEL and software packages	
 	yum install -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm wget git vim jq &>/dev/null || error_out "Failed to install prerequisite software" 2
+
+	# JQ must be installed only after EPEL installed
+	yum install -y install jq &>/dev/null || error_out "Failed to install prerequisite software" 2
 }
 
 #
@@ -135,7 +138,8 @@ function install_jenkins() {
   install_jenkins_plugin 'ssh-credentials' '1.10'
   install_jenkins_plugin 'mapdb-api' '1.0.6.0'
   install_jenkins_plugin 'build-pipeline-plugin' '1.4.7'  
-  install_jenkins_plugin 'jquery' '1.11.2-0'  
+  install_jenkins_plugin 'jquery' '1.11.2-0'
+  install_jenkins_plugin 'ws-cleanup' '0.28'
   
   chown -R jenkins:jenkins /var/lib/jenkins
   
