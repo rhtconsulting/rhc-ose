@@ -43,7 +43,7 @@ Usage: ./provisioning/osc-provision --num-nodes=<integer> [options]
 
 Options:
 --openshift-domain=<domain>   : Base domain name for your OpenShift environment (default: ose.example.com)
---cloudapp-domain=<domain>    : Wildcard domain for your applications (default: *.ose.example.com)
+--cloudapp-domain=<domain>    : Wildcard domain for your applications (default: *.apps.ose.example.com)
 --master-is-node              : Master will also be provisioned as a node (set to false if not passed)
 --no-install                  : Provision instances and sync keys, but do not run the OpenShift installer
 --key=<key name>              : SSH Key used to authenticate to Cloud API

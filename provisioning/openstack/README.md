@@ -12,7 +12,7 @@ yum install python-novaclient
 
 ```bash
 mkdir ~/.openstack
-mv ~/Downloads/Consulting\ Middleware\ Delivery-openrc.sh ~/.openstack/openrc.sh
+mv /path/to/openstack/rc.sh ~/.openstack/openrc.sh
 ```
 * Add your password to the rc file so that
 ```bash
