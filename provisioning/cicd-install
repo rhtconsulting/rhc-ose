@@ -113,6 +113,9 @@ function install_jenkins() {
   yum install -y jenkins  &>/dev/null || error_out "Failed to install Jenkins" 5
   
   cp -R ${SCRIPT_BASE_DIR}/cicd/jenkins/* /var/lib/jenkins
+
+  # Update Jenkins context
+  sed -i "s/JENKINS_ARGS=\"\"/JENKINS_ARGS=\"--prefix=\/jenkins\"/g" /etc/sysconfig/jenkins
   
   # Install plugins
   mkdir -p /var/lib/jenkins/plugins
@@ -194,11 +197,45 @@ function install_nexus() {
 }
 
 #
+# Function to install and configure HTTPD
+#
+
+function install_httpd() {
+	yum -y install httpd &>/dev/null || error_out "Failed to install HTTPD" 5
+
+	# Reverse proxy configuration file
+	cat <<EOF > /etc/httpd/conf.d/cicd.conf
+ProxyRequests Off
+ProxyPreserveHost On
+AllowEncodedSlashes NoDecode
+
+<VirtualHost *:80>
+
+  ProxyPass /nexus http://localhost:8081/nexus
+  ProxyPassReverse /nexus http://localhost:8081/nexus
+
+  ProxyPass         /jenkins  http://localhost:8080/jenkins nocanon
+  ProxyPassReverse  /jenkins  http://localhost:8080/jenkins
+
+</VirtualHost>
+
+EOF
+
+	setsebool -P httpd_can_network_connect true
+
+    firewall-cmd --zone=public --add-port=80/tcp --permanent
+    firewall-cmd --reload
+
+	systemctl start httpd
+	systemctl enable httpd
+}
+
+#
 # Function to install and configure Docker
 #
 
 function install_docker() {
-	yum -y install docker &>/dev/null || error_out "Failed to install Docker"
+	yum -y install docker &>/dev/null || error_out "Failed to install Docker" 6
 	sed -i "s/OPTIONS='--selinux-enabled'/OPTIONS='--selinux-enabled --insecure-registry 172.30.0.0\/16'/" /etc/sysconfig/docker
 
 	# Add docker commands to be executed by those in sudoers
@@ -256,6 +293,11 @@ echo
 echo "--- Installing Nexus ---" 
 echo
 install_nexus
+
+echo
+echo "--- Installing HTTPD ---"
+echo
+install_httpd
 
 echo
 echo "--- Installing Docker ---" 
