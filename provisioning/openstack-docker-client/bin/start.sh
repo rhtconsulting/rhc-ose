@@ -2,12 +2,14 @@
 
 # start.sh - Helper script that is executed when the Docker container is started up to arrange files in the proper locations
 
-SSH_DIR=/root/ssh
+SSH_DIR=/root/.ssh
+INPUT_SSH_DIR=/root/ssh
+CONFIG_DIR=/root/.openstack
 
 # Attempt to source files for OpenStack
-if [ -d ~/.openstack/ ]; then
+if [ -d $CONFIG_DIR ]; then
 
-	FILES=~/.openstack/*.sh
+	FILES=$CONFIG_DIR/*.sh
 	
 	for file in $FILES
 	do
@@ -19,15 +21,15 @@ fi
 # Move Docker Volume
 if [ -d $SSH_DIR ]; then
 
-	mkdir -p ~/.ssh
+	mkdir -p $SSH_DIR
 	
-	cp -f $SSH_DIR/id_rsa ~/.ssh/
-	chmod 600 ~/.ssh/id_rsa
+	cp -f $INPUT_SSH_DIR/* $SSH_DIR/
 	
-	for file in $FILES
-	do
-		source $file
-	done
+	if [ -f $SSH_DIR/id_rsa ]; then
+
+		# Change permission of default private key
+		chmod 600 $SSH_DIR/id_rsa
+	fi
 
 fi
 

@@ -71,14 +71,14 @@ if [ ! -z ${REPOSITORY} ]; then
 		exit 1
 	fi
 	
-	REPOSITORY_VOLUME="-v ${REPOSITORY}:/root/repository"
+	REPOSITORY_VOLUME="-v ${REPOSITORY}:/root/repository:z"
 	
 	echo
 	echo "Git Repository containing scripts are found and mounted in the '/root/repository' folder"	
 fi
 
 if [ -d $SSH_DIR ]; then
-	SSH_VOLUME="-v ${SSH_DIR}:/root/ssh:ro"
+	SSH_VOLUME="-v ${SSH_DIR}:/root/ssh:z"
 else
 	echo "Warning: SSH Directory not found"
 fi
@@ -86,4 +86,4 @@ fi
 
 echo "Starting OpenStack Client Container...."
 echo
-docker run -it ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.openstack ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${OPENSTACK_CLIENT_IMAGE}
+docker run -it ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.openstack:z ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${OPENSTACK_CLIENT_IMAGE}
