@@ -39,8 +39,68 @@ usage() {
   --master-is-node              : Master will also be provisioned as a node (set to false if not passed)
   --no-install                  : Provision instances and sync keys, but do not run the OpenShift installer
   --key=<key name>              : SSH Key used to authenticate to Cloud API
+  --delete=<Environment ID>     : Delete specified environment
   --debug                       : Will add -x to all bash commands
   "
+}
+
+do_provision() {
+  if [ -z $num_of_nodes ]; then
+    echo "Missing argument: --num-nodes <integer>"
+    usage
+    exit 1;
+  fi
+
+  # Provision instances
+  echo "Provisioning master. This could take several minutes."
+  master_ip=$(provision_masters) || error_out "Provisioning Failed." $ERROR_CODE_PROVISION_FAILURE
+  echo "Complete!"
+  echo "Provisioning $num_of_nodes nodes. This could take several minutes."
+  node_ips=$(provision_nodes) || error_out "Provisioning Failed." $ERROR_CODE_PROVISION_FAILURE
+  echo "Complete!"
+
+  master_public=$(get_public_ips "${master_ip}")
+  node_publics=$(get_public_ips "${node_ips//$'\n'/,}")
+
+  # Sync SSH keys
+  ${SCRIPT_BASE_DIR}/osc-sync-keys -m="${master_public}" -n="${master_public},${node_publics}"
+  [ $? -eq 0 ] || error_out "Key Sync Failed."
+
+  if $master_is_node; then
+    node_publics="${master_public},${node_publics}"
+    node_ips="${master_ip}
+    ${node_ips}"
+  fi
+
+  # TODO:
+  #  - Pull together all scripts to provision a complete environment
+  if $no_install; then
+    echo "Skipping Installation Step. You'll need to do this manually."
+  else
+    install_openshift
+  fi
+
+  dns_server=${node_publics##*,}
+
+  echo "Environment ID: $ENV_ID"
+  echo "Master:
+  - Hostname: $( get_hostnames $master_public $openshift_domain $dns_server)
+  - IPs: ${master_ip}"
+  echo "Nodes: "
+  for node in ${node_ips//$'\n'/ }; do
+    echo "- Node"
+    echo "-- Hostname: $(get_hostnames $(get_public_ips ${node}) $openshift_domain $dns_server)"
+    echo "-- IPs: ${node}"
+  done
+  echo "DNS Server: $(get_hostnames $dns_server $openshift_domain $dns_server)"
+}
+
+do_delete() {
+  command="${SCRIPT_BASE_DIR}/${platform}/provision.sh
+  --action delete_by_name
+  --instance-name ${ENV_ID}
+  --n"
+  $command || error_out "Delete failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
 }
 
 install_openshift() {
@@ -100,6 +160,7 @@ security_group_master="ose3-master"
 security_group_node="ose3-node"
 logfile="~/openstack_provision.log"
 no_install=false
+action="provision"
 
 # Process input
 for i in "$@"
@@ -123,6 +184,10 @@ do
     --key=*)
       key="${i#*=}"
       shift;;
+    --delete=*)
+      action="delete"
+      CONF_ENV_ID="${i#*=}"
+      shift;;
     --debug)
       set -x;
       bash_opts=" -x"
@@ -134,59 +199,23 @@ do
   esac
 done
 
-if [ -z $num_of_nodes ]; then
-  echo "Missing argument: --num-nodes <integer>"
-  usage
-  exit 1;
-fi
-
 # Set up environment based on default values and User input
 
-ENV_ID="$(random_string 8)"
+ENV_ID=${CONF_ENV_ID:-"$(random_string 8)"}
 IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name}
 SECURITY_GROUP_MASTER=${CONF_SECURITY_GROUP_MASTER:-$security_group_master}
 SECURITY_GROUP_NODE=${CONF_SECURITY_GROUP_NODE:-$security_group_node}
 LOGFILE=${CONF_LOGFILE:-$logfile}
 
-# Provision instances
-echo "Provisioning master. This could take several minutes."
-master_ip=$(provision_masters) || error_out "Provisioning Failed." $ERROR_CODE_PROVISION_FAILURE
-echo "Complete!"
-echo "Provisioning $num_of_nodes nodes. This could take several minutes."
-node_ips=$(provision_nodes) || error_out "Provisioning Failed." $ERROR_CODE_PROVISION_FAILURE
-echo "Complete!"
-
-master_public=$(get_public_ips "${master_ip}")
-node_publics=$(get_public_ips "${node_ips//$'\n'/,}")
-
-# Sync SSH keys
-${SCRIPT_BASE_DIR}/osc-sync-keys -m="${master_public}" -n="${master_public},${node_publics}"
-[ $? -eq 0 ] || error_out "Key Sync Failed."
-
-if $master_is_node; then
-  node_publics="${master_public},${node_publics}"
-  node_ips="${master_ip}
-${node_ips}"
-fi
-
-# TODO:
-#  - Pull together all scripts to provision a complete environment
-if $no_install; then
-  echo "Skipping Installation Step. You'll need to do this manually."
-else
-  install_openshift
-fi
-
-dns_server=${node_publics##*,}
-
-echo "Environment ID: $ENV_ID"
-echo "Master:
-- Hostname: $( get_hostnames $master_public $openshift_domain $dns_server)
-- IPs: ${master_ip}"
-echo "Nodes: "
-for node in ${node_ips//$'\n'/ }; do
-  echo "- Node"
-  echo "-- Hostname: $(get_hostnames $(get_public_ips ${node}) $openshift_domain $dns_server)"
-  echo "-- IPs: ${node}"
-done
-echo "DNS Server: $(get_hostnames $dns_server $openshift_domain $dns_server)"
+case $action in
+  "provision")
+    do_provision;
+    ;;
+  "delete")
+    do_delete;
+    ;;
+  *)
+    echo "Invalid action: $action"
+    exit 1;
+    ;;
+esac

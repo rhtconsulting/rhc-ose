@@ -136,10 +136,12 @@ delete_servers() {
 
   nova delete $servers && safe_out "info" "Deleted servers: $servers"
 
-  for volume in $volumes_to_delete; do
-    wait_for_volume_detached $volume
-  done
-  nova volume-delete $volumes_to_delete && safe_out "info" "Deleted volumes: $volumes_to_delete"
+  if [ -n "${volumes_to_delete// /}" ]; then
+    for volume in $volumes_to_delete; do
+      wait_for_volume_detached $volume
+    done
+    nova volume-delete $volumes_to_delete && safe_out "info" "Deleted volumes: $volumes_to_delete"
+  fi
 }
 
 delete_servers_by_ip() {
