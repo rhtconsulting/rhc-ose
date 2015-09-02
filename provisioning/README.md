@@ -23,8 +23,32 @@ You'll need to create you openshift router and registry (see https://github.com/
 
 ## Fully Automated Environment Provisioning
 
-See sub-directories for environment specific provisioning scripts and instructions.
+We now support full end-to-end Environment Provisioning.
 
 Current implementations:
 
  - Openstack
+
+### Instructions
+
+1. [Configure client tools](provisioning/openstack/README.md)
+2. Clone this repo.
+3. Run provisioning script:
+```bash
+# Run osc-provision with no options to show Usage output and options
+$ ./ose-utils/provisioning/osc-provision
+Missing argument: --num-nodes <integer>
+
+Usage: ./provisioning/osc-provision --num-nodes=<integer> [options]
+
+Options:
+--openshift-domain=<domain>   : Base domain name for your OpenShift environment (default: ose.example.com)
+--cloudapp-domain=<domain>    : Wildcard domain for your applications (default: *.apps.ose.example.com)
+--master-is-node              : Master will also be provisioned as a node (set to false if not passed)
+--no-install                  : Provision instances and sync keys, but do not run the OpenShift installer
+--key=<key name>              : SSH Key used to authenticate to Cloud API
+--debug                       : Will add -x to all bash commands
+
+# Minimal environment provisioning command
+$ ./ose-utils/provisioning/osc-provision --num-nodes=2 --key=laptop-key
+```
