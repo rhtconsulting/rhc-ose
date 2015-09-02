@@ -42,7 +42,7 @@ Since the interaction with OpenStack typically requires the use of SSH communica
 
 Below are some of helpful hints for resolving issues experiencing while configuring and running the container
 
-**Issue #1 **
+**Issue #1**
 
 ```
 $ ./run.sh 
@@ -59,18 +59,18 @@ Verify the Docker service is running
 **Issue #2**
 
 ```
-./run.sh
+./run.sh 
+time="2015-09-01T11:32:36-04:00" level=fatal msg="Get http:///var/run/docker.sock/v1.18/images/json: dial unix /var/run/docker.sock: permission denied. Are you trying to connect to a TLS-enabled daemon without TLS?" 
 Building Docker Image rhtconsulting/rhc-openstack-client....
-...
-/root/start.sh: line 14: /root/.openstack/*.sh: No such file or directory
-cp: cannot stat '/root/ssh/id_rsa': No such file or directory
-chmod: cannot access '/root/.ssh/id_rsa': No such file or directory
-/root/start.sh: line 29: /root/.openstack/*.sh: No such file or directory
+Sending build context to Docker daemon 
+FATA[0000] Post http:///var/run/docker.sock/v1.18/build?cgroupparent=&cpusetcpus=&cpushares=0&dockerfile=Dockerfile&memory=0&memswap=0&rm=1&t=rhtconsulting%2Frhc-openstack-client: dial unix /var/run/docker.sock: permission denied. Are you trying to connect to a TLS-enabled daemon without TLS? 
+Starting OpenStack Client Container....
+FATA[0000] Post http:///var/run/docker.sock/v1.18/containers/create: dial unix /var/run/docker.sock: permission denied. Are you trying to connect to a TLS-enabled daemon without TLS? 
 ```
 
 **Resolution #2**
 
-This error indicates the Docker container is unable to access files on the host. This can occur due to permission issues accessing files owned by the a user when docker is run using another user. 
+This error indicates the currently logged in user is unable to access the docker socket. 
 
 To resolve this issue, create a new *docker* group and add the user to the *docker* group
 
