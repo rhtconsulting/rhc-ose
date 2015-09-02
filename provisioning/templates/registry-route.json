@@ -5,14 +5,14 @@
     "name": "registry",
     "namespace": "default",
     "labels": {
-      "SERVICE_NAME": "default"
+      "{{SERVICE_NAME}}": "default"
     }
   },
   "spec": {
-    "host": "HOSTNAME",
+    "host": "{{HOSTNAME}}",
     "to": {
       "kind": "Service",
-      "name": "SERVICE_NAME"
+      "name": "{{SERVICE_NAME}}"
     },
     "tls": {
       "termination": "passthrough"
