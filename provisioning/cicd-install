@@ -120,6 +120,10 @@ function install_jenkins() {
   # Update Jenkins context
   sed -i "s/JENKINS_ARGS=\"\"/JENKINS_ARGS=\"--prefix=\/jenkins\"/g" /etc/sysconfig/jenkins
   
+  # Create a Docker group and add Jenkins so it will be able to execute Docker commands
+  groupadd docker
+  usermod -a -G docker jenkins
+  
   # Install plugins
   mkdir -p /var/lib/jenkins/plugins
   
@@ -256,12 +260,6 @@ EOF
 function install_docker() {
 	yum -y install docker &>/dev/null || error_out "Failed to install Docker" 6
 	sed -i "s/OPTIONS='--selinux-enabled'/OPTIONS='--selinux-enabled --insecure-registry 172.30.0.0\/16'/" /etc/sysconfig/docker
-
-	# Add docker commands to be executed by those in sudoers
-	echo "jenkins    ALL=NOPASSWD: /usr/bin/docker" > /etc/sudoers.d/docker
-
-	# Adjust sudoers file
-	sed -i '/Defaults    requiretty/s/^/#/g' /etc/sudoers
 
 	# Allocate an entire volume for Docker Storage
 	cat <<EOF > /etc/sysconfig/docker-storage-setup
