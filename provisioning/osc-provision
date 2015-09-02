@@ -82,8 +82,8 @@ do_provision() {
 
   dns_server=${node_publics##*,}
 
-  echo "Environment ID: $ENV_ID"
-  echo "Master:
+  echo "
+Master:
   - Hostname: $( get_hostnames $master_public $openshift_domain $dns_server)
   - IPs: ${master_ip}"
   echo "Nodes: "
@@ -93,6 +93,7 @@ do_provision() {
     echo "-- IPs: ${node}"
   done
   echo "DNS Server: $(get_hostnames $dns_server $openshift_domain $dns_server)"
+  echo "Environment ID: $ENV_ID"
 }
 
 do_delete() {
