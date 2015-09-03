@@ -45,6 +45,19 @@ get_public_ips() {
   echo "$1" | sed 's/[0-9]*.[0-9]*.[0-9]*.[0-9]*|//g'
 }
 
+process_configfile() {
+  file=$1
+
+  # Filter Configs to make sure only valid key pair values are acted upton
+  configs=$(egrep '^[^ ]*=[^;&]*' $file | grep -v '^#' | sed 's/#.*//g')
+
+  # export all variables to the environment
+  for var in ${configs//'\n'/ }; do
+    CONF_ENVIRONMENT="${CONF_ENVIRONMENT}export $var;"$'\n'
+    export $var
+  done
+}
+
 ## Template Format ##
 
 # Variables take the form '{{VARNAME}}'

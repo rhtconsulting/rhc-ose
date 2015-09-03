@@ -361,14 +361,6 @@ fi
 
 source ${SCRIPT_BASE_DIR}/lib/error_codes
 
-# Set up default values
-openshift_version=''
-openshift_master_config='/etc/openshift/master/master-config.yaml'
-ansible_branch=''
-openshift_users="joe:redhat alice:redhat"
-openshift_base_domain="ose.example.com"
-openshift_zones=("east" "west")
-
 # Set up environment based on default values and User input
 OPENSHIFT_VERSION=${CONF_OPENSHIFT_VERSION:=$openshift_version}
 ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=$ansible_branch}
