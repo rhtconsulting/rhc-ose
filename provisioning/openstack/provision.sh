@@ -31,7 +31,7 @@ attach_volume() {
 
   # Wait for it to be available
   available_command="[ \$( nova volume-show ${volume_id} | grep -cE \"status.*available\" ) -eq 1 ]"
-  run_cmd_with_timeout "$available_command" 10
+  run_cmd_with_timeout "$available_command" 20
 
 #  volume_info="$( cinder show ${volume_id})"
 #  status=$(echo "$volume_info" | awk '/status/ {print $4}')
