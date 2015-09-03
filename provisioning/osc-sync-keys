@@ -1,5 +1,8 @@
 #!/bin/bash
 
+SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source ${SCRIPT_BASE_DIR}/lib/constants
+
 ## Functions
 
 usage() {
@@ -31,23 +34,20 @@ if [ -z "$MASTER" ] || [ -z "$NODES" ]; then
 fi
 
 # Create new keypair if it does not exist
-if ssh root@${MASTER} 'stat ~/.ssh/id_rsa' > /dev/null 2>&1; then
+if $SSH_CMD root@${MASTER} 'stat ~/.ssh/id_rsa' > /dev/null 2>&1; then
   echo "Found existing Keypair, will use that."
 else
   echo -n "No keypair found. Creating one... "
-  ssh root@${MASTER} 'ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa' > /dev/null 2>&1
+  $SSH_CMD root@${MASTER} 'ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa' > /dev/null 2>&1
   echo "Done"
 fi
 
-# Turn of host checking
-echo "StrictHostKeyChecking no" >> ~/.ssh/config
-
-public_key=$(ssh root@${MASTER} 'cat ~/.ssh/id_rsa.pub')
+public_key=$($SSH_CMD root@${MASTER} 'cat ~/.ssh/id_rsa.pub')
 
 for node in ${NODES//,/ }; do
   echo -n "Pushing key for node ${node}..."
-  ssh root@${node} 'mkdir -p ~/.ssh'
-  echo "${public_key}" | ssh root@${node} 'cat  >> ~/.ssh/authorized_keys'
-  ssh root@${node} 'chmod 700 ~/.ssh; chmod 600 ~/.ssh/*'
+  $SSH_CMD root@${node} 'mkdir -p ~/.ssh'
+  echo "${public_key}" | $SSH_CMD root@${node} 'cat  >> ~/.ssh/authorized_keys'
+  $SSH_CMD root@${node} 'chmod 700 ~/.ssh; chmod 600 ~/.ssh/*'
   echo "Done"
 done
