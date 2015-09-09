@@ -1,10 +1,8 @@
-# ose-utils | OpenShift Enterprise 3
+# rhc-ose | OpenShift Enterprise 3
 
-Miscellaneous utilities for use with OpenShift Enterprise 3 (currently in beta)
+This repository is a collection of utilities and automation scripts for the management and administration of OpenShift Enterprise 3
 
-Note that these utilities must be run from a shell command line on a master.
-
-All of the scripts support a --help or -h option that produces slightly useful output.
+See below for more specific documentation of included utilities.
 
 Note that these scripts all use unpublished internal API's that may be changed with no warning.
 
