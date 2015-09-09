@@ -29,6 +29,11 @@ PUT() {
   echo "curl -kI -H \"$AUTH\" -H \"$CONTENT_TYPE\" -X PUT --data-binary \"${2}\" https://${SERVER}:8443$1"
   curl -k -H "$AUTH" -H "$CONTENT_TYPE" -X POST --data-binary "${2}" https://${SERVER}:8443$1
 }
+
+PATCH() {
+  echo "curl -kI -H \"$AUTH\" -H \"$CONTENT_TYPE\" -X PATCH --data-binary \"${2}\" https://${SERVER}:8443$1"
+  curl -k -H "$AUTH" -H "$CONTENT_TYPE" -X POST --data-binary "${2}" https://${SERVER}:8443$1
+}
 ```
 
 ## Sample API Calls
@@ -337,6 +342,9 @@ POST /oapi/v1beta3/namespaces/api-project/deploymentconfigs '{
   }
 }'
 ```
+
+### Execute a Deployment
+PATCH /oapi/v1/namespaces/deploy-test/deploymentconfigs/nodejs-example '[ { "op": "replace", "path": "/status/latestVersion", "value": 7 }, ]'
 
 ### Create Route
 ```bash
