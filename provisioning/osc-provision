@@ -31,12 +31,13 @@ source ${SCRIPT_BASE_DIR}/lib/constants
 # Show script usage
 usage() {
   echo "
-  Usage: $0 --num-nodes=<integer> [options]
+  Usage: $0 [options]
 
   Options:
+  --num-nodes=<integer>         : Number of Nodes to provision
+  --config-file=<path>          : Path to a config file for defining the environment
   --openshift-domain=<domain>   : Base domain name for your OpenShift environment (default: ose.example.com)
-  --cloudapp-domain=<domain>    : Wildcard domain for your applications (default: *.apps.ose.example.com)
-  --master-is-node              : Master will also be provisioned as a node (set to false if not passed)
+  --cloudapp-subdomain=<domain> : Wildcard domain for your applications (default: *.apps)
   --no-install                  : Provision instances and sync keys, but do not run the OpenShift installer
   --key=<key name>              : SSH Key used to authenticate to Cloud API
   --delete=<Environment ID>     : Delete specified environment
@@ -68,8 +69,7 @@ do_provision() {
 
   if $master_is_node; then
     node_publics="${master_public},${node_publics}"
-    node_ips="${master_ip}
-    ${node_ips}"
+    node_ips="${master_ip}"$'\n'"${node_ips}"
   fi
 
   # TODO:
@@ -84,15 +84,15 @@ do_provision() {
 
   echo "
 Master:
-  - Hostname: $( get_hostnames $master_public $openshift_domain $dns_server)
+  - Hostname: $( get_hostnames $master_public $OPENSHIFT_BASE_DOMAIN $dns_server)
   - IPs: ${master_ip}"
   echo "Nodes: "
   for node in ${node_ips//$'\n'/ }; do
     echo "- Node"
-    echo "-- Hostname: $(get_hostnames $(get_public_ips ${node}) $openshift_domain $dns_server)"
+    echo "-- Hostname: $(get_hostnames $(get_public_ips ${node}) $OPENSHIFT_BASE_DOMAIN $dns_server)"
     echo "-- IPs: ${node}"
   done
-  echo "DNS Server: $(get_hostnames $dns_server $openshift_domain $dns_server)"
+  echo "DNS Server: $(get_hostnames $dns_server $OPENSHIFT_BASE_DOMAIN $dns_server)"
   echo "Environment ID: $ENV_ID"
 }
 
@@ -113,7 +113,7 @@ install_openshift() {
     tar cf - ose-utils | ${SSH_CMD} root@${master_public} tar xf -
   popd >/dev/null
 
-  ${SSH_CMD} root@${master_public} "export CONF_OPENSHIFT_BASE_DOMAIN=${openshift_domain}; bash${bash_opts} ~/ose-utils/provisioning/osc-install -m=\"${master_ip}\" -n=\"${node_ips//$'\n'/,}\" -a=\"prep,dns,install,post\""
+  ${SSH_CMD} root@${master_public} "$CONF_ENVIRONMENT bash${bash_opts} ~/ose-utils/provisioning/osc-install -m='${master_ip}' -n='${node_ips//$'\n'/,}' -a='prep,dns,install,post'"
 
 }
 
@@ -150,19 +150,6 @@ provision_nodes() {
 
 source ${SCRIPT_BASE_DIR}/lib/error_codes
 
-# Set Default Values
-num_of_masters=1 # Not used; currently only support a single master
-openshift_domain="ose.example.com"
-cloudapp_domain="*.ose.example.com"
-master_is_node=true
-platform="openstack" # Only one we support
-image_name="ose3-base"
-security_group_master="ose3-master"
-security_group_node="ose3-node"
-logfile="~/openstack_provision.log"
-no_install=false
-action="provision"
-
 # Process input
 for i in "$@"
 do
@@ -170,14 +157,14 @@ do
     --num-nodes=*)
       num_of_nodes="${i#*=}"
       shift;;
+    --config=*)
+      process_configfile "${i#*=}"
+      shift;;
     --openshift-domain=*)
-      openshift_domain="${i#*=}"
+      CONF_OPENSHIFT_BASE_DOMAIN="${i#*=}"
       shift;;
-    --cloudapp-domain=*)
-      cloudapp_domain="${i#*=}"
-      shift;;
-    --master-is-node)
-      master_is_node=true;
+    --cloudapp-subdomain=*)
+      CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN="${i#*=}"
       shift;;
     --no-install)
       no_install=true;
@@ -207,6 +194,8 @@ IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name}
 SECURITY_GROUP_MASTER=${CONF_SECURITY_GROUP_MASTER:-$security_group_master}
 SECURITY_GROUP_NODE=${CONF_SECURITY_GROUP_NODE:-$security_group_node}
 LOGFILE=${CONF_LOGFILE:-$logfile}
+OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:-$openshift_base_domain}
+OPENSHIFT_CLOUDAPPS_SUBDOMAIN=${CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN:-$cloudapp_subdomain}
 
 case $action in
   "provision")

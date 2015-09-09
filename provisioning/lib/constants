@@ -1,3 +1,18 @@
 SSH_CMD='ssh -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
 SCP_CMD='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
 
+# Set Default Values
+num_of_masters=1 # Not used; currently only support a single master
+cloudapp_subdomain="*.apps"
+openshift_base_domain='ose.example.com'
+openshift_master_config='/etc/openshift/master/master-config.yaml'
+openshift_users="joe:redhat alice:redhat"
+openshift_zones=("east" "west")
+master_is_node=true
+platform="openstack" # Only one we support
+image_name="ose3-base"
+security_group_master="ose3-master"
+security_group_node="ose3-node"
+logfile="~/openstack_provision.log"
+no_install=false
+action="provision"
