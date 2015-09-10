@@ -19,6 +19,7 @@ set -e
 CICD_SETUP_DIR=/tmp/cicd-setup
 CLOUD_ENV=0
 NEXUS_VERSION=2.11.4-01
+GROOVY_VERSION=2.4.4
 DOCKER_VOLUME=/dev/vdb
 
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
@@ -71,7 +72,7 @@ function check_prereqs() {
 function install_prereqs() {
 	
 	# EPEL and software packages	
-	yum install -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm wget git vim jq &>/dev/null || error_out "Failed to install prerequisite software" 2
+	yum install -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm wget unzip git vim jq &>/dev/null || error_out "Failed to install prerequisite software" 2
 
 	# JQ must be installed only after EPEL installed
 	yum install -y install jq &>/dev/null || error_out "Failed to install prerequisite software" 2
@@ -146,7 +147,14 @@ function install_jenkins() {
   install_jenkins_plugin 'mapdb-api' '1.0.6.0'
   install_jenkins_plugin 'build-pipeline-plugin' '1.4.7'  
   install_jenkins_plugin 'jquery' '1.11.2-0'
+  install_jenkins_plugin 'delivery-pipeline-plugin' '0.9.7'
+  install_jenkins_plugin 'token-macro' '1.10'
   install_jenkins_plugin 'ws-cleanup' '0.28'
+  install_jenkins_plugin 'job-dsl' '1.37'
+  install_jenkins_plugin 'cloudbees-folder' '4.9'
+  install_jenkins_plugin 'groovy' '1.27'
+  install_jenkins_plugin 'groovy-postbuild' '2.2.1'
+  install_jenkins_plugin 'script-security' '1.15'
   
   chown -R jenkins:jenkins /var/lib/jenkins
   
@@ -155,6 +163,21 @@ function install_jenkins() {
 
   chkconfig jenkins on
   service jenkins start
+
+}
+
+#
+# Function to install Groovy
+#
+
+function install_groovy() {
+
+  wget -O ${CICD_SETUP_DIR}/apache-groovy-binary-${GROOVY_VERSION}.zip http://dl.bintray.com/groovy/maven/apache-groovy-binary-${GROOVY_VERSION}.zip
+  unzip ${CICD_SETUP_DIR}/apache-groovy-binary-${GROOVY_VERSION}.zip -d /usr/local
+  ln -s /usr/local/groovy-${GROOVY_VERSION} /usr/local/groovy
+  echo "export GROOVY_HOME=/usr/local/groovy-${GROOVY_VERSION}" >> /etc/profile
+  echo "export PATH=\$PATH:\$GROOVY_HOME/bin" >> /etc/profile
+  source /etc/profile
 
 }
 
@@ -295,6 +318,11 @@ echo
 echo "--- Installing Java ---"
 echo
 install_java_jdk
+
+echo
+echo "--- Installing Groovy ---"
+echo
+install_groovy
 
 echo
 echo "--- Installing Maven ---" 
