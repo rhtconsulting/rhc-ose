@@ -32,7 +32,7 @@ PUT() {
 
 PATCH() {
   echo "curl -kI -H \"$AUTH\" -H \"$CONTENT_TYPE\" -X PATCH --data-binary \"${2}\" https://${SERVER}:8443$1"
-  curl -k -H "$AUTH" -H "$CONTENT_TYPE" -X POST --data-binary "${2}" https://${SERVER}:8443$1
+  curl -k -H "$AUTH" -H "$CONTENT_TYPE" -X PATCH --data-binary "${2}" https://${SERVER}:8443$1
 }
 ```
 
