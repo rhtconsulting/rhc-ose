@@ -22,6 +22,7 @@
 # Usage: See usage function below
 #
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+REPO_BASE_NAME=$( basename $( dirname ${SCRIPT_BASE_DIR} ) )
 
 ## Functions
 
@@ -106,14 +107,14 @@ do_delete() {
 
 install_openshift() {
   # Clean out previous install attempts
-  ${SSH_CMD} root@${master_public} "rm -rf ~/ose-utils"
-  # Script is executed from ose-utils/provisioning, so we need to strip two directories
+  ${SSH_CMD} root@${master_public} "rm -rf ~/${REPO_BASE_NAME}"
+  # Script is executed from ${REPO_BASE_NAME}/provisioning, so we need to strip two directories
   pushd $(dirname $(dirname ${SCRIPT_BASE_DIR})) >/dev/null
     # Pull Repo into master so we can continue installation
-    tar cf - ose-utils | ${SSH_CMD} root@${master_public} tar xf -
+    tar cf - ${REPO_BASE_NAME} | ${SSH_CMD} root@${master_public} tar xf -
   popd >/dev/null
 
-  ${SSH_CMD} root@${master_public} "$CONF_ENVIRONMENT bash${bash_opts} ~/ose-utils/provisioning/osc-install -m='${master_ip}' -n='${node_ips//$'\n'/,}' -a='prep,dns,install,post'"
+  ${SSH_CMD} root@${master_public} "$CONF_ENVIRONMENT bash${bash_opts} ~/${REPO_BASE_NAME}/provisioning/osc-install -m='${master_ip}' -n='${node_ips//$'\n'/,}' -a='prep,dns,install,post'"
 
 }
 
