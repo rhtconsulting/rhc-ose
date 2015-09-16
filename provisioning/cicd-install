@@ -128,11 +128,11 @@ function install_jenkins() {
   # Install plugins
   mkdir -p /var/lib/jenkins/plugins
   
-  install_jenkins_plugin 'github' '1.12.1'
+  install_jenkins_plugin 'github' '1.13.1'
   install_jenkins_plugin 'github-api' '1.69'
   install_jenkins_plugin 'git' '2.4.0'
   install_jenkins_plugin 'git-client' '1.18.0'
-  install_jenkins_plugin 'credentials' '1.22'
+  install_jenkins_plugin 'credentials' '1.23'
   install_jenkins_plugin 'scm-api' '0.2'
   install_jenkins_plugin 'credentials-binding' '1.5'
   install_jenkins_plugin 'plain-credentials' '1.1'
@@ -156,6 +156,10 @@ function install_jenkins() {
   install_jenkins_plugin 'groovy-postbuild' '2.2.1'
   install_jenkins_plugin 'script-security' '1.15'
   
+  # Manual corrections for credentials plugin
+  mv /var/lib/jenkins/plugins/credentials.hpi /var/lib/jenkins/plugins/credentials.jpi
+  touch /var/lib/jenkins/plugins/credentials.jpi.pinned
+
   chown -R jenkins:jenkins /var/lib/jenkins
   
   firewall-cmd --zone=public --add-port=8080/tcp --permanent
