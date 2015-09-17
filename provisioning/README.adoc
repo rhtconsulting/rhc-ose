@@ -1,27 +1,30 @@
-# ose3 Provisioning & Installation scripts
+= ose3 Provisioning & Installation scripts
 
 No warranty is offered or implied and use of these scripts may destroy your entire OpenShift environment.
 
-## Semi-automated install (byo VMs)
+== Semi-automated install (byo VMs)
 
 1. Create VMs (1 master, N nodes) to which you have root access via SSH keys.
 2. Run osc-sync-keys from your local machine to give master SSH access to Nodes
++
 ```bash
 [me@localhost]$ ./osc-sync-keys --master="<master ip>" --nodes="<node1 ip>,<node2 ip>,...,<nodeN ip>"
 ```
 3. Log into your master and clone the repository
++
 ```bash
 [me@localhost]$ ssh root@<master ip>
 [root@<master>]# git clone git@github.com:redhat-consulting/ose-utils.git
 ```
 4. Run the installer.
++
 ```bash
 [root@<master>]# ./osc-install --master="<master private ip>|<master public ip>" --nodes="<node1 private ip>|<node1 public ip>,...,<nodeN private ip|nodeN public ip>" --actions=prep,dns,install,post
 ```
 
 You'll need to create you openshift router and registry (see https://github.com/openshift/training/) once the installation finishes.
 
-## Fully Automated Environment Provisioning
+== Fully Automated Environment Provisioning
 
 We now support full end-to-end Environment Provisioning.
 
@@ -29,26 +32,51 @@ Current implementations:
 
  - Openstack
 
-### Instructions
+=== Basic Provisioning Instructions
 
 1. [Configure client tools](provisioning/openstack/README.md)
 2. Clone this repo.
-3. Run provisioning script:
-```bash
-# Run osc-provision with no options to show Usage output and options
+3. Run osc-provision with no options to show Usage output and options
++
+[source,bash]
+----
 $ ./ose-utils/provisioning/osc-provision
 Missing argument: --num-nodes <integer>
 
 Usage: ./provisioning/osc-provision --num-nodes=<integer> [options]
 
 Options:
---openshift-domain=<domain>   : Base domain name for your OpenShift environment (default: ose.example.com)
---cloudapp-domain=<domain>    : Wildcard domain for your applications (default: *.apps.ose.example.com)
 --master-is-node              : Master will also be provisioned as a node (set to false if not passed)
 --no-install                  : Provision instances and sync keys, but do not run the OpenShift installer
 --key=<key name>              : SSH Key used to authenticate to Cloud API
 --debug                       : Will add -x to all bash commands
+...
+----
 
-# Minimal environment provisioning command
+4. To provision the most basic OpenShift environment, run the following command:
+----
 $ ./ose-utils/provisioning/osc-provision --num-nodes=2 --key=laptop-key
-```
+----
+
+=== Customizing the Install
+
+You can use the `--config=<file>` option to pass in a configuration file that can be used to further customize the environment. A sample configuration file might look like:
+----
+## Platform Configs
+#CONF_ENV_ID= # Default: random 8 character string
+CONF_IMAGE_NAME=ose3-base # Default: ose3-base
+CONF_SECURITY_GROUP_MASTER=ose3-master # Default: ose3-master
+CONF_SECURITY_GROUP_NODE=ose3-node # Default: ose3-node
+#CONF_LOGFILE=~/openstack_provision.log # Default: ~/openstack_provision.log
+## OpenShift Configs
+CONF_OPENSHIFT_BASE_DOMAIN=openshift.example.com # Default: ose.example.com
+CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN=*.cloudapps # Default: *.apps
+CONF_PROVISION_COMPONENTS=openshift # Comman separated list. Supported values are: openshift,cicd. Default: openshift
+----
+
+==== Provisioning a CICD Server
+
+Using the config above, you can provision a Jenkins server along with (or instead of) your OpenShift environment. A setting that includes both an openshift environment and a CICD environment would be:
+----
+CONF_PROVISION_COMPONENTS=openshift,cicd
+----
