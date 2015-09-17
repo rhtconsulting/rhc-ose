@@ -36,7 +36,7 @@ usage() {
 
   Options:
   --num-nodes=<integer>         : Number of Nodes to provision
-  --config-file=<path>          : Path to a config file for defining the environment
+  --config=<path>          : Path to a config file for defining the environment
   --openshift-domain=<domain>   : Base domain name for your OpenShift environment (default: ose.example.com)
   --cloudapp-subdomain=<domain> : Wildcard domain for your applications (default: *.apps)
   --no-install                  : Provision instances and sync keys, but do not run the OpenShift installer
