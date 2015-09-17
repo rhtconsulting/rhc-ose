@@ -2,6 +2,7 @@ SSH_CMD='ssh -o ServerAliveCountMax=100 -o ConnectionAttempts=180 -o UserKnownHo
 SCP_CMD='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR'
 
 # Set Default Values
+env_id="testenv"
 num_of_masters=1 # Not used; currently only support a single master
 cloudapp_subdomain="*.apps"
 openshift_base_domain='ose.example.com'

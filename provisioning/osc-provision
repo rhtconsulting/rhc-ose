@@ -173,6 +173,9 @@ do
       set -x;
       bash_opts=" -x"
       shift;;
+    --help)
+      usage
+      exit 0;;
     *)
       echo "Invalid Option: ${i%=*}"
       exit 1;
@@ -182,7 +185,7 @@ done
 
 # Set up environment based on default values and User input
 
-ENV_ID=${CONF_ENV_ID:-"$(random_string 8)"}
+ENV_ID=${CONF_ENV_ID:-${env_id}-$(random_string 8)}
 IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name}
 SECURITY_GROUP_MASTER=${CONF_SECURITY_GROUP_MASTER:-$security_group_master}
 SECURITY_GROUP_NODE=${CONF_SECURITY_GROUP_NODE:-$security_group_node}
