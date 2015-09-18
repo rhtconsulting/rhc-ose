@@ -223,9 +223,17 @@ run_cmd_with_timeout() {
 }
 
 safe_out() {
-  [ "$1" == "debug" ] && [ "${LOG_LEVEL}" == "debug" ] && log "$1" "$2"
-  [ "$1" == "info" ] && ([ "${LOG_LEVEL}" == "info" ] || [ "${LOG_LEVEL}" == "debug" ]) && log "$1" "$2"
-  [ "$1" == "error" ] && log "$1" "$2"
+  case $1 in
+  "debug")
+    [ "${LOG_LEVEL}" == "debug" ] && log "$1" "$2"
+    ;;
+  "info")
+    ([ "${LOG_LEVEL}" == "info" ] || [ "${LOG_LEVEL}" == "debug" ]) && log "$1" "$2"
+    ;;
+  "error")
+    log "$1" "$2"
+    ;;
+  esac
 }
 
 log() {
