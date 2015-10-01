@@ -181,7 +181,7 @@ provision_masters() {
   --key ${key} \
   --image-name ${IMAGE_NAME} \
   --security-groups ${SECURITY_GROUP_MASTER} \
-  --add-volume 25 \
+  --add-volume ${VOLUME_SIZE} \
   --n \
   --debug"
   $command || error_out "Master Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
@@ -195,7 +195,7 @@ provision_nodes() {
   --image-name ${IMAGE_NAME} \
   --security-groups ${SECURITY_GROUP_NODE} \
   --num-instances $num_of_nodes \
-  --add-volume 25 \
+  --add-volume ${VOLUME_SIZE} \
   --n \
   --debug"
   $command || error_out "Node Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
@@ -248,6 +248,7 @@ LOGFILE=${CONF_LOGFILE:-$logfile}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:-$openshift_base_domain}
 OPENSHIFT_CLOUDAPPS_SUBDOMAIN=${CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN:-$cloudapp_subdomain}
 PROVISION_COMPONENTS=${CONF_PROVISION_COMPONENTS:-$provision_components}
+VOLUME_SIZE=${CONF_VOLUME_SIZE:-$default_volume_size}
 
 case $action in
   "provision")

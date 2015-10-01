@@ -89,3 +89,95 @@ process_template() {
 
   echo "$output"
 }
+
+# Usage: partition_disk <path_to_disk> <partition_size>
+#  e.g.: partition_disk /dev/vdb 2000 <-- creates a 2000MB partition on /dev/vdb
+function partition_disk() {
+  root_disk=${1}
+  part_size=${2}
+
+  part_label=`fdisk -l ${root_disk} | sed -n 's/Disk label type: \(.*\)/\1/p'`
+  [ "${part_label}" != "dos" ] && parted ${root_disk} --script -- mklabel msdos
+
+  end_idx=`parted -m /dev/vdb print | tail -n 1 | awk -F: '{ print $1 }'`
+  [ ${end_idx} -gt 4 ] && return 1
+
+  part_start=`parted -m ${root_disk} unit MB print | tail -n 1 | awk -F: '{ print $3 }' | sed -ne 's/^\([0-9]*\)MB$/\1/p'`
+  [ -z "${part_start}" ] && part_start=0
+
+  part_end=$(($part_start + $part_size))
+  [ "${part_size}" == "-1" ] && part_end='-1' # Use the rest of the disk ...
+
+  parted ${root_disk} --script -- mkpart primary ${part_start} ${part_end}
+  [ $? -ne 0 ] && return 1 
+
+  partprobe
+
+  part_idx=`parted -m /dev/vdb print | tail -n 1 | awk -F: '{ print $1 }'`
+
+  echo "${root_disk}${part_idx}"
+  return 0
+}
+
+setup_docker_storage() {
+  disk_path=${1}
+
+  # Install and configure docker
+  yum -y install docker &>/dev/null || error_out "Failed to install package docker"
+  # sed -i "s/OPTIONS='--selinux-enabled'/OPTIONS='--selinux-enabled --insecure-registry 172.30.0.0\/16'/" /etc/sysconfig/docker
+
+  vgdisplay vg-docker &>/dev/null
+  vg_rc=$?
+
+  if [ ${vg_rc} -eq 0 ]; then
+    echo "docker storage already configured!"
+    return 0
+  fi
+
+  disk_part=`partition_disk ${disk_path} '-1'`
+  [ $? -ne 0 ] && return 1
+
+  pvcreate ${disk_part}
+  vgcreate vg-docker ${disk_part}
+
+  cat << EOF > /etc/sysconfig/docker-storage-setup
+VG=vg-docker
+SETUP_LVM_THIN_POOL=yes
+EOF
+
+  # Let docker setup the storage based on the above config file
+  docker-storage-setup
+
+  return 0
+}
+
+setup_openshift_storage() {
+  disk_path=${1}
+  part_size=${2}
+
+  vgdisplay vg-openshift &>/dev/null
+  vg_rc=$?
+
+  if [ ${vg_rc} -eq 0 ]; then
+    echo "openshift storage already configured!"
+    return 0
+  fi
+
+  disk_part=`partition_disk ${disk_path} ${part_size}`
+  [ $? -ne 0 ] && return 1
+
+  # Create LVM and set up /var/lib/openshift
+  pvcreate ${disk_part}
+  vgcreate vg-openshift ${disk_part}
+  lvcreate -l 100%FREE -n lv-ose vg-openshift
+
+  mkfs.xfs -q -f /dev/vg-openshift/lv-ose
+
+  mkdir -p /var/lib/openshift
+  echo "/dev/vg-openshift/lv-ose        /var/lib/openshift              xfs defaults 0 0" >> /etc/fstab
+
+  mount -a
+
+  return 0
+}
+

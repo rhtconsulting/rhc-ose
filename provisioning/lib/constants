@@ -19,3 +19,8 @@ logfile="~/openstack_provision.log"
 no_install=false
 action="provision"
 provision_components="openshift"
+default_disk_path_docker="/dev/vdb"
+default_disk_path_ose="/dev/vdb"
+default_part_size_ose="2000"
+default_volume_size="10"
+
