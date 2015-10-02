@@ -91,7 +91,7 @@ process_template() {
 }
 
 # Usage: partition_disk <path_to_disk> <partition_size>
-#  e.g.: partition_disk /dev/vdb 2000 <-- creates a 2000MB partition on /dev/vdb
+#  e.g.: partition_disk /dev/vdb 2 <-- creates a 2GB partition on /dev/vdb
 function partition_disk() {
   root_disk=${1}
   part_size=${2}
@@ -99,7 +99,7 @@ function partition_disk() {
   part_label=`fdisk -l ${root_disk} | sed -n 's/Disk label type: \(.*\)/\1/p'`
   [ "${part_label}" != "dos" ] && parted ${root_disk} --script -- mklabel msdos
 
-  part_start=`parted -m ${root_disk} unit MB print | tail -n 1 | awk -F: '{ print $3 }' | sed -ne 's/^\([0-9]*\)MB$/\1/p'`
+  part_start=`parted -m ${root_disk} unit GB print | tail -n 1 | awk -F: '{ print $3 }' | sed -ne 's/^\([0-9]*\)GB$/\1/p'`
   [ -z "${part_start}" ] && part_start=0
 
   # If we do indeed have some partitions already configured, check to see that we're less than
@@ -115,7 +115,7 @@ function partition_disk() {
     part_end=$(($part_start + $part_size))
   fi
 
-  parted ${root_disk} --script -- mkpart primary ${part_start} ${part_end}
+  parted ${root_disk} --script -- mkpart primary "${part_start}GB" "${part_end}GB"
   [ $? -ne 0 ] && return 1 
 
   partprobe
