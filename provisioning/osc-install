@@ -121,11 +121,11 @@ setup_training_repo() {
 }
 
 setup_storage() {
-  setup_openshift_storage ${OPENSHIFT_DISK_PATH_OSE} ${OPENSHIFT_PART_SIZE_OSE}
+  setup_openshift_storage ${OPENSHIFT_STORAGE_DISK_VOLUME} ${OPENSHIFT_STORAGE_SIZE_OSE}
   [ $? -eq 0 ] || error_out "Could not setup openshift storage" ${ERROR_CODE_STORAGE_FAILURE}
 
   # Always run the docker storage setup last as it will use what's left of the disk
-  setup_docker_storage ${OPENSHIFT_DISK_PATH_DOCKER}
+  setup_docker_storage ${OPENSHIFT_STORAGE_DISK_VOLUME}
   [ $? -eq 0 ] || error_out "Could not setup docker storage" ${ERROR_CODE_STORAGE_FAILURE}
 
   return 0
@@ -133,7 +133,7 @@ setup_storage() {
 
 setup_storage_on_all_hosts() {
   for host in ${MASTER_HOSTNAME} ${NODE_HOSTNAMES//,/ }; do
-    ${SSH_CMD} root@${host} "$(typeset -f); $(typeset -p OPENSHIFT_DISK_PATH_OSE); $(typeset -p OPENSHIFT_PART_SIZE_OSE); $(typeset -p OPENSHIFT_DISK_PATH_DOCKER); setup_storage"
+    ${SSH_CMD} root@${host} "$(typeset -f); $(typeset -p OPENSHIFT_STORAGE_DISK_VOLUME); $(typeset -p OPENSHIFT_STORAGE_SIZE_OSE); setup_storage"
   done
 }
 
@@ -321,9 +321,8 @@ OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
 OPENSHIFT_MASTER_CONFIG=$openshift_master_config
 OPENSHIFT_ZONES=$openshift_zones
-OPENSHIFT_DISK_PATH_DOCKER=${CONF_DISK_PATH_DOCKER:=$default_disk_path_docker}
-OPENSHIFT_DISK_PATH_OSE=${CONF_DISK_PATH_OSE:=$default_disk_path_ose}
-OPENSHIFT_PART_SIZE_OSE=${CONF_PART_SIZE_OSE:=$default_part_size_ose}
+OPENSHIFT_STORAGE_DISK_VOLUME=${CONF_STORAGE_DISK_VOLUME:=$storage_disk_volume}
+OPENSHIFT_STORAGE_SIZE_OSE=${CONF_STORAGE_SIZE_OSE:=$storage_size_ose}
 
 # Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}
