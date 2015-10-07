@@ -99,7 +99,7 @@ function partition_disk() {
   part_label=`fdisk -l ${root_disk} | sed -n 's/Disk label type: \(.*\)/\1/p'`
   [ "${part_label}" != "dos" ] && parted ${root_disk} --script -- mklabel msdos
 
-  part_start=`parted -m ${root_disk} unit GB print | tail -n 1 | awk -F: '{ print $3 }' | sed -ne 's/^\([0-9]*\)GB$/\1/p'`
+  part_start=`parted -m ${root_disk} unit MB print | tail -n 1 | awk -F: '{ print $3 }' | sed -ne 's/^\([0-9]*\)MB$/\1/p'`
   [ -z "${part_start}" ] && part_start=0
 
   # If we do indeed have some partitions already configured, check to see that we're less than
@@ -112,10 +112,11 @@ function partition_disk() {
   if [ "${part_size}" == "-1" ]; then
     part_end='-1' # Use the rest of the disk ...
   else
-    part_end=$(($part_start + $part_size))
+    # Multiple by 1000 to make it GB (note that parted uses MB (1000) and not MiB (1024))
+    part_end=$(($part_start + $part_size * 1000))
   fi
 
-  parted ${root_disk} --script -- mkpart primary "${part_start}GB" "${part_end}GB"
+  parted ${root_disk} --script -- mkpart primary "${part_start}MB" "${part_end}MB"
   [ $? -ne 0 ] && return 1 
 
   partprobe
