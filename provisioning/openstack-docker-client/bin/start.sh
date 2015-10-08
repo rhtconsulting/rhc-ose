@@ -19,7 +19,7 @@ if [ -d $CONFIG_DIR ]; then
 fi
 
 # Move Docker Volume
-if [ -d $SSH_DIR ]; then
+if [ ! -d $SSH_DIR ]; then
 
 	mkdir -p $SSH_DIR
 	
