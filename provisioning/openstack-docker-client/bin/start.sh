@@ -18,19 +18,4 @@ if [ -d $CONFIG_DIR ]; then
 
 fi
 
-# Move Docker Volume
-if [ ! -d $SSH_DIR ]; then
-
-	mkdir -p $SSH_DIR
-	
-	cp -f $INPUT_SSH_DIR/* $SSH_DIR/
-	
-	if [ -f $SSH_DIR/id_rsa ]; then
-
-		# Change permission of default private key
-		chmod 600 $SSH_DIR/id_rsa
-	fi
-
-fi
-
 exec "$@"
