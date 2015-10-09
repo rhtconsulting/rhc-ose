@@ -9,6 +9,9 @@ RUN yum update -y; \
     yum install -y python-devel epel-release http://rdo.fedorapeople.org/openstack-juno/rdo-release-juno.rpm; \
 	yum install -y git tar bind-utils python-pip python-ceilometerclient python-cinderclient python-glanceclient python-heatclient python-neutronclient python-novaclient python-saharaclient python-swiftclient python-troveclient python-openstackclient; \
  	yum clean all
+
+# Set /root as starting directory
+WORKDIR /root
 	
 # Default Command
 CMD ["/bin/bash"]
