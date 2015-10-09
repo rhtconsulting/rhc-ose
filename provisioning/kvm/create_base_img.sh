@@ -8,7 +8,7 @@
 # Prerequisite:
 #  - run as "root" (or a user with "root" level access")
 #  - execute on a system with libvirt/virt-manager installed
-#  - ensure that enough space is available in /tmp (2GB+) for image creation
+#  - ensure that enough space is available in /var/tmp (2GB+) for image creation
 #  - have a valid RHN username/password + a pool id available
 #
 # Instructions to run:
@@ -24,7 +24,7 @@
 # CONSTANTS
 #
 DISKSIZE=20G
-IMAGE_NAME="ose3-base"
+IMAGE_NAME="ose3-testimg"
 VM_PREFIX="ose3"
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
@@ -32,7 +32,7 @@ SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 #
 # GLOBALS
 #
-TmpDir=`mktemp -d`
+TmpDir=`mktemp -p /var/tmp -d`
 TmpName=`date +%s`
 FinalName=`date +%Y-%m-%d-%H%M`
 
