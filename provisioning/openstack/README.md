@@ -3,7 +3,7 @@
 ## Client Tools Setup ##
 * Get Access to OS1: https://mojo.redhat.com/docs/DOC-28082#jive_content_id_Getting_Started
 * Install nova client package (i.e.: python-novaclient).
- * I recommend using "yum" to install. Instructions can be found [here]( http://docs.openstack.org/user-guide/common/cli_install_openstack_command_line_clients.html).
+ * I recommend using "yum" to install. Instructions can be found [here]( http://docs.openstack.org/user-guide/common/cli_install_openstack_command_line_clients.html#installing-from-packages).
 * Log into the OpenStack Dashboard
 * Navigate to Compute > Access & Security > API Access and click to "Download OpenStack RC File"
 * Place rc file in openstack directory
