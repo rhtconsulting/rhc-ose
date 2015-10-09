@@ -19,3 +19,7 @@ No warranty is offered or implied and use of these scripts may destroy your enti
 Collection of scripts used for provisioning OpenShift Environments.
 
 See [Provisioning Documentation](provisioning/README.md) for more details.
+
+## Contributing
+
+See our [Contribution Guide](./CONTRIBUTING.md) for details on how to contribute.
