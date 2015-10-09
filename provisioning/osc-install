@@ -121,66 +121,19 @@ setup_training_repo() {
 }
 
 setup_storage() {
-  # Install and configure docker
-  yum -y install docker &>/dev/null || error_out "Failed to install package docker"
-#  sed -i "s/OPTIONS='--selinux-enabled'/OPTIONS='--selinux-enabled --insecure-registry 172.30.0.0\/16'/" /etc/sysconfig/docker
+  setup_openshift_storage ${OPENSHIFT_STORAGE_DISK_VOLUME} ${OPENSHIFT_STORAGE_SIZE_OSE}
+  [ $? -eq 0 ] || error_out "Could not setup openshift storage" ${ERROR_CODE_STORAGE_FAILURE}
 
-  vgdisplay vg-docker &>/dev/null
-  vgd=$?
-
-  vgdisplay vg-openshift &>/dev/null
-  vgo=$?
-
-  if [ ${vgd} -eq 0 ] && [ ${vgo} -eq 0 ]; then
-    echo "Storage already configured!"
-    return 0
-  fi
-
-  # Create partition table for the disk:
-  # /dev/vdb1 - 20GB for docker
-  # /dev/vdb2 - 2GB for openshift (/var/lib/openshift)
-  cat << EOF > /tmp/ose_vdb_layout.txt
-# partition table of /dev/vdb
-unit: sectors
-
-/dev/vdb1 : start=     2048, size= 41943040, Id=8e
-/dev/vdb2 : start= 41945088, size=  4194304, Id=8e
-/dev/vdb3 : start=        0, size=        0, Id= 0
-/dev/vdb4 : start=        0, size=        0, Id= 0
-EOF
-
-  sfdisk /dev/vdb < /tmp/ose_vdb_layout.txt
-  rm -f /tmp/ose_vdb_layout.txt
-
-  pvcreate /dev/vdb1
-  vgcreate vg-docker /dev/vdb1
-
-  cat << EOF > /etc/sysconfig/docker-storage-setup
-VG=vg-docker
-SETUP_LVM_THIN_POOL=yes
-EOF
-
-  # Let docker setup the storage based on the above config file
-  docker-storage-setup
-
-  # Create LVM and set up /var/lib/openshift
-  pvcreate /dev/vdb2
-  vgcreate vg-openshift /dev/vdb2
-  lvcreate -l 100%FREE -n lv-ose vg-openshift
-
-  mkfs.xfs -q -f /dev/vg-openshift/lv-ose
-
-  mkdir -p /var/lib/openshift
-  echo "/dev/vg-openshift/lv-ose        /var/lib/openshift              xfs defaults 0 0" >> /etc/fstab
-
-  mount -a
+  # Always run the docker storage setup last as it will use what's left of the disk
+  setup_docker_storage ${OPENSHIFT_STORAGE_DISK_VOLUME}
+  [ $? -eq 0 ] || error_out "Could not setup docker storage" ${ERROR_CODE_STORAGE_FAILURE}
 
   return 0
 }
 
 setup_storage_on_all_hosts() {
   for host in ${MASTER_HOSTNAME} ${NODE_HOSTNAMES//,/ }; do
-    ${SSH_CMD} root@${host} "$(typeset -f); setup_storage"
+    ${SSH_CMD} root@${host} "$(typeset -f); $(typeset -p OPENSHIFT_STORAGE_DISK_VOLUME); $(typeset -p OPENSHIFT_STORAGE_SIZE_OSE); setup_storage"
   done
 }
 
@@ -368,6 +321,8 @@ OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
 OPENSHIFT_MASTER_CONFIG=$openshift_master_config
 OPENSHIFT_ZONES=$openshift_zones
+OPENSHIFT_STORAGE_DISK_VOLUME=${CONF_STORAGE_DISK_VOLUME:=$storage_disk_volume}
+OPENSHIFT_STORAGE_SIZE_OSE=${CONF_STORAGE_SIZE_OSE:=$storage_size_ose}
 
 # Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}

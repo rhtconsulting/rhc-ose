@@ -19,3 +19,7 @@ logfile="~/openstack_provision.log"
 no_install=false
 action="provision"
 provision_components="openshift"
+storage_disk_volume="/dev/vdb"
+storage_volume_size="10"
+storage_size_ose="2"
+
