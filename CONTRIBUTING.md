@@ -29,3 +29,5 @@ Provide a link to any open issues that describe the problem you are solving.
 #### Who would you like to review this?
 /cc @someone @someone_else
 ```
+
+See [Using Pull Requests](https://help.github.com/articles/using-pull-requests/) got more information on how to use GitHub PRs.
