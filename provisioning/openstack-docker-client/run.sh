@@ -78,7 +78,7 @@ if [ ! -z ${REPOSITORY} ]; then
 fi
 
 if [ -d $SSH_DIR ]; then
-	SSH_VOLUME="-v ${SSH_DIR}:/root/ssh:z"
+	SSH_VOLUME="-v ${SSH_DIR}:/root/.ssh:z"
 else
 	echo "Warning: SSH Directory not found"
 fi
