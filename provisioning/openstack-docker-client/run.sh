@@ -65,20 +65,20 @@ fi
 
 # Check if Image has been build previously
 if [ ! -z ${REPOSITORY} ]; then
-	
+
 	if [ ! -d ${REPOSITORY} ]; then
 		echo "Error: Could not locate specified repository directory"
 		exit 1
 	fi
-	
+
 	REPOSITORY_VOLUME="-v ${REPOSITORY}:/root/repository:z"
-	
+
 	echo
-	echo "Git Repository containing scripts are found and mounted in the '/root/repository' folder"	
+	echo "Git Repository containing scripts are found and mounted in the '/root/repository' folder"
 fi
 
 if [ -d $SSH_DIR ]; then
-	SSH_VOLUME="-v ${SSH_DIR}:/root/.ssh:z"
+	SSH_VOLUME="-v ${SSH_DIR}:/mnt/.ssh:z"
 else
 	echo "Warning: SSH Directory not found"
 fi
