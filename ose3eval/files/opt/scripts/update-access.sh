@@ -1,5 +1,5 @@
 #!/bin/bash
-AUTHORIZED_KEYS_FILE='https://raw.githubusercontent.com/redhat-consulting/ose-utils/openshift-enterprise-3/ose3eval/ose3_public_keys'
+AUTHORIZED_KEYS_FILE='https://raw.githubusercontent.com/rhtconsulting/rhc-ose/openshift-enterprise-3/ose3eval/ose3_public_keys'
 
 # Usage: added_lines oldfile newfile
 added_lines() {
