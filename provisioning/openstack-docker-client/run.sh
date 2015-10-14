@@ -17,10 +17,11 @@ usage() {
      Usage: $0 [options]
      Options:
      --configdir=<configdir>       : Directory containing Openstack configuration files (Default: ~/.openstack/)
-	 --name=<name>                 : Name of the assembled image (Default: rhc-openstack-client)
+     --name=<name>                 : Name of the assembled image (Default: rhc-openstack-client)
      --keep                        : Whether to keep the the container after exiting
      --ssh=<ssh>                   : Location of SSH keys to mount into the container (Default: ~/.ssh)
      --repository=<repository>     : Directory containing a repository to mount inside the container
+     --help                        : Show Usage Output
 	 "
 }
 
@@ -34,7 +35,7 @@ do
     -c=*|--configdir=*)
       OPENSTACK_CONFIG_DIR="${i#*=}"
       shift;;
-	-k|--keep)
+	  -k|--keep)
       REMOVE_CONTAINER_ON_EXIT=""
       shift;;
   	-n|--name)
@@ -46,6 +47,15 @@ do
   	-r=*|--repository=*)
       REPOSITORY="${i#*=}"
       shift;;
+    -h|--help)
+      usage;
+      exit 0;
+      ;;
+    *)
+      echo "Invalid Option: ${i#*=}"
+      usage;
+      exit 1;
+      ;;
   esac
 done
 

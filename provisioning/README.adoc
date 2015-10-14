@@ -34,7 +34,7 @@ Current implementations:
 
 === Basic Provisioning Instructions
 
-1. [Configure client tools](provisioning/openstack/README.md)
+1. link:provisioning/openstack/README.md[Configure client tools]
 2. Clone this repo.
 3. Run osc-provision with no options to show Usage output and options
 +
