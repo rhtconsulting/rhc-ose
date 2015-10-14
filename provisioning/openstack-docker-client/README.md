@@ -17,7 +17,7 @@ The following steps are required to run the docker client.
 groupadd docker
 usermod -a -G docker ${USER}
 systemctl enable docker
-systemctl start docker
+systemctl restart docker
 ```
 
 
@@ -100,7 +100,7 @@ To resolve this issue, create a new *docker* group and add the user to the *dock
 groupadd docker
 usermod -a -G docker ${USER}
 systemctl enable docker
-systemctl start docker
+systemctl restart docker
 ```
 
-Reboot the machine to complete the configurations
+Reboot the machine or log out/log in to reload your environment and complete the configurations.
