@@ -225,7 +225,7 @@ do_create_registry() {
   CA=/etc/openshift/master
 
   # First, a bit of cleanup so we can re-run and update things
-  for resource in se dc pod; do
+  for resource in service deploymentConfig pod; do
     resource_names=$(oc get $resource | awk '/registry/ {print $1}')
     for name in ${resource_names/'\n'/ }; do
       oc delete $resource $name
@@ -264,9 +264,9 @@ do_create_registry() {
 
   oc secrets add serviceaccounts/registry secrets/registry-secret
 
-  oc volume dc/$dc_name --add --type=secret --secret-name=registry-secret -m /etc/secrets
+  oc volume deploymentConfig/$dc_name --add --type=secret --secret-name=registry-secret -m /etc/secrets
 
-  oc env dc/$dc_name REGISTRY_HTTP_TLS_CERTIFICATE=/etc/secrets/registry.crt REGISTRY_HTTP_TLS_KEY=/etc/secrets/registry.key
+  oc env deploymentConfig/$dc_name REGISTRY_HTTP_TLS_CERTIFICATE=/etc/secrets/registry.crt REGISTRY_HTTP_TLS_KEY=/etc/secrets/registry.key
 
   # Trust certs from all nodes
   certs_dirs="/etc/docker/certs.d/$service_ip:5000 /etc/docker/certs.d/docker-registry.default.svc.cluster.local:5000"
