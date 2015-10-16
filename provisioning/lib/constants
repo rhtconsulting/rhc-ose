@@ -4,8 +4,8 @@ SCP_CMD='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogL
 # Set Default Values
 env_id="testenv"
 num_of_masters=1 # Not used; currently only support a single master
-cloudapp_subdomain="*.apps"
-openshift_base_domain='ose.example.com'
+cloudapps_subdomain="apps"
+openshift_base_domain="ose.example.com"
 openshift_master_config='/etc/openshift/master/master-config.yaml'
 openshift_users="joe:redhat alice:redhat"
 openshift_zones=("east" "west")

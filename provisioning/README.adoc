@@ -73,7 +73,7 @@ CONF_VOLUME_SIZE=25 # Allocate a 25 GB volume for a shared OpenShift / Docker di
 CONF_STORAGE_SIZE_OSE=4 # Allocate 4 GB for the OpenShift partition (e.g.: /var/lib/openshift) # Default: 2 GB 
 ## OpenShift Configs
 CONF_OPENSHIFT_BASE_DOMAIN=openshift.example.com # Default: ose.example.com
-CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN=*.cloudapps # Default: *.apps
+CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN=cloudapps # Default: apps (generates "apps.ose.example.com")
 CONF_PROVISION_COMPONENTS=openshift # Comman separated list. Supported values are: openshift,cicd. Default: openshift
 ----
 

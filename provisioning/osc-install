@@ -81,8 +81,11 @@ EOF
 
   done
 
-  echo "process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING"
-  ansible_hosts_file="$(process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING)"
+  # Prepare the apps sub domain:
+  CLOUDAPPS_SUBDOMAIN="${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN}"
+
+  echo "process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN"
+  ansible_hosts_file="$(process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN)"
 
   cd
   rm -rf ~/openshift-ansible
@@ -159,7 +162,7 @@ do_prep() {
 
 do_dns() {
   echo "Beginning action: DNS"
-  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN} -d=${NODES##*,} -w=${NODES%%,*}"
+  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN} -d=${NODES##*,} -w=${NODES%%,*} -p=${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}"
   $command || error_out "DNS Install & Configuration failed." $ERROR_CODE_DNS_FAILURE
 }
 
@@ -257,7 +260,7 @@ do_create_registry() {
   oadm ca create-server-cert --signer-cert=$CA/ca.crt \
     --signer-key=$CA/ca.key \
     --signer-serial=$CA/ca.serial.txt  \
-    --hostnames="registry.apps.${OPENSHIFT_BASE_DOMAIN},docker-registry.default.svc.cluster.local,${service_ip}"\
+    --hostnames="registry.${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN},docker-registry.default.svc.cluster.local,${service_ip}"\
     --cert=$CA/registry.crt --key=$CA/registry.key
 
   oc secrets new registry-secret $CA/registry.crt $CA/registry.key
@@ -280,7 +283,7 @@ do_create_registry() {
 
   # Create Route for External Access
   SERVICE_NAME=$service_name
-  HOSTNAME=registry.apps.${OPENSHIFT_BASE_DOMAIN}
+  HOSTNAME=registry.${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN}
   route_resource=$(process_template ${SCRIPT_BASE_DIR}/templates/registry-route.json SERVICE_NAME HOSTNAME )
 
   echo "$route_resource" | oc create -f -
@@ -319,6 +322,7 @@ OPENSHIFT_VERSION=${CONF_OPENSHIFT_VERSION:=$openshift_version}
 ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=$ansible_branch}
 OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
+OPENSHIFT_CLOUDAPPS_SUBDOMAIN=${CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN:$cloudapps_subdomain}
 OPENSHIFT_MASTER_CONFIG=$openshift_master_config
 OPENSHIFT_ZONES=$openshift_zones
 OPENSHIFT_STORAGE_DISK_VOLUME=${CONF_STORAGE_DISK_VOLUME:=$storage_disk_volume}
