@@ -35,7 +35,7 @@
 #
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 VAR_NAMED_STATIC_DIR="/var/named/static"
-WILDCARD_PREFIX="apps"
+DEFAULT_WILDCARD_PREFIX="apps"
 
 
 #
@@ -72,6 +72,7 @@ function usage()
   echo "    -b|--base_domain : base DNS domain for use with the master(s) and nodes"
   echo "    -d|--dns_host    : server to use for hosting DNS (bind), private and public IPs separated by '|'"
   echo "    -w|--wildcard    : server to use for wildcard DNS entry, private and public IPs separated by '|'"
+  echo "    -p|--prefix      : prefix to use for wildcard DNS entry"
 }
 
 
@@ -389,6 +390,11 @@ do
       shift
     ;;
 
+    -p=*|--prefix=*)
+      WILDCARD_PREFIX="${i#*=}"
+      shift
+    ;;
+
     -h|--help)
       usage
       exit 0
@@ -436,6 +442,8 @@ then
   usage
   exit 1
 fi
+
+[ -z "${WILDCARD_PREFIX}" ] && WILDCARD_PREFIX=DEFAULT_WILDCARD_PREFIX
 
 
 installDNSserver ${dh_private_ip}
