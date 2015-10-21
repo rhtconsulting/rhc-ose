@@ -38,7 +38,7 @@ do
 	  -k|--keep)
       REMOVE_CONTAINER_ON_EXIT=""
       shift;;
-  	-n|--name)
+  	-n=*|--name=*)
       OPENSTACK_CLIENT_IMAGE="${i#*=}"
       shift;;
     -s=*|--ssh=*)
