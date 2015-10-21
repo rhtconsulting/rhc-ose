@@ -196,7 +196,7 @@ do_post(){
 
   oadm ca create-server-cert --signer-cert=$CA/ca.crt \
   --signer-key=$CA/ca.key --signer-serial=$CA/ca.serial.txt \
-  --hostnames="*.${OPENSHIFT_BASE_DOMAIN}" \
+  --hostnames="*.${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN}" \
   --cert=$CA/cloudapps.crt --key=$CA/cloudapps.key
 
 
