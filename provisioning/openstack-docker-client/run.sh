@@ -67,7 +67,7 @@ fi
 
 OPENSTACK_IMAGE=$(docker images | awk '{ print $1 }' | grep ${OPENSTACK_CLIENT_IMAGE})
 
-if [ $? -ne 0 ]; then
+if [ $? -gt 1 ]; then
     echo "Error: Failed to determine installed docker images. Please verify connectivity to Docker socket"
     exit 1
 fi
