@@ -148,8 +148,12 @@ function setIPtables()
   [ \$(grep -c '"$tcp"' /etc/sysconfig/iptables) == 0 ] && \
   sed -i \"/-A INPUT -j REJECT/i $tcp\" /etc/sysconfig/iptables
 
-  systemctl stop firewalld
+  # Stop and disable firewalld if it's currently running and/or enabled
+  systemctl status firewalld &>/dev/null
+  [ \$? -eq 0 ] && systemctl stop firewalld
+  [ -n "`systemctl status firewalld | grep '.service; enabled'`" ] && \
   systemctl disable firewalld
+
   sleep 1
   systemctl restart iptables
 "
@@ -443,7 +447,7 @@ then
   exit 1
 fi
 
-[ -z "${WILDCARD_PREFIX}" ] && WILDCARD_PREFIX=DEFAULT_WILDCARD_PREFIX
+[ -z "${WILDCARD_PREFIX}" ] && WILDCARD_PREFIX="${DEFAULT_WILDCARD_PREFIX}.${BASE_DOMAIN}"
 
 
 installDNSserver ${dh_private_ip}
