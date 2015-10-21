@@ -151,7 +151,7 @@ function setIPtables()
   # Stop and disable firewalld if it's currently running and/or enabled
   systemctl status firewalld &>/dev/null
   [ \$? -eq 0 ] && systemctl stop firewalld
-  [ -n "`systemctl status firewalld | grep '.service; enabled'`" ] && \
+  [ -n \"\`systemctl status firewalld | grep '.service; enabled'\`\" ] && \
   systemctl disable firewalld
 
   sleep 1
