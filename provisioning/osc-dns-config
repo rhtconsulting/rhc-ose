@@ -65,6 +65,7 @@ function usage()
   echo "                   -b=|--base_domain=\"<base domain>\""
   echo "                   -d=|--dns_host=\"<DNS host private ip|DHS host public ip>\""
   echo "                   -w=|--wildcard=\"<wildcard DNS private ip|public ip>\""
+  echo "                   -p=|--prefix=\"<wildcard prefix, e.g.: 'apps'\""
   echo ""
   echo "  where:"
   echo "    -m|--master      : comma separated list of master instances, private and public IPs separated by '|'"
