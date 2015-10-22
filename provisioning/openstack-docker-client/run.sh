@@ -65,11 +65,18 @@ if [ ! -d ${OPENSTACK_CONFIG_DIR} ]; then
 	exit 1
 fi
 
-OPENSTACK_IMAGE=$(docker images | awk '{ print $1 }' | grep ${OPENSTACK_CLIENT_IMAGE})
+DOCKER_IMAGES=$(docker images)
 
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to determine installed docker images. Please verify connectivity to Docker socket"
+    echo "Error: Failed to determine installed docker images. Please verify connectivity to Docker socket."
     exit 1
+fi
+
+OPENSTACK_IMAGE=$(${DOCKER_IMAGES} | awk '{ print $1 }' | grep ${OPENSTACK_CLIENT_IMAGE})
+
+if [ $? -gt 1 ]; then
+  echo "Error: Failed to parse the Docker images to find ${OPENSTACK_CLIENT_IMAGE} image."
+  exit 1
 fi
 
 # Check if Image has been build previously
