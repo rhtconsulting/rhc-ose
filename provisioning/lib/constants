@@ -9,6 +9,8 @@ openshift_base_domain="ose.example.com"
 openshift_master_config='/etc/openshift/master/master-config.yaml'
 openshift_users="joe:redhat alice:redhat"
 openshift_zones=("east" "west")
+openshift_identity_provider=htpasswd_auth
+openshift_identity_provider_json="{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '\/etc\/openshift\/openshift-passwd'}"
 master_is_node=true
 platform="openstack" # Only one we support
 image_name="ose3-base"
@@ -22,4 +24,3 @@ provision_components="openshift"
 storage_disk_volume="/dev/vdb"
 storage_volume_size="10"
 storage_size_ose="2"
-
