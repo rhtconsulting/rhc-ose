@@ -7,18 +7,27 @@ error_out() {
 }
 
 do_sync() {
-  image_url="${registry_url}/${image}"
-
+  if [[ $image == */* ]] ; then
+        subrepo=${image%/*}
+        image=${image##*/}
+        image_url="${registry_url}/${subrepo}/${image}"
+  else
+        image_url="${registry_url}/${image}"
+  fi
   echo "(1/3) Pulling Image ${image_url}..." | tee -a ${LOGFILE}
   docker pull ${image_url} &>>${LOGFILE} || error_out "Failed to PULL image: docker pull ${image_url}"
-  image_awk="${registry_url}/$(echo ${image} | sed -r 's/:([^:]*)$/.*\1/')"
+  if [[ $subrepo ]] ; then
+        image_awk="${registry_url}/${subrepo}/$(echo ${image} | sed -r 's/:([^:]*)$/.*\1/')"
+  else
+        image_awk="${registry_url}/$(echo ${image} | sed -r 's/:([^:]*)$/.*\1/')"
+  fi
   image_id=`docker images | awk "/${image_awk//\//\\/}/"' {print $3}'`
 
-  echo "(2/3) Tagging Image ${image_id}|${image}..." | tee -a ${LOGFILE}
-  docker tag -f ${image_id} ${local_registry_url}/${image} &>>${LOGFILE} || error_out "Failed to tag image: docker tag -f ${image_id} ${local_registry_url}/${image}"
+  echo "(2/3) Tagging Image ${image_id}|${project}/${image}..." | tee -a ${LOGFILE}
+  docker tag -f ${image_id} ${local_registry_url}/${project}/${image} &>>${LOGFILE} || error_out "Failed to tag image: docker tag -f ${image_id} ${local_registry_url}/${image}"
 
   echo "(3/3) Pushing Tag ${local_registry_url}/${image}..." | tee -a ${LOGFILE}
-  docker push ${local_registry_url}/${image} &>>${LOGFILE} || error_out "Failed to push image: docker push ${local_registry_url}/${image}"
+  docker push ${local_registry_url}/${project}/${image} &>>${LOGFILE} || error_out "Failed to push image: docker push ${local_registry_url}/${image}"
   echo "Completed Push of image: ${image}"
 }
 
@@ -35,13 +44,13 @@ Options:
   --local <local-registry>          : Location of private registry you wish to PUSH images to (i.e. localhost:5000, registry.mydomain.com)
   --file <image-file>               : Text file containing a list of image names (one image name per line)
   --parallel                        : Run multiple syncs in parallel, for faster runs on beefy servers
+  --project                         : Specifies which project to use for tagging the project. If none specified it will default to \"openshift\"
 "
 }
 
 LOGFILE=~/docker_image_sync.log
 touch ${LOGFILE}
 parallel=false
-
 for i in "$@"
 do
   case $i in
@@ -57,12 +66,19 @@ do
     --parallel)
       parallel=true;
       shift;;
+    --project=*)
+      project="${i#*=}"
+      shift;;
     *)
       echo "Invalid Option: ${i%=*}"
       exit 1;
       ;;
   esac
 done
+
+if [ -z $project ]; then
+  project="openshift"
+fi
 
 for arg in "from:$registry_url" "file:$file_path" "local:$local_registry_url"; do
   if [ -z ${arg#*:} ]; then
@@ -95,5 +111,3 @@ while [ $count -ne 0 ] ; do
   done
   sleep 1
 done
-
-echo "Completed all images"
