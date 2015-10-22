@@ -75,7 +75,7 @@ fi
 OPENSTACK_IMAGE=$(${DOCKER_IMAGES} | awk '{ print $1 }' | grep ${OPENSTACK_CLIENT_IMAGE})
 
 if [ $? -gt 1 ]; then
-  echo "Error: Failed to find installed ${OPENSTACK_CLIENT_IMAGE} image. Please verify with docker images."
+  echo "Error: Failed to parse the Docker images to find ${OPENSTACK_CLIENT_IMAGE} image."
   exit 1
 fi
 
