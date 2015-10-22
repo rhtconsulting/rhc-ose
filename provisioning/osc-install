@@ -228,7 +228,7 @@ do_create_registry() {
   CA=/etc/openshift/master
 
   # First, a bit of cleanup so we can re-run and update things
-  for resource in service deploymentConfig pod; do
+  for resource in service deploymentConfig pod route serviceaccount secret; do
     resource_names=$(oc get $resource | awk '/registry/ {print $1}')
     for name in ${resource_names/'\n'/ }; do
       oc delete $resource $name
@@ -254,7 +254,7 @@ do_create_registry() {
 
   service_name=$(echo "${created_resources}" | awk -F'/' '/services/ {print $2}')
   dc_name=$(echo "${created_resources}" | awk -F'/' '/deploymentconfigs/ {print $2}')
-  service_ip=$(oc get service $service_name | awk '/registry/ {print $4}')
+  service_ip=$(oc get service $service_name | awk '/registry/ {print $2}')
 
   # Secure the Registry
   oadm ca create-server-cert --signer-cert=$CA/ca.crt \
@@ -277,8 +277,8 @@ do_create_registry() {
     for dir in $certs_dirs; do
       $SSH_CMD $node "mkdir -p $dir"
       $SCP_CMD $CA/ca.crt $node:$dir
-      $SSH_CMD $node "systemctl daemon-reload && systemctl restart docker"
     done
+    $SSH_CMD $node "systemctl daemon-reload && systemctl restart docker && systemctl restart openshift-node"
   done
 
   # Create Route for External Access
