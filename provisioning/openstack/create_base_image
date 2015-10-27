@@ -1,110 +1,238 @@
-#!/bin/bash
+#!/bin/bash -
+
+#
 # Create a base image for OpenShift Enterprise 3
+#
 
+#
+# Prerequisite:
+#  - have a valid RHN username/password + a pool id available
+#
+
+#
 # Instructions to run:
-
 # git clone https://github.com/redhat-consulting/ose-utils -b openshift-enterprise-3
 # (create a new instance based on rhel 7)
 # tar cf - ./ose-utils | ssh cloud-user@<instsance ip> tar xf -
 # ssh cloud-user@<instance-ip>
 # [cloud-user@ip]$ sudo -i
 # [root@ip]# bash /home/cloud-user/ose-utils/provisioning/openstack/create_base_image
+#
 
-# Shutdown instance and take snapshot
-# DONE
+#
+# CONSTANTS
+#
 
-echo "This tool will run RHN subscription-manager."
-echo "Please provide your RHN username/password, and a subscription pool id, when prompted."
-echo "Please exit now (ctrl+c) if you don't have this information available."
+SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+REPO_BASE_NAME=$( basename $( dirname $( dirname ${SCRIPT_BASE_DIR} ) ) )
+DEFAULT_SRC_IMAGE_NAME="_OS1_rhel-guest-image-7.1-20150224.0.x86_64.qcow2"
+INSTANCE_NAME="ose-test-img"
 
-i=9
-while [ $i -gt 0 ]
+
+#
+# GLOBALS
+#
+
+declare -A RHN
+
+
+#
+# HELPERS
+#
+
+source ${SCRIPT_BASE_DIR}/../lib/helpers
+source ${SCRIPT_BASE_DIR}/../lib/constants
+
+
+#
+# "PUBLIC" FUNCTIONS
+#
+
+function usage()
+{
+  echo "Usage: "
+  echo "  $0 -k <key>"
+  echo ""
+  echo "  where:"
+  echo "    -k|--key   : OS1 key"
+  echo ""
+}
+
+function obtainRHNdetails()
+{
+  echo "This tool will run RHN subscription-manager."
+  echo "Please provide your RHN username/password, and a subscription pool id, when prompted."
+  echo "Please exit now (ctrl+c) if you don't have this information available."
+
+  i=9
+  while [ $i -gt 0 ]
+  do
+    echo -ne "  ${i} ...\033[0K\r"
+    i=$((i-1))
+    sleep 1
+  done
+
+  echo
+  echo -n "RHN Username: "
+  read RHN['username']
+
+  echo -n "RHN password: "
+  read -s RHN['password']
+  echo
+
+  echo -n "RHN pool id: "
+  read RHN['poolid']
+
+  # Check for prereqs
+  if [ -z "${RHN['username']}" ] || [ -z "${RHN['password']}" ] || [ -z "${RHN['poolid']}" ]; then
+    echo "Missing some RHN info. Please retry..."
+    exit 1
+  fi
+
+  echo "Thank you! Proceeding..."
+}
+
+function provisionImage()
+{
+  flavor=${1}
+
+  command="${SCRIPT_BASE_DIR}/provision.sh \
+    --instance-name ${NewImageName} \
+    --key ${Key} \
+    --image-name ${DEFAULT_SRC_IMAGE_NAME} \
+    --flavor ${flavor} \
+    --debug \
+    --n"
+
+  $command || error_out "Image Provision failed." ${ERROR_CODE_PROVISION_FAILURE}
+}
+
+
+function tailorImage()
+{
+  ip=${1}
+
+  RHN_file="/tmp/rhn"
+
+  # Clean out previous install attempts
+  ${SSH_CMD} cloud-user@${ip} "rm -rf ~/${REPO_BASE_NAME}"
+
+  # Script is executed from ${REPO_BASE_NAME}/provisioning/openstack, so we need to strip three directories
+  pushd $(dirname $(dirname $(dirname ${SCRIPT_BASE_DIR}))) >/dev/null
+    # Pull repo into image so we can continue installation
+    tar cf - ${REPO_BASE_NAME} | ${SSH_CMD} cloud-user@${ip} tar xf -
+  popd >/dev/null
+
+  ${SSH_CMD} cloud-user@${ip}  "
+  rm -f ${RHN_file}
+  echo \"user=${RHN['username']}\" >> ${RHN_file}
+  echo \"passwd=${RHN['password']}\" >> ${RHN_file}
+  echo \"poolid=${RHN['poolid']}\" >> ${RHN_file}
+  echo \"remove=yes\" >> ${RHN_file}
+  "
+
+  ${SSH_CMD} -t cloud-user@${ip} "sudo ~/${REPO_BASE_NAME}/provisioning/openstack/tailor_image --rhn-file=${RHN_file}"
+}
+
+function postSteps()
+{
+  ip=${1}
+  flavor=${2}
+
+  command="${SCRIPT_BASE_DIR}/provision.sh \
+    --action snapshot
+    --image-name ${NewImageName} \
+    --flavor ${flavor} \
+    --ips ${ip} \
+    --debug \
+    --n"
+
+  $command || error_out "Image Snapshot failed." ${ERROR_CODE_PROVISION_FAILURE}
+}
+
+
+function cleanup()
+{
+  ip=${1}
+
+  echo "Deleting Instance ..."
+
+  command="${SCRIPT_BASE_DIR}/provision.sh
+  --action delete_by_ip \
+  --ips ${ip} \
+  --debug \
+  --n"
+  $command || error_out "Delete failed." ${ERROR_CODE_PROVISION_FAILURE}
+}
+
+
+
+#
+# MAIN - main execution starts below
+#
+
+for i in "$@"
 do
-	echo -ne "  ${i} ...\033[0K\r"
-	i=$((i-1))
-	sleep 1
+  case $i in
+    -k=*|--key=*)
+      Key="${i#*=}"
+      shift;;
+    -h|--help)
+      usage
+      exit 0
+    ;;
+
+    *)
+      echo "Invalid Option: ${i#*=}"
+      exit 1;
+    ;;
+
+  esac
+done
+
+if [ -z "${Key}" ]
+then
+  echo "Missing required args"
+  usage
+  exit 1
+fi
+
+obtainRHNdetails
+
+Images=()
+
+# Right now only one flavor is built, but multiple flavors can be built
+# by just updating the list below - in that case, may want to append the flavor to
+# the "NewImageName"...
+for flavor in m1.large
+do
+  current_time=`date +%H%M-%d-%h-%Y`
+  NewImageName="${INSTANCE_NAME}-${current_time}"
+
+  echo "Provisioning New Instance, image: ${DEFAULT_SRC_IMAGE_NAME}, name: ${NewImageName} ..."
+  imageIPs=$(provisionImage "${flavor}")
+  [ $? -ne 0 ] && error_out "Failed to start up new instance." $ERROR_CODE_PROVISION_FAILURE
+
+  imagePublicIP=$(get_public_ips "${imageIPs}")
+ 
+  echo "Tailoring image ..."
+  tailorImage "${imagePublicIP}"
+
+  echo "Making Image Snapshot ..."
+  postSteps "${imagePublicIP}" "${flavor}"
+  [ $? -ne 0 ] && error_out "Post Steps failed." $ERROR_CODE_PROVISION_FAILURE
+
+  cleanup "${imagePublicIP}"
+  Images+=("${NewImageName}")
+done
+
+echo "Successfully built images:"
+for name in "${Images[@]}"
+do
+  echo "- ${name}"
 done
 
 echo
-echo -n "RHN Username: "
-read RHN_USERNAME
 
-echo -n "RHN password: "
-read -s RHN_PASSWORD
-echo
+exit 0
 
-echo -n "RHN pool id: "
-read RHN_POOL_ID
-
-# Check for prereqs
-if [ -z $RHN_USERNAME ] || [ -z $RHN_PASSWORD ] || [ -z $RHN_POOL_ID ]; then
-  echo "Missing some RHN info. Please retry..."
-  exit 1
-fi
-
-echo "Thank you! Proceeding..."
-
-# Enable root access
-sed -i 's/disable_root: 1/disable_root: 0/' /etc/cloud/cloud.cfg
-sed -i 's/datasource_list/# datasource_list/' /etc/cloud/cloud.cfg
-echo "datasource_list: [ None ]" >> /etc/cloud/cloud.cfg
-
-# Setup a more suitable log rotate pattern for "standard" syslog files
-sed -i "s/    postrotate/ \
-   rotate 10\n \
-   maxsize 500M\n \
-   delaycompress\n \
-   postrotate/" /etc/logrotate.d/syslog
-
-subscription-manager register --username=$RHN_USERNAME --password=$RHN_PASSWORD
-subscription-manager attach --pool=$RHN_POOL_ID
-subscription-manager repos --disable='*'
-subscription-manager repos \
---enable="rhel-7-server-rpms" \
---enable="rhel-7-server-extras-rpms" \
---enable="rhel-7-server-optional-rpms" \
---enable="rhel-7-server-ose-3.0-rpms"
-
-enabled_repos=`yum repolist`
-if [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-rpms\/\"`" ] || \
-   [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-extras-rpms\/\"`" ] || \
-   [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-optional-rpms\/\"`" ] || \
-   [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-ose-3.0-rpms\/\"`" ]; then
-  echo "Failed to enable required repos!"
-  exit 1
-fi
-
-yum clean all
-yum install -y wget git net-tools bind-utils iptables-services bridge-utils rsync
-yum update -y
-
-# Create the /var/log partition
-(echo n; echo p; echo; echo; echo t; echo 4; echo 8e; echo w;) | fdisk /dev/vda
-partprobe
-pvcreate /dev/vda4 
-vgcreate vg_var /dev/vda4
-lvcreate -l 100%VG -n lv_log vg_var
-mkfs.xfs /dev/vg_var/lv_log 
-mkdir /mnt/log
-mount /dev/mapper/vg_var-lv_log /mnt/log
-rsync -a -A -X /var/log/ /mnt/log
-umount /mnt/log
-echo "/dev/mapper/vg_var-lv_log /var/log xfs defaults 0 0" >> /etc/fstab 
-
-# Copy some files
-SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-cp -r ${SCRIPT_BASE_DIR}/../../ose3eval/files/* /
-
-# Remove NetworkManager + 
-# Ensure networking is enabled
-# - have to use 'chkconfig' for this
-yum remove -y NetworkManager*
-chkconfig network on
-
-# Self distruct
-2>/dev/null >/root/.ssh/authorized_keys
-2>/dev/null >/home/cloud-user/.ssh/authorized_keys
-rm -rf ${SCRIPT_BASE_DIR}/../../
-history -c
-> ~/.bash_history
-shutdown -h now
