@@ -84,8 +84,11 @@ EOF
   # Prepare the apps sub domain:
   CLOUDAPPS_SUBDOMAIN="${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN}"
 
-  echo "process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN"
-  ansible_hosts_file="$(process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN)"
+  if [ -z "${OPENSHIFT_IDENTITY_PROVIDER_JSON}" ]; then
+    error_out "OPENSHIFT_IDENTITY_PROVIDER_JSON cannot be empty: ${OPENSHIFT_IDENTITY_PROVIDER_JSON}"
+  fi
+  echo "process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN OPENSHIFT_IDENTITY_PROVIDER_JSON"
+  ansible_hosts_file="$(process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN OPENSHIFT_IDENTITY_PROVIDER_JSON)"
 
   cd
   rm -rf ~/openshift-ansible
@@ -327,6 +330,7 @@ OPENSHIFT_MASTER_CONFIG=$openshift_master_config
 OPENSHIFT_ZONES=$openshift_zones
 OPENSHIFT_STORAGE_DISK_VOLUME=${CONF_STORAGE_DISK_VOLUME:=$storage_disk_volume}
 OPENSHIFT_STORAGE_SIZE_OSE=${CONF_STORAGE_SIZE_OSE:=$storage_size_ose}
+OPENSHIFT_IDENTITY_PROVIDER_JSON="${CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON:=$openshift_identity_provider_json}"
 
 # Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}

@@ -47,15 +47,30 @@ get_public_ips() {
 
 process_configfile() {
   file=$1
+  unset CONF_ENVIRONMENT
 
   # Filter Configs to make sure only valid key pair values are acted upton
   configs=$(egrep '^[^ ]*=[^;&]*' $file | grep -v '^#' | sed 's/#.*//g')
 
   # export all variables to the environment
   for var in ${configs//'\n'/ }; do
-    CONF_ENVIRONMENT="${CONF_ENVIRONMENT}export $var;"$'\n'
+    CONF_ENVIRONMENT="${CONF_ENVIRONMENT}export $var"$'\n'
     export $var
   done
+
+  # handle special cases
+
+  # Setup user-defined auth Provider
+  if [ -f ${CONF_OPENSHIFT_IDENTITY_PROVIDER} ]; then
+    # User is providing a file containing custom auth provider, load it
+    CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=$(cat ${CONF_OPENSHIFT_IDENTITY_PROVIDER} | sed -e 's/[\/&]/\\&/g')
+  else
+    # Use the matching provider in templates directory
+    CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=$(cat ${SCRIPT_BASE_DIR}/templates/${CONF_OPENSHIFT_IDENTITY_PROVIDER} | sed -e 's/[\/&]/\\&/g')
+  fi
+
+  CONF_ENVIRONMENT="${CONF_ENVIRONMENT}export CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=\"${CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON}\""$'\n'
+  export CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON="${CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON}"
 }
 
 ## Template Format ##
@@ -104,7 +119,7 @@ function partition_disk() {
 
   # If we do indeed have some partitions already configured, check to see that we're less than
   # 4 primary - can only handle up to 4 primary partitions for now...
-  if [ ${part_start} -ne 0 ]; then 
+  if [ ${part_start} -ne 0 ]; then
     end_idx=`parted -m ${root_disk} print | tail -n 1 | awk -F: '{ print $1 }'`
     [ ${end_idx} -gt 4 ] && return 1
   fi
@@ -117,7 +132,7 @@ function partition_disk() {
   fi
 
   parted ${root_disk} --script -- mkpart primary "${part_start}MB" "${part_end}MB"
-  [ $? -ne 0 ] && return 1 
+  [ $? -ne 0 ] && return 1
 
   partprobe
 
@@ -188,4 +203,3 @@ setup_openshift_storage() {
 
   return 0
 }
-
