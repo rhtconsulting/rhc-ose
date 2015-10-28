@@ -104,3 +104,54 @@ systemctl restart docker
 ```
 
 Reboot the machine or log out/log in to reload your environment and complete the configurations.
+
+**Issue #3**
+
+This is likely a somewhat unique situation whereas the Docker Container is uanble to contact hosts while you are connected to a VPN.  The issue may manifest itself in different ways, but you should be able to validate whether or not you have an issue by executing a simple ping of your OpenStack API host.
+
+In this example, notice your 10.0.0.0/8 route uses wlp4s0.
+```
+$  ping -c 2 10.3.0.3
+PING 10.3.0.3 (10.3.0.3) 56(84) bytes of data.
+
+--- 10.3.0.3 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 999ms
+$ ip r s
+default via 192.168.0.1 dev wlp4s0  proto static  metric 600 
+10.0.0.0/8 via 192.168.0.1 dev wlp4s0  src 10.10.53.185 <<<<===--
+66.187.233.55 via 192.168.0.1 dev wlp4s0  proto static  metric 600 
+172.17.0.0/16 dev docker0  proto kernel  scope link  src 172.17.42.1 
+192.168.0.0/24 dev wlp4s0  proto kernel  scope link  src 192.168.0.207 
+192.168.0.0/24 dev wlp4s0  proto kernel  scope link  src 192.168.0.207  metric 600 
+192.168.122.0/24 dev virbr0  proto kernel  scope link  src 192.168.122.1 
+
+```
+
+**Resolution #3**
+You will need to install the Cisco Compatiable VPN client and then recreate your VPN connection. 
+
+```
+$  yum -y install NetworkManager-vpnc-gnome NetworkManager-vpnc NetworkManager-openvpn NetworkManager-openvpn-gnome
+```
+
+Recreate your VPN connection and connect and notice your 10.0.0.0/8 route now uses tun0.
+```
+$ ping -c 2 10.3.0.3
+PING 10.3.0.3 (10.3.0.3) 56(84) bytes of data.
+64 bytes from 10.3.0.3: icmp_seq=1 ttl=59 time=83.6 ms
+64 bytes from 10.3.0.3: icmp_seq=2 ttl=59 time=84.2 ms
+
+--- 10.3.0.3 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 83.688/83.972/84.256/0.284 ms
+
+$ ip r s
+default via 192.168.0.1 dev wlp4s0  proto static  metric 600 
+10.0.0.0/8 dev tun0  proto static  scope link  metric 50  <<<<===--
+66.187.233.55 via 192.168.0.1 dev wlp4s0  proto static  metric 600 
+172.17.0.0/16 dev docker0  proto kernel  scope link  src 172.17.42.1 
+192.168.0.0/24 dev wlp4s0  proto kernel  scope link  src 192.168.0.207 
+192.168.0.0/24 dev wlp4s0  proto kernel  scope link  src 192.168.0.207  metric 600 
+192.168.122.0/24 dev virbr0  proto kernel  scope link  src 192.168.122.1 
+```
+
