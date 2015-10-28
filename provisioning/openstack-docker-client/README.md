@@ -107,9 +107,7 @@ Reboot the machine or log out/log in to reload your environment and complete the
 
 **Issue #3**
 
-This is likely a somewhat unique situation whereas the Docker Container is uanble to contact hosts while you are connected to the VPN (i.e. connecting to OS1 internal).  The issue may manifest itself in different ways, but you should be able to validate whether or not you have an issue by executing a simple ping of control.os1.phx2.redhat.com
-
-If you happen to configure your VPN per the MOJO recommendation (DOC-973196), it suggests using libreswan.  You should instead use the Cisco Compatible VPN client which will use a tun0 device to connect (rather than attaching the VPN IP directly to the primary interface).
+This is likely a somewhat unique situation whereas the Docker Container is uanble to contact hosts while you are connected to a VPN.  The issue may manifest itself in different ways, but you should be able to validate whether or not you have an issue by executing a simple ping of your OpenStack API host.
 
 ```
 $  ping -c 2 10.3.0.3
@@ -129,7 +127,7 @@ default via 192.168.0.1 dev wlp4s0  proto static  metric 600
 ```
 
 **Resolution #3**
-You will need to install the Cisco Compatiable VPN client and then recreate your VPN connection to RDU (or wherever you connect)
+You will need to install the Cisco Compatiable VPN client and then recreate your VPN connection. 
 
 ```
 $  yum -y install NetworkManager-vpnc-gnome NetworkManager-vpnc NetworkManager-openvpn NetworkManager-openvpn-gnome
