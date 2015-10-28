@@ -216,6 +216,7 @@ sync_files() {
   files=$1
   nodes=$2
 
+  # TODO: it may become necessary to support setting ownership, permissions, and SELinux context
   for node in $nodes; do
     for file in $files; do
       source=${file%:*}
