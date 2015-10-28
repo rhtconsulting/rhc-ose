@@ -11,6 +11,7 @@ openshift_users="joe:redhat alice:redhat"
 openshift_zones=("east" "west")
 openshift_identity_provider=htpasswd_auth
 openshift_identity_provider_json="{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '\/etc\/openshift\/openshift-passwd'}"
+os_flavor="m1.medium"
 master_is_node=true
 platform="openstack" # Only one we support
 image_name="ose3-base"
