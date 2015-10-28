@@ -109,6 +109,7 @@ Reboot the machine or log out/log in to reload your environment and complete the
 
 This is likely a somewhat unique situation whereas the Docker Container is uanble to contact hosts while you are connected to a VPN.  The issue may manifest itself in different ways, but you should be able to validate whether or not you have an issue by executing a simple ping of your OpenStack API host.
 
+In this example, notice your 10.0.0.0/8 route uses wlp4s0.
 ```
 $  ping -c 2 10.3.0.3
 PING 10.3.0.3 (10.3.0.3) 56(84) bytes of data.
@@ -133,7 +134,7 @@ You will need to install the Cisco Compatiable VPN client and then recreate your
 $  yum -y install NetworkManager-vpnc-gnome NetworkManager-vpnc NetworkManager-openvpn NetworkManager-openvpn-gnome
 ```
 
-Recreate your VPN connection and connect.
+Recreate your VPN connection and connect and notice your 10.0.0.0/8 route now uses tun0.
 ```
 $ ping -c 2 10.3.0.3
 PING 10.3.0.3 (10.3.0.3) 56(84) bytes of data.
