@@ -1,3 +1,5 @@
+#!/bin/bash -
+
 # Functions
 usage() {
   echo "
@@ -7,11 +9,13 @@ Options:
   --action <action>                   : Action to execute -- boot, delete (default: boot)
   --instance-name <name>              : *Name of your instance
   --key <openstack ssh key name>      : *Name of your SSH key in OpenStack dashboard.
-  --image-name <image-name>           : Specify an image (or snapshot) to use for boot
+  --image-name <image-name>           : Specify an image (or snapshot) to use for boot, or as snapshot name when creating a snapshot
   --auth-key-file <file location>     : Pass a custom authorized keys file to the root user (for multiple user access).
-  --security-groups <security groups> : Specift security groups for your instance
+  --security-groups <security groups> : Specify security groups for your instance
   --num-instances <number>            : Number of instances to create with this profile
+  --flavor <flavor>                   : Flavor to use for the OpenStack instance
   --add-volume <size>                 : Add a volume of a given size (in GB)
+  --ips                               : IPs to look for -- delete, snapshot 
   --debug                             : Set log level to Debug
   --n                                 : non-iteractive mode for use with scripts. Doesn't log anything to the console
   "
@@ -57,6 +61,37 @@ do_delete_by_name() {
   required_args="instance-name:$instance_name"
   validate_args "$required_args"
   delete_servers $instance_name
+}
+
+do_snapshot() {
+  server="$(nova list | awk "/$IP_ADDRESSES/"'{print$2}')"
+  if [ -z "${server}" ]; then
+    safe_out "error" "Failed to obtain server id"
+    exit 1
+  fi
+
+  state="ACTIVE"
+  i=0
+  while [ "${state}" != "SHUTOFF" ]
+  do 
+     state=$(nova show ${server} | awk '/status/''{print$4}')
+     i=$((i+1))
+     if [ $i -gt 20 ]; then
+       safe_out "error" "Failed to wait for instance to shutdown"
+       exit 1
+     fi
+     sleep 1
+  done
+
+  nova image-create --poll ${server} "${image_name}"
+  if [ $? -ne 0 ]; then
+    safe_out "error" "Failed to snapshot image - ${image_name}"
+    exit 1
+  fi
+
+  # Use the following 2 commands to make it public - if this feature is needed
+  #imageid=$(nova image-list | awk "/${image_name}/"'{print $2}')
+  #glance image-update --is-public True ${imageid}
 }
 
 boot_servers() {
@@ -277,6 +312,9 @@ do
     "--num-instances")
       num_instances=$1;
       shift;;
+    "--flavor")
+      flavor=$1;
+      shift;;
     "--debug")
       LOG_LEVEL="debug";;
     *) echo >&2 "Invalid option: $@"; exit 1;;
@@ -287,7 +325,7 @@ done
 openstack_cred=${OPENSTACK_CRED_HOME:-~/.openstack/openrc.sh}
 image_name_search=${image_name:-"rhel-guest-image-7.0-20140618.1"}
 rc_file="${openstack_cred}"
-flavor="m1.large"
+[ -z "${flavor}" ] && flavor="m1.large"
 if [ ! -f $rc_file ]; then
   safe_out "error" "OpenStack API Credentials not found. Default location is ${rc_file}, or set OPENSTACK_CRED_HOME."
   exit 1
@@ -297,13 +335,17 @@ if [ ! -z $num_instances ]; then
   options="${options} --num-instances ${num_instances}"
 fi
 
+if [[ "${flavor}" != +(m1.medium|m1.large) ]]; then
+  safe_out "error" "Incorrect OpenStack flavor specified. Must be 'm1.medium' or 'm1.large'."
+fi
+
 . $rc_file
 
 if [ "$interactive" = "true" ]; then
   echo "Tail Logfile for More Info: ${LOGFILE}"
 fi
 
-actions="boot delete_by_ip delete_by_name"
+actions="boot delete_by_ip delete_by_name snapshot"
 
 if [[ $actions =~ (^| )$action($| ) ]]; then
   do_$action
