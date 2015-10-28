@@ -87,8 +87,8 @@ EOF
   if [ -z "${OPENSHIFT_IDENTITY_PROVIDER_JSON}" ]; then
     error_out "OPENSHIFT_IDENTITY_PROVIDER_JSON cannot be empty: ${OPENSHIFT_IDENTITY_PROVIDER_JSON}"
   fi
-  echo "process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING OPENSHIFT_IDENTITY_PROVIDER_JSON"
-  ansible_hosts_file="$(process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING OPENSHIFT_IDENTITY_PROVIDER_JSON)"
+  echo "process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN OPENSHIFT_IDENTITY_PROVIDER_JSON"
+  ansible_hosts_file="$(process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN OPENSHIFT_IDENTITY_PROVIDER_JSON)"
 
   cd
   rm -rf ~/openshift-ansible
