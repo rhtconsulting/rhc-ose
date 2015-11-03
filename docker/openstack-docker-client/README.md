@@ -28,9 +28,9 @@ The process of creating and running the docker container is facilitated through 
 It will produce the docker image based on a *Dockerfile* and run the docker container based on the following parameters:
 
 ```
-$ ./provisioning/openstack-docker-client/run.sh --help
+$ ./docker/openstack-docker-client/run.sh --help
 
-     Usage: ./provisioning/openstack-docker-client/run.sh [options]
+     Usage: ./docker/openstack-docker-client/run.sh [options]
      Options:
      --configdir=<configdir>       : Directory containing Openstack configuration files (Default: ~/.openstack/)
      --name=<name>                 : Name of the assembled image (Default: rhc-openstack-client)

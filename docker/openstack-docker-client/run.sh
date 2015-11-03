@@ -17,7 +17,7 @@ usage() {
      Usage: $0 [options]
      Options:
      --configdir=<configdir>       : Directory containing Openstack configuration files (Default: ~/.openstack/)
-     --name=<name>                 : Name of the assembled image (Default: rhc-openstack-client)
+     --name=<name>                 : Name of the assembled image (Default: rhtconsulting/rhc-openstack-client)
      --keep                        : Whether to keep the the container after exiting
      --ssh=<ssh>                   : Location of SSH keys to mount into the container (Default: ~/.ssh)
      --repository=<repository>     : Directory containing a repository to mount inside the container
