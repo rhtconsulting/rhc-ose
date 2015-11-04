@@ -72,6 +72,7 @@ CONF_LOGFILE=~/openstack_provision.log # Default: ~/openstack_provision.log
 CONF_STORAGE_DISK_VOLUME=/dev/vdb # The disk path (within an instance) for the "extra" storage volume used by OSE/Docker (see below) # Default: /dev/vdb
 CONF_VOLUME_SIZE=25 # Allocate a 25 GB volume for a shared OpenShift / Docker disk (see "CONF_STORAGE_SIZE_OSE" below - OSE uses the first X GB and leaves the rest for Docker storage) # Default: 10 GB
 CONF_STORAGE_SIZE_OSE=4 # Allocate 4 GB for the OpenShift partition (e.g.: /var/lib/openshift) # Default: 2 GB 
+CONF_STORAGE_SIZE_LOGGING=4 # Allocate 4 GB for logs (e.g.: /var/log) # Default: 0 GB - i.e.: shared with root (/) partition
 ## OpenShift Configs
 CONF_OPENSHIFT_BASE_DOMAIN=openshift.example.com # Default: ose.example.com
 CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN=cloudapps # Default: apps (generates "apps.ose.example.com")
