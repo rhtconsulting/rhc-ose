@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SOURCE_DIR=/root/source
+SOURCE_DIR=/home/builder/source
 
 if [ ! -d "$SOURCE_DIR" ]; then
    echo "Error: Source volume not mounted or available"
