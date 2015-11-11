@@ -51,15 +51,29 @@ do_promote() {
   --image-name ${image_name}|${prev_image_name} \
   --n \
   --debug"
-  $command || error_out "Image Rename failed." ${ERROR_CODE_IMAGE_FAILURE}
+  $command || error_out "Image Rename failed. ${image_name} => ${prev_image_name}" ${ERROR_CODE_IMAGE_FAILURE}
 
+  error_on_second=0
   command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
   --action image_rename \
   --image-name ${ImageName}|${image_name} \
   --make-public \
   --n \
   --debug"
-  $command || error_out "Image Rename failed." ${ERROR_CODE_IMAGE_FAILURE}
+  $command || error_on_second=1
+
+  # if the second rename fails, the previous image needs to be restored ...
+  # TODO : how to recover if the second rename leaves a partial renamed image?
+  if [ ${error_on_second} -eq 1 ]; then
+    command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
+    --action image_rename \
+    --image-name ${prev_image_name}|${image_name} \
+    --n \
+    --debug"
+    $command || error_out "Image Recovery failed. ${prev_image_name} => ${image_name}" ${ERROR_CODE_IMAGE_FAILURE}
+
+    error_out "Image Rename failed. ${ImageName} => ${image_name}" ${ERROR_CODE_IMAGE_FAILURE}
+  fi
 }
 
 
