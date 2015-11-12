@@ -15,6 +15,7 @@ os_flavor="m1.medium"
 master_is_node=true
 platform="openstack" # Only one we support
 image_name="ose3-base"
+image_retirement_lifespan="3 months"
 security_group_master="ose3-master"
 security_group_node="ose3-node"
 security_group_cicd="CI-CD"
