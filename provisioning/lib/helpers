@@ -146,7 +146,7 @@ setup_docker_storage() {
   disk_path=${1}
 
   # Install and configure docker
-  yum -y install docker &>/dev/null || error_out "Failed to install package docker"
+  yum -y install docker &>/dev/null || error_out "Failed to install package docker" ${ERROR_CODE_STORAGE_FAILURE}
   # sed -i "s/OPTIONS='--selinux-enabled'/OPTIONS='--selinux-enabled --insecure-registry 172.30.0.0\/16'/" /etc/sysconfig/docker
 
   vgdisplay vg-docker &>/dev/null
@@ -203,3 +203,46 @@ setup_openshift_storage() {
 
   return 0
 }
+
+setup_logging_storage() {
+  disk_path=${1}
+  part_size=${2}
+
+  if [ -z "${part_size}" -o ${part_size} -le 0 ]; then
+    echo "No separation of /var/log configured - skipping..."
+    return 0
+  fi
+
+  vgdisplay vg-logging &>/dev/null
+  vg_rc=$?
+
+  if [ ${vg_rc} -eq 0 ]; then
+    echo "logging storage already configured!"
+    return 0
+  fi
+
+  disk_part=`partition_disk ${disk_path} ${part_size}`
+  [ $? -ne 0 ] && return 1
+
+  # Create LVM and set up /var/log
+  pvcreate ${disk_part}
+  vgcreate vg-logging ${disk_part}
+  lvcreate -l 100%FREE -n lv-logs vg-logging
+
+  mkfs.xfs -q -f /dev/vg-logging/lv-logs
+
+  mkdir -p /mnt/log
+  mount /dev/vg-logging/lv-logs /mnt/log
+  rsync -a -A -X /var/log/ /mnt/log
+  umount /mnt/log
+  rmdir /mnt/log
+
+  echo "/dev/vg-logging/lv-logs        /var/log              xfs defaults 0 0" >> /etc/fstab
+
+  mount -a
+
+  systemctl restart rsyslog
+
+  return 0
+}
+
