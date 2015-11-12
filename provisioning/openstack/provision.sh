@@ -1,15 +1,18 @@
-#!/bin/bash -
+#!/bin/bash --
 
 # Functions
 usage() {
   echo "
-Usage: $0 --action <boot|delete_by_name|delete_by_ip> [options]
+Usage: $0 --action <boot|delete_by_name|delete_by_ip|snapshot|image_rename> [options]
 
 Options:
-  --action <action>                   : Action to execute -- boot, delete (default: boot)
+  --action <action>                   : Action to execute -- boot, delete, snapshot, image_rename (default: boot)
   --instance-name <name>              : *Name of your instance
   --key <openstack ssh key name>      : *Name of your SSH key in OpenStack dashboard.
-  --image-name <image-name>           : Specify an image (or snapshot) to use for boot, or as snapshot name when creating a snapshot
+  --image-name <image-name>           : Multi-purpose option:
+                                          boot: Specify an image to use for boot
+                                          snapshot: Specify a name to use for snapshot name
+                                          image_rename: <from-name>|<to-name>, names used to rename from/to, separated by '|' 
   --auth-key-file <file location>     : Pass a custom authorized keys file to the root user (for multiple user access).
   --security-groups <security groups> : Specify security groups for your instance
   --num-instances <number>            : Number of instances to create with this profile
@@ -63,6 +66,40 @@ do_delete_by_name() {
   delete_servers $instance_name
 }
 
+do_image_rename() {
+  image_src=`echo ${image_name} | sed -ne 's/\(.*\)|.*/\1/p'`
+  image_dst=`echo ${image_name} | sed -ne 's/.*|\(.*\)/\1/p'`
+  safe_out "debug" "image_src=${image_src}, image_dst=${image_dst}"
+
+  [ -z "${image_src}" -o -z "${image_dst}" ] && safe_out "error" "Invalid/Empty image names (${image_src} & ${image_dst}). Please try again." && exit 2
+
+  image_src_id=$(nova image-list | awk "/${image_src}/"'{print $2}')
+  safe_out "debug" "image_src_id=${image_src_id}"
+  [ $(echo "${image_src_id}" | grep -c ".*") -ne 1 ] && safe_out "error" "${image_src} gave multiple matches. Be more specific." && exit 2
+  [ -z "${image_src_id}" ] && safe_out "error" "${image_src} not found. Please try again." && exit 2
+
+  image_dst_id=$(nova image-list | awk "/${image_dst}/"'{print $2}')
+  safe_out "debug" "image_dst_id=${image_dst_id}"
+  [ -n "${image_dst_id}" ] && safe_out "error" "${image_dst} already exists." && exit 2
+
+  # Rename image
+  glance_output=$(glance image-update --name ${image_dst} ${image_src_id})
+  rc=$?
+  safe_out "debug" "glance image-update --name ${image_dst} ${image_src_id} - rc=${rc}, glance output ${glance_output}"
+  if [ ${rc} -ne 0 ]; then
+    error_out "Failed to rename ${image_src} => ${image_dst}. glance output: ${glance_output}" ${ERROR_CODE_IMAGE_FAILURE}
+  fi
+
+  if [ "${make_public}" = "true" ]; then
+    glance_output=$(glance image-update --is-public True ${image_dst})
+    rc=$?
+    safe_out "debug" "glance image-update --is-public True ${image_dst} - rc=${rc}, glance output ${glance_output}"
+    if [ ${rc} -ne 0 ]; then
+      error_out "Failed to make ${image_dst} public. glance output: ${glance_output}" ${ERROR_CODE_IMAGE_FAILURE}
+    fi
+  fi
+}
+
 do_snapshot() {
   server="$(nova list | awk "/$IP_ADDRESSES/"'{print$2}')"
   if [ -z "${server}" ]; then
@@ -88,11 +125,8 @@ do_snapshot() {
     safe_out "error" "Failed to snapshot image - ${image_name}"
     exit 1
   fi
-
-  # Use the following 2 commands to make it public - if this feature is needed
-  #imageid=$(nova image-list | awk "/${image_name}/"'{print $2}')
-  #glance image-update --is-public True ${imageid}
 }
+
 
 boot_servers() {
   required_args="key:$key instance-name:$instance_name"
@@ -300,6 +334,8 @@ do
       instance_name="$1"; shift;;
     "--image-name")
       image_name="$1"; shift;;
+    "--make-public")
+      make_public="true";;
     "--ips")
       IP_ADDRESSES="$1"; shift;;
     "--auth-key-file")
@@ -345,7 +381,7 @@ if [ "$interactive" = "true" ]; then
   echo "Tail Logfile for More Info: ${LOGFILE}"
 fi
 
-actions="boot delete_by_ip delete_by_name snapshot"
+actions="boot delete_by_ip delete_by_name snapshot image_rename"
 
 if [[ $actions =~ (^| )$action($| ) ]]; then
   do_$action

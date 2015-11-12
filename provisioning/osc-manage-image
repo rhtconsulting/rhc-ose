@@ -1,0 +1,128 @@
+#!/bin/bash --
+
+#
+#   Copyright 2015 Red Hat Inc.
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+#
+
+#
+# osc-manage-image - Used to manage images within the hosting environment
+#
+# Usage: See usage function below
+#
+SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+REPO_BASE_NAME=$( basename $( dirname ${SCRIPT_BASE_DIR} ) )
+
+## Functions
+
+source ${SCRIPT_BASE_DIR}/lib/helpers
+source ${SCRIPT_BASE_DIR}/lib/constants
+source ${SCRIPT_BASE_DIR}/lib/error_codes
+
+# Show script usage
+usage() {
+  echo "
+  Usage: $0 [options]
+
+  Options:
+  --action=<action>             : Action to execute -- promote 
+  --image-name                  : Name of the image to perform above action on
+  --debug                       : Will add -x to all bash commands
+  "
+}
+
+
+do_promote() {
+  prev_image_name="ose3-delete-after-`date --date="${image_retirement_lifespan}" +%d-%b-%Y`"
+
+  echo -n "This will promote '${ImageName}' to '${image_name}' - do you want to continue? [Y]: "
+  read answer
+ 
+  answer=$(echo ${answer} | tr '[:upper:]' '[:lower:]')
+  if [ -n "${answer}" -a "${answer}" != "y" ]; then
+    echo "Exiting..."
+    exit 0
+  fi
+
+  echo "Backing up image '${image_name}' => '${prev_image_name}' ..."
+  command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
+  --action image_rename \
+  --image-name ${image_name}|${prev_image_name} \
+  --n \
+  --debug"
+  $command || error_out "Image Rename failed. '${image_name}' => '${prev_image_name}'" ${ERROR_CODE_IMAGE_FAILURE}
+
+  echo "Promoting image '${ImageName}' => '${image_name}' ..."
+  error_on_second=0
+  command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
+  --action image_rename \
+  --image-name ${ImageName}|${image_name} \
+  --make-public \
+  --n \
+  --debug"
+  $command || error_on_second=1
+
+  # if the second rename fails, the previous image needs to be restored ...
+  # TODO : how to recover if the second rename leaves a partial renamed image?
+  if [ ${error_on_second} -eq 1 ]; then
+    echo "Second move failed, moving original image back - '${prev_image_name}' => '${image_name}'"
+    command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
+    --action image_rename \
+    --image-name ${prev_image_name}|${image_name} \
+    --n \
+    --debug"
+    $command || error_out "Image Recovery failed. '${prev_image_name}' => '${image_name}'" ${ERROR_CODE_IMAGE_FAILURE}
+
+    error_out "Image Rename failed. '${ImageName}' => '${image_name}'" ${ERROR_CODE_IMAGE_FAILURE}
+  fi
+
+  echo "Done! Image '${ImageName}' has been promoted to '${image_name}'."
+}
+
+
+# Process input
+for i in "$@"
+do
+  case $i in
+    --action=*)
+      Action="${i#*=}"
+      shift;;
+    --image-name=*)
+      ImageName="${i#*=}"
+      shift;;
+    --debug)
+      set -x;
+      bash_opts=" -x"
+      shift;;
+    --help)
+      usage
+      exit 0;;
+    *)
+      echo "Invalid Option: ${i%=*}"
+      exit 1;
+      ;;
+  esac
+done
+
+
+actions="promote"
+
+if [[ $actions =~ (^| )$Action($| ) ]]; then
+  do_$Action
+else
+  echo "Invalid value for --action: $Action"
+  echo "Valid actions: $actions"
+  exit 1
+fi
+
