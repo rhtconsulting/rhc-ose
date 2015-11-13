@@ -113,6 +113,13 @@ setup_authentication() {
   systemctl restart openshift-master
 }
 
+setup_cleanup_job() {
+  for host in ${MASTER_HOSTNAME} ${NODE_HOSTNAMES//,/ }; do
+    ${SCP_CMD} ${SCRIPT_BASE_DIR}/templates/weekly_cleanup root@${host}:/etc/cron.weekly/.
+    ${SSH_CMD} root@${host} "chmod +x /etc/cron.weekly/weekly_cleanup"
+  done
+}
+
 setup_topology() {
   # Create a custom scheduler topology based on user input
   # TODO
@@ -222,6 +229,9 @@ do_post(){
   --service-account=router
 
   do_create_registry
+
+  setup_cleanup_job
+
   ### Workarounds for current issues
 
   # Remove --insecure-registry flag set by ansible (https://github.com/openshift/openshift-ansible/issues/497)
