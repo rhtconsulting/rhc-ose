@@ -1,0 +1,30 @@
+# # Usage: attach_volume <name> <size (in GB)>
+# attach_volume() {
+#   # Create Volume
+#   volume_info="$(nova volume-create --display-name ${1} ${2})"
+#   volume_id=$(echo "$volume_info" | awk '/ id / {print $4}')
+#   creating=$(echo "$volume_info" | awk '/status/ {print $4}')
+#   if [ "$creating" != "creating" ]; then
+#     safe_out "error" "Volume create failed."
+#     exit 2
+#   fi
+#
+#   # Wait for it to be available
+#   available_command="[ \$( nova volume-show ${volume_id} | grep -cE \"status.*available\" ) -eq 1 ]"
+#   run_cmd_with_timeout "$available_command" 20
+#
+# #  volume_info="$( cinder show ${volume_id})"
+# #  status=$(echo "$volume_info" | awk '/status/ {print $4}')
+#
+#   # Attach volume to instance
+#   attached="$(nova volume-attach ${1} ${volume_id} /dev/vdb | awk '/ id / {print $4}')"
+#   if [ $? -ne 0 ]; then
+#     safe_out "error" "Failed to attach volume"
+#     exit 2
+#   fi
+#
+# }
+---
+  hosts:
+    tasks:
+      - 

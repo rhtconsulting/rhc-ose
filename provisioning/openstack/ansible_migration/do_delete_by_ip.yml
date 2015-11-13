@@ -1,0 +1,7 @@
+# do_delete_by_ip() {
+#   delete_servers_by_ip $IP_ADDRESSES
+# }
+---
+  hosts:
+    tasks:
+      -

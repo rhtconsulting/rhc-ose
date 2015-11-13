@@ -1,0 +1,14 @@
+# validate_args() {
+#   for arg in $1; do
+#     if [ -z ${arg#*:} ]; then
+#       echo "Missing argument --${arg%:*}."
+#       usage
+#       exit 1;
+#     fi
+#   done
+#
+# }
+---
+  hosts:
+    tasks:
+      -

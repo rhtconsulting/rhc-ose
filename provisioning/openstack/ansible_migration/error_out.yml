@@ -1,0 +1,9 @@
+# # Usage: error_out <message> <error_code>
+# error_out() {
+#   safe_out "error" "${1}"
+#   exit $2
+# }
+---
+  hosts:
+    tasks:
+      -

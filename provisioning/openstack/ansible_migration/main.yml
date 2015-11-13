@@ -1,0 +1,99 @@
+# # Functions
+# usage() {
+#   echo "
+# Usage: $0 --action <boot|delete_by_name|delete_by_ip> [options]
+#
+# Options:
+#   --action <action>                   : Action to execute -- boot, delete (default: boot)
+#   --instance-name <name>              : *Name of your instance
+#   --key <openstack ssh key name>      : *Name of your SSH key in OpenStack dashboard.
+#   --image-name <image-name>           : Specify an image (or snapshot) to use for boot
+#   --auth-key-file <file location>     : Pass a custom authorized keys file to the root user (for multiple user access).
+#   --security-groups <security groups> : Specift security groups for your instance
+#   --num-instances <number>            : Number of instances to create with this profile
+#   --add-volume <size>                 : Add a volume of a given size (in GB)
+#   --debug                             : Set log level to Debug
+#   --n                                 : non-iteractive mode for use with scripts. Doesn't log anything to the console
+#   "
+#
+# }
+#
+#
+#
+#
+# # Initialize environment
+# action="boot"
+# interactive="true"
+# LOGFILE=~/openstack_provision.log
+# LOG_LEVEL="info"
+#
+# # Process options
+# while [[ $# -gt 0 ]] &&  [[ ."$1" = .--* ]] ;
+# do
+#   opt=$1
+#   shift
+#   case "$opt" in
+#     "--" ) break 2;;
+#     "--key" )
+#       key="$1"; shift;;
+#     "--n")
+#       unset interactive;;
+#     "--action")
+#       action=$1; shift;;
+#     "--add-volume")
+#       volume_size=$1; shift;;
+#     "--instance-name")
+#       instance_name="$1"; shift;;
+#     "--image-name")
+#       image_name="$1"; shift;;
+#     "--ips")
+#       IP_ADDRESSES="$1"; shift;;
+#     "--auth-key-file")
+#       auth_key_file=true;
+#       options="${options} --file /root/.ssh/authorized_keys=$1";
+#       shift;;
+#     "--security-groups")
+#       options="${options} --security-groups $1";
+#       shift;;
+#     "--num-instances")
+#       num_instances=$1;
+#       shift;;
+#     "--debug")
+#       LOG_LEVEL="debug";;
+#     *) echo >&2 "Invalid option: $@"; exit 1;;
+#   esac
+# done
+#
+# # Setup Environment and Gather Requirements
+# openstack_cred=${OPENSTACK_CRED_HOME:-~/.openstack/openrc.sh}
+# image_name_search=${image_name:-"rhel-guest-image-7.0-20140618.1"}
+# rc_file="${openstack_cred}"
+# flavor="m1.large"
+# if [ ! -f $rc_file ]; then
+#   safe_out "error" "OpenStack API Credentials not found. Default location is ${rc_file}, or set OPENSTACK_CRED_HOME."
+#   exit 1
+# fi
+#
+# if [ ! -z $num_instances ]; then
+#   options="${options} --num-instances ${num_instances}"
+# fi
+#
+# . $rc_file
+#
+# if [ "$interactive" = "true" ]; then
+#   echo "Tail Logfile for More Info: ${LOGFILE}"
+# fi
+#
+# actions="boot delete_by_ip delete_by_name"
+#
+# if [[ $actions =~ (^| )$action($| ) ]]; then
+#   do_$action
+# else
+#   echo "Invalid value for --action: $action"
+#   echo "Valid actions: $actions"
+#   exit 1
+# fi
+---
+  hosts:
+    tasks:
+      -

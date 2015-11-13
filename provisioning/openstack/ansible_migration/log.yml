@@ -1,0 +1,7 @@
+# log() {
+#   echo "$(date): $1: $2" >> $LOGFILE
+# }
+---
+  hosts:
+    tasks:
+      -

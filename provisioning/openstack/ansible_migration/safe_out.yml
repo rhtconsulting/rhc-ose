@@ -1,0 +1,17 @@
+# safe_out() {
+#   case $1 in
+#   "debug")
+#     [ "${LOG_LEVEL}" == "debug" ] && log "$1" "$2"
+#     ;;
+#   "info")
+#     ([ "${LOG_LEVEL}" == "info" ] || [ "${LOG_LEVEL}" == "debug" ]) && log "$1" "$2"
+#     ;;
+#   "error")
+#     log "$1" "$2"
+#     ;;
+#   esac
+# }
+---
+  hosts:
+    tasks:
+      -

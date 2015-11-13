@@ -1,0 +1,10 @@
+# get_fault_info() {
+#   local instance_info="$1"
+#
+#   echo "$instance_info" | grep '^| fault'
+#   safe_out "debug" "$instance_info"
+# }
+---
+  hosts:
+    tasks:
+      -

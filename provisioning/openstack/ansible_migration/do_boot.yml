@@ -1,0 +1,8 @@
+#
+# do_boot() {
+#   boot_servers
+# }
+---
+  hosts:
+    tasks:
+      -
