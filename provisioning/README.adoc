@@ -65,15 +65,17 @@ You can use the `--config=<file>` option to pass in a configuration file that ca
 ## Platform Configs
 CONF_ENV_ID= # Default: random 8 character string
 CONF_IMAGE_NAME=ose3-base # Default: ose3-base
+CONF_OS_FLAVOR=m1.large # Default: m1.medium
 CONF_SECURITY_GROUP_MASTER=ose3-master # Default: ose3-master
 CONF_SECURITY_GROUP_NODE=ose3-node # Default: ose3-node
 CONF_LOGFILE=~/openstack_provision.log # Default: ~/openstack_provision.log
 CONF_STORAGE_DISK_VOLUME=/dev/vdb # The disk path (within an instance) for the "extra" storage volume used by OSE/Docker (see below) # Default: /dev/vdb
 CONF_VOLUME_SIZE=25 # Allocate a 25 GB volume for a shared OpenShift / Docker disk (see "CONF_STORAGE_SIZE_OSE" below - OSE uses the first X GB and leaves the rest for Docker storage) # Default: 10 GB
 CONF_STORAGE_SIZE_OSE=4 # Allocate 4 GB for the OpenShift partition (e.g.: /var/lib/openshift) # Default: 2 GB 
+CONF_STORAGE_SIZE_LOGGING=4 # Allocate 4 GB for logs (e.g.: /var/log) # Default: 0 GB - i.e.: shared with root (/) partition
 ## OpenShift Configs
 CONF_OPENSHIFT_BASE_DOMAIN=openshift.example.com # Default: ose.example.com
-CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN=*.cloudapps # Default: *.apps
+CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN=cloudapps # Default: apps (generates "apps.ose.example.com")
 CONF_PROVISION_COMPONENTS=openshift # Comman separated list. Supported values are: openshift,cicd. Default: openshift
 ----
 

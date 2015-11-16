@@ -36,7 +36,7 @@ usage() {
 
   Options:
   --num-nodes=<integer>         : Number of Nodes to provision
-  --config-file=<path>          : Path to a config file for defining the environment
+  --config=<path>               : Path to a config file for defining the environment
   --no-install                  : Provision instances and sync keys, but do not run the OpenShift installer
   --key=<key name>              : SSH Key used to authenticate to Cloud API
   --delete=<Environment ID>     : Delete specified environment
@@ -46,6 +46,7 @@ usage() {
 
 do_provision() {
 
+  ENV_ID=${ENV_ID}-$(random_string 8)
   FINAL_OUTPUT=""
 
   for component in ${PROVISION_COMPONENTS//,/ }; do
@@ -137,6 +138,15 @@ provision_openshift() {
     node_ips="${master_ip}"$'\n'"${node_ips}"
   fi
 
+  # Sync user file to instances
+  if [ -n "${OPENSHIFT_MASTER_FILES}" ]; then
+    sync_files "${OPENSHIFT_MASTER_FILES}" "${master_public}"
+  fi
+
+  if [ -n "${OPENSHIFT_NODE_FILES}"]; then
+    sync_files "${OPENSHIFT_NODE_FILES}" "${node_publics}"
+  fi
+
   if $no_install; then
     echo "Skipping Installation Step. You'll need to do this manually."
   else
@@ -179,6 +189,7 @@ provision_masters() {
   command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
   --instance-name ${instance_name} \
   --key ${key} \
+  --flavor ${OS_FLAVOR} \
   --image-name ${IMAGE_NAME} \
   --security-groups ${SECURITY_GROUP_MASTER} \
   --add-volume ${VOLUME_SIZE} \
@@ -192,6 +203,7 @@ provision_nodes() {
   command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
   --instance-name ${instance_name} \
   --key ${key} \
+  --flavor ${OS_FLAVOR} \
   --image-name ${IMAGE_NAME} \
   --security-groups ${SECURITY_GROUP_NODE} \
   --num-instances $num_of_nodes \
@@ -199,6 +211,21 @@ provision_nodes() {
   --n \
   --debug"
   $command || error_out "Node Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
+}
+
+sync_files() {
+  # Sync files from variable with format "file1:dest1 file2:dest2"
+  files=$1
+  nodes=$2
+
+  # TODO: it may become necessary to support setting ownership, permissions, and SELinux context
+  for node in $nodes; do
+    for file in $files; do
+      source=${file%:*}
+      dest=${file#*:}
+      ${SCP_CMD} ${source} root@${node}:${dest}
+    done
+  done
 }
 
 source ${SCRIPT_BASE_DIR}/lib/error_codes
@@ -239,16 +266,19 @@ done
 
 # Set up environment based on default values and User input
 
-ENV_ID=${CONF_ENV_ID:-${env_id}-$(random_string 8)}
+ENV_ID=${CONF_ENV_ID:-${env_id}}
 IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name}
 SECURITY_GROUP_MASTER=${CONF_SECURITY_GROUP_MASTER:-$security_group_master}
 SECURITY_GROUP_NODE=${CONF_SECURITY_GROUP_NODE:-$security_group_node}
 SECURITY_GROUP_CICD=${CONF_SECURITY_GROUP_CICD:-$security_group_cicd}
 LOGFILE=${CONF_LOGFILE:-$logfile}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:-$openshift_base_domain}
-OPENSHIFT_CLOUDAPPS_SUBDOMAIN=${CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN:-$cloudapp_subdomain}
+OS_FLAVOR=${CONF_OS_FLAVOR:-$os_flavor}
 PROVISION_COMPONENTS=${CONF_PROVISION_COMPONENTS:-$provision_components}
 VOLUME_SIZE=${CONF_VOLUME_SIZE:-$storage_volume_size}
+OPENSHIFT_MASTER_FILES="${CONF_OPENSHIFT_MASTER_FILES}"
+OPENSHIFT_NODE_FILES="${CONF_OPENSHIFT_NODE_FILES}"
+
 
 case $action in
   "provision")

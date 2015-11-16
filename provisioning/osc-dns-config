@@ -35,7 +35,7 @@
 #
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 VAR_NAMED_STATIC_DIR="/var/named/static"
-WILDCARD_PREFIX="apps"
+DEFAULT_WILDCARD_PREFIX="apps"
 
 
 #
@@ -65,6 +65,7 @@ function usage()
   echo "                   -b=|--base_domain=\"<base domain>\""
   echo "                   -d=|--dns_host=\"<DNS host private ip|DHS host public ip>\""
   echo "                   -w=|--wildcard=\"<wildcard DNS private ip|public ip>\""
+  echo "                   -p=|--prefix=\"<wildcard prefix, e.g.: 'apps'\""
   echo ""
   echo "  where:"
   echo "    -m|--master      : comma separated list of master instances, private and public IPs separated by '|'"
@@ -72,6 +73,7 @@ function usage()
   echo "    -b|--base_domain : base DNS domain for use with the master(s) and nodes"
   echo "    -d|--dns_host    : server to use for hosting DNS (bind), private and public IPs separated by '|'"
   echo "    -w|--wildcard    : server to use for wildcard DNS entry, private and public IPs separated by '|'"
+  echo "    -p|--prefix      : prefix to use for wildcard DNS entry"
 }
 
 
@@ -147,8 +149,12 @@ function setIPtables()
   [ \$(grep -c '"$tcp"' /etc/sysconfig/iptables) == 0 ] && \
   sed -i \"/-A INPUT -j REJECT/i $tcp\" /etc/sysconfig/iptables
 
-  systemctl stop firewalld
+  # Stop and disable firewalld if it's currently running and/or enabled
+  systemctl status firewalld &>/dev/null
+  [ \$? -eq 0 ] && systemctl stop firewalld
+  [ -n \"\`systemctl status firewalld | grep '.service; enabled'\`\" ] && \
   systemctl disable firewalld
+
   sleep 1
   systemctl restart iptables
 "
@@ -389,6 +395,11 @@ do
       shift
     ;;
 
+    -p=*|--prefix=*)
+      WILDCARD_PREFIX="${i#*=}"
+      shift
+    ;;
+
     -h|--help)
       usage
       exit 0
@@ -436,6 +447,8 @@ then
   usage
   exit 1
 fi
+
+[ -z "${WILDCARD_PREFIX}" ] && WILDCARD_PREFIX="${DEFAULT_WILDCARD_PREFIX}.${BASE_DOMAIN}"
 
 
 installDNSserver ${dh_private_ip}

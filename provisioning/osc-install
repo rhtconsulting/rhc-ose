@@ -81,8 +81,14 @@ EOF
 
   done
 
-  echo "process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING"
-  ansible_hosts_file="$(process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING)"
+  # Prepare the apps sub domain:
+  CLOUDAPPS_SUBDOMAIN="${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN}"
+
+  if [ -z "${OPENSHIFT_IDENTITY_PROVIDER_JSON}" ]; then
+    error_out "OPENSHIFT_IDENTITY_PROVIDER_JSON cannot be empty: ${OPENSHIFT_IDENTITY_PROVIDER_JSON}"
+  fi
+  echo "process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN OPENSHIFT_IDENTITY_PROVIDER_JSON"
+  ansible_hosts_file="$(process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN OPENSHIFT_IDENTITY_PROVIDER_JSON)"
 
   cd
   rm -rf ~/openshift-ansible
@@ -121,6 +127,9 @@ setup_training_repo() {
 }
 
 setup_storage() {
+  setup_logging_storage ${OPENSHIFT_STORAGE_DISK_VOLUME} ${OPENSHIFT_STORAGE_SIZE_LOGGING}
+  [ $? -eq 0 ] || error_out "Could not setup logging storage" ${ERROR_CODE_STORAGE_FAILURE}
+
   setup_openshift_storage ${OPENSHIFT_STORAGE_DISK_VOLUME} ${OPENSHIFT_STORAGE_SIZE_OSE}
   [ $? -eq 0 ] || error_out "Could not setup openshift storage" ${ERROR_CODE_STORAGE_FAILURE}
 
@@ -133,7 +142,7 @@ setup_storage() {
 
 setup_storage_on_all_hosts() {
   for host in ${MASTER_HOSTNAME} ${NODE_HOSTNAMES//,/ }; do
-    ${SSH_CMD} root@${host} "$(typeset -f); $(typeset -p OPENSHIFT_STORAGE_DISK_VOLUME); $(typeset -p OPENSHIFT_STORAGE_SIZE_OSE); setup_storage"
+    ${SSH_CMD} root@${host} "$(typeset -f); $(typeset -p OPENSHIFT_STORAGE_DISK_VOLUME); $(typeset -p OPENSHIFT_STORAGE_SIZE_OSE); $(typeset -p OPENSHIFT_STORAGE_SIZE_LOGGING); setup_storage"
   done
 }
 
@@ -159,7 +168,7 @@ do_prep() {
 
 do_dns() {
   echo "Beginning action: DNS"
-  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN} -d=${NODES##*,} -w=${NODES%%,*}"
+  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN} -d=${NODES##*,} -w=${NODES%%,*} -p=${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}"
   $command || error_out "DNS Install & Configuration failed." $ERROR_CODE_DNS_FAILURE
 }
 
@@ -193,7 +202,7 @@ do_post(){
 
   oadm ca create-server-cert --signer-cert=$CA/ca.crt \
   --signer-key=$CA/ca.key --signer-serial=$CA/ca.serial.txt \
-  --hostnames="*.${OPENSHIFT_BASE_DOMAIN}" \
+  --hostnames="*.${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN}" \
   --cert=$CA/cloudapps.crt --key=$CA/cloudapps.key
 
 
@@ -225,7 +234,7 @@ do_create_registry() {
   CA=/etc/openshift/master
 
   # First, a bit of cleanup so we can re-run and update things
-  for resource in service deploymentConfig pod; do
+  for resource in service deploymentConfig pod route serviceaccount secret; do
     resource_names=$(oc get $resource | awk '/registry/ {print $1}')
     for name in ${resource_names/'\n'/ }; do
       oc delete $resource $name
@@ -251,13 +260,13 @@ do_create_registry() {
 
   service_name=$(echo "${created_resources}" | awk -F'/' '/services/ {print $2}')
   dc_name=$(echo "${created_resources}" | awk -F'/' '/deploymentconfigs/ {print $2}')
-  service_ip=$(oc get service $service_name | awk '/registry/ {print $4}')
+  service_ip=$(oc get service $service_name | awk '/registry/ {print $2}')
 
   # Secure the Registry
   oadm ca create-server-cert --signer-cert=$CA/ca.crt \
     --signer-key=$CA/ca.key \
     --signer-serial=$CA/ca.serial.txt  \
-    --hostnames="registry.apps.${OPENSHIFT_BASE_DOMAIN},docker-registry.default.svc.cluster.local,${service_ip}"\
+    --hostnames="registry.${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN},docker-registry.default.svc.cluster.local,${service_ip}"\
     --cert=$CA/registry.crt --key=$CA/registry.key
 
   oc secrets new registry-secret $CA/registry.crt $CA/registry.key
@@ -274,13 +283,13 @@ do_create_registry() {
     for dir in $certs_dirs; do
       $SSH_CMD $node "mkdir -p $dir"
       $SCP_CMD $CA/ca.crt $node:$dir
-      $SSH_CMD $node "systemctl daemon-reload && systemctl restart docker"
     done
+    $SSH_CMD $node "systemctl daemon-reload && systemctl restart docker && systemctl restart openshift-node"
   done
 
   # Create Route for External Access
   SERVICE_NAME=$service_name
-  HOSTNAME=registry.apps.${OPENSHIFT_BASE_DOMAIN}
+  HOSTNAME=registry.${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN}
   route_resource=$(process_template ${SCRIPT_BASE_DIR}/templates/registry-route.json SERVICE_NAME HOSTNAME )
 
   echo "$route_resource" | oc create -f -
@@ -319,10 +328,13 @@ OPENSHIFT_VERSION=${CONF_OPENSHIFT_VERSION:=$openshift_version}
 ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=$ansible_branch}
 OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
+OPENSHIFT_CLOUDAPPS_SUBDOMAIN=${CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN:=$cloudapps_subdomain}
 OPENSHIFT_MASTER_CONFIG=$openshift_master_config
 OPENSHIFT_ZONES=$openshift_zones
 OPENSHIFT_STORAGE_DISK_VOLUME=${CONF_STORAGE_DISK_VOLUME:=$storage_disk_volume}
 OPENSHIFT_STORAGE_SIZE_OSE=${CONF_STORAGE_SIZE_OSE:=$storage_size_ose}
+OPENSHIFT_STORAGE_SIZE_LOGGING=${CONF_STORAGE_SIZE_LOGGING:=$storage_size_logging}
+OPENSHIFT_IDENTITY_PROVIDER_JSON="${CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON:=$openshift_identity_provider_json}"
 
 # Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}

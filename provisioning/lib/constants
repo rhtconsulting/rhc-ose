@@ -4,14 +4,18 @@ SCP_CMD='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogL
 # Set Default Values
 env_id="testenv"
 num_of_masters=1 # Not used; currently only support a single master
-cloudapp_subdomain="*.apps"
-openshift_base_domain='ose.example.com'
+cloudapps_subdomain="apps"
+openshift_base_domain="ose.example.com"
 openshift_master_config='/etc/openshift/master/master-config.yaml'
 openshift_users="joe:redhat alice:redhat"
 openshift_zones=("east" "west")
+openshift_identity_provider=htpasswd_auth
+openshift_identity_provider_json="{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '\/etc\/openshift\/openshift-passwd'}"
+os_flavor="m1.medium"
 master_is_node=true
 platform="openstack" # Only one we support
 image_name="ose3-base"
+image_retirement_lifespan="3 months"
 security_group_master="ose3-master"
 security_group_node="ose3-node"
 security_group_cicd="CI-CD"
@@ -22,4 +26,4 @@ provision_components="openshift"
 storage_disk_volume="/dev/vdb"
 storage_volume_size="10"
 storage_size_ose="2"
-
+storage_size_logging="0"

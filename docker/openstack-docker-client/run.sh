@@ -17,7 +17,7 @@ usage() {
      Usage: $0 [options]
      Options:
      --configdir=<configdir>       : Directory containing Openstack configuration files (Default: ~/.openstack/)
-     --name=<name>                 : Name of the assembled image (Default: rhc-openstack-client)
+     --name=<name>                 : Name of the assembled image (Default: rhtconsulting/rhc-openstack-client)
      --keep                        : Whether to keep the the container after exiting
      --ssh=<ssh>                   : Location of SSH keys to mount into the container (Default: ~/.ssh)
      --repository=<repository>     : Directory containing a repository to mount inside the container
@@ -38,7 +38,7 @@ do
 	  -k|--keep)
       REMOVE_CONTAINER_ON_EXIT=""
       shift;;
-  	-n|--name)
+  	-n=*|--name=*)
       OPENSTACK_CLIENT_IMAGE="${i#*=}"
       shift;;
     -s=*|--ssh=*)
@@ -65,7 +65,19 @@ if [ ! -d ${OPENSTACK_CONFIG_DIR} ]; then
 	exit 1
 fi
 
-OPENSTACK_IMAGE=$(docker images | awk '{ print $1 }' | grep ${OPENSTACK_CLIENT_IMAGE})
+DOCKER_IMAGES=$(docker images)
+
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to determine installed docker images. Please verify connectivity to Docker socket."
+    exit 1
+fi
+
+OPENSTACK_IMAGE=$(echo -e "${DOCKER_IMAGES}" | awk '{ print $1 }' | grep ${OPENSTACK_CLIENT_IMAGE})
+
+if [ $? -gt 1 ]; then
+  echo "Error: Failed to parse the Docker images to find ${OPENSTACK_CLIENT_IMAGE} image."
+  exit 1
+fi
 
 # Check if Image has been build previously
 if [ -z $OPENSTACK_IMAGE ]; then

@@ -8,9 +8,10 @@ etcd
 [OSEv3:vars]
 deployment_type=enterprise
 ansible_ssh_user=root
+osm_default_subdomain={{CLOUDAPPS_SUBDOMAIN}}
 
 # enable htpasswd authentication
-openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '/etc/openshift/openshift-passwd'}]
+openshift_master_identity_providers=[{{OPENSHIFT_IDENTITY_PROVIDER_JSON}}]
 
 # host group for masters
 [masters]
