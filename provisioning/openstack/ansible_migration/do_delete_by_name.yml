@@ -1,9 +1,0 @@
-# do_delete_by_name() {
-#   required_args="instance-name:$instance_name"
-#   validate_args "$required_args"
-#   delete_servers $instance_name
-# }
----
-  hosts:
-    tasks:
-      - 
