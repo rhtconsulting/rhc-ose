@@ -222,12 +222,22 @@ do_post(){
   --service-account=router
 
   do_create_registry
-  ### Workarounds for current issues
+
+  ###########################################
+  ### Workarounds for current issues - START
 
   # Remove --insecure-registry flag set by ansible (https://github.com/openshift/openshift-ansible/issues/497)
   for node in ${NODE_HOSTNAMES//,/ }; do
     $SSH_CMD $node 'sed -i "s/--insecure-registry=172.30.0.0\/16//" /etc/sysconfig/docker && systemctl restart docker'
   done
+
+  # Re-load previous ImageStream definitions ... 
+  oc delete imagestreams --all -n openshift
+  oc create -n openshift -f ${SCRIPT_BASE_DIR}/templates/image-streams-rhel7-ose3_0_2.json
+  oc create -n openshift -f /usr/share/openshift/examples/xpaas-streams/jboss-image-streams.json
+
+  ### Workarounds for current issues - END
+  ###########################################
 }
 
 do_create_registry() {
