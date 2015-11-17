@@ -19,7 +19,7 @@ usage() {
      --name=<name>                 : Name of the assembled image (Default: rhtconsulting/jekyll-asciidoc)
      --keep                        : Whether to keep the the container after exiting
      --rebuild                     : Rebuilds the image if it already exists
-     --directory=<directory>       : Directory containing a repository to mount inside the container
+     --directory=<directory>       : Directory containing source code to mount inside the container
      --help                        : Show Usage Output
 	 "
 }
@@ -59,7 +59,7 @@ do
 done
 
 if [ -z ${DIRECTORY} ]; then
-	echo "Error: Directory not specified"
+	echo "Error: Source code directory not specified"
 	exit 1
 fi
 
