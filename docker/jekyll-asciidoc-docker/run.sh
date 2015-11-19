@@ -19,7 +19,7 @@ usage() {
      --name=<name>                 : Name of the assembled image (Default: rhtconsulting/jekyll-asciidoc)
      --keep                        : Whether to keep the the container after exiting
      --rebuild                     : Rebuilds the image if it already exists
-     --directory=<directory>       : Directory containing a repository to mount inside the container
+     --directory=<directory>       : Directory containing source code to mount inside the container
      --help                        : Show Usage Output
 	 "
 }
@@ -58,6 +58,15 @@ do
   esac
 done
 
+if [ -z ${DIRECTORY} ]; then
+	echo "Error: Source code directory not specified"
+	exit 1
+fi
+
+if [ ! -d ${DIRECTORY} ]; then
+	echo "Error: Could not locate specified repository directory"
+	exit 1
+fi
 
 DOCKER_IMAGES=$(docker images)
 
@@ -84,17 +93,8 @@ else
 	fi
 fi
 
-if [ -z ${DIRECTORY} ]; then
-	echo "Error: Directory not specified"
-	exit 1
-fi
 
-if [ ! -d ${DIRECTORY} ]; then
-	echo "Error: Could not locate specified repository directory"
-	exit 1
-fi
-
-DIRECTORY_VOLUME="-v ${DIRECTORY}:/root/source:z"
+DIRECTORY_VOLUME="-v ${DIRECTORY}:/home/builder/source:z"
 
 echo "Starting Jekyll Asciidoc Container...."
 echo
