@@ -40,14 +40,32 @@ usage() {
   --no-install                  : Provision instances and sync keys, but do not run the OpenShift installer
   --key=<key name>              : SSH Key used to authenticate to Cloud API
   --delete=<Environment ID>     : Delete specified environment
+  --ose-version=<version>       : Specify which version of OSE to deploy (3.0|3.1)
   --debug                       : Will add -x to all bash commands
   "
 }
 
 do_provision() {
-
+  # Generate the unique portion of the environment id
   ENV_ID=${ENV_ID}-$(random_string 8)
   FINAL_OUTPUT=""
+
+  # Determine the image name to use based on version
+  # - only if image name hasn't been explicitly specified
+  if [ -z "${CONF_IMAGE_NAME}" ]; then
+    case $CONF_OPENSHIFT_VERSION in
+      "3.0")
+        IMAGE_NAME="${image_name_30}"
+        ;;
+      "3.1")
+        IMAGE_NAME="${image_name_31}"
+        ;;
+      *)
+        # Do nothing... - use default
+        echo "WARNING: Did not recognize specified OSE version - using default image"
+        ;;
+    esac
+  fi
 
   for component in ${PROVISION_COMPONENTS//,/ }; do
     provision_${component}
@@ -250,6 +268,9 @@ do
       action="delete"
       CONF_ENV_ID="${i#*=}"
       shift;;
+    --ose-version=*)
+      CONF_OPENSHIFT_VERSION="${i#*=}"
+      shift;;
     --debug)
       set -x;
       bash_opts=" -x"
@@ -267,7 +288,7 @@ done
 # Set up environment based on default values and User input
 
 ENV_ID=${CONF_ENV_ID:-${env_id}}
-IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name}
+IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_default}
 SECURITY_GROUP_MASTER=${CONF_SECURITY_GROUP_MASTER:-$security_group_master}
 SECURITY_GROUP_NODE=${CONF_SECURITY_GROUP_NODE:-$security_group_node}
 SECURITY_GROUP_CICD=${CONF_SECURITY_GROUP_CICD:-$security_group_cicd}
@@ -278,6 +299,7 @@ PROVISION_COMPONENTS=${CONF_PROVISION_COMPONENTS:-$provision_components}
 VOLUME_SIZE=${CONF_VOLUME_SIZE:-$storage_volume_size}
 OPENSHIFT_MASTER_FILES="${CONF_OPENSHIFT_MASTER_FILES}"
 OPENSHIFT_NODE_FILES="${CONF_OPENSHIFT_NODE_FILES}"
+OPENSHIFT_VERSION="${CONF_OPENSHIFT_VERSION}"
 
 
 case $action in

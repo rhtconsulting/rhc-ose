@@ -1,0 +1,212 @@
+#!/bin/bash -
+
+#
+# Tailor the image to be ready for OSE usage
+#
+
+#
+# Prerequisite:
+#  - have a valid RHN username/password + a pool id available
+#
+
+#
+# Instructions to run:
+# 1. Copy these tools to the target image
+# 2. Execute, as root or by using sudo, ./tailor_image -f=<file_to_rhn_creds>
+# 3. Wait for the script to complete execution and the image to shutdown
+#
+# NOTE: format of the RHN file:
+#   user=<username>
+#   passwd=<password>
+#   poolid=<Subscription Pool Id>
+#   remove=<yes|no> (optional: removes rhn file after use if set to "yes")
+#
+
+#
+# CONSTANTS
+#
+
+SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+INSTALL_DIR=$( cd "$( dirname $( dirname ${SCRIPT_BASE_DIR} ))" && pwd)
+DEFAULT_SRC_IMAGE_NAME="_OS1_rhel-guest-image-7.1-20150224.0.x86_64.qcow2"
+INSTANCE_NAME="ose-test-img"
+
+
+#
+# GLOBALS
+#
+
+declare -A RHN
+
+
+#
+# HELPERS
+#
+
+source ${SCRIPT_BASE_DIR}/../lib/helpers
+source ${SCRIPT_BASE_DIR}/../lib/constants
+
+
+#
+# "PRIVATE" FUNCTIONS
+#
+
+function _updateCloudInit()
+{
+  # Enable root access
+  sed -i 's/disable_root: 1/disable_root: 0/' /etc/cloud/cloud.cfg
+}
+
+function _updateSyslog()
+{
+  # Setup a more suitable log rotate pattern for "standard" syslog files
+  sed -i "s/    postrotate/ \
+    rotate 10\n \
+    maxsize 500M\n \
+    delaycompress\n \
+    postrotate/" /etc/logrotate.d/syslog
+}
+
+function _updateRHSubscription()
+{
+  # expects a file with RHN credentials of the format:
+  #
+  # user=<username>
+  # passwd=<password>
+  # poolid=<pool-id>
+  # remove=yes|no <-- used to indicate if the file should be removed after use
+
+  username=`awk -F'=' '$1 == "user" { print $2 }' ${RHN_file}`
+  password=`awk -F'=' '$1 == "passwd" { print $2 }' ${RHN_file}`
+  poolid=`awk -F'=' '$1 == "poolid" { print $2 }' ${RHN_file}`
+  remove=`awk -F'=' '$1 == "remove" { print $2 }' ${RHN_file}`
+
+  [ -n "${remove}" -a "${remove}" == "yes" ] && rm -f ${RHN_file}
+
+  subscription-manager register --username=${username} --password=${password}
+  subscription-manager attach --pool=${poolid}
+  subscription-manager release --set=7.1
+  subscription-manager repos --disable="*"
+  subscription-manager repos \
+  --enable="rhel-7-server-rpms" \
+  --enable="rhel-7-server-extras-rpms" \
+  --enable="rhel-7-server-optional-rpms" \
+  --enable="rhel-7-server-ose-3.0-rpms"
+
+  enabled_repos=`yum repolist`
+  if [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-rpms\/\"`" ] || \
+     [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-extras-rpms\/\"`" ] || \
+     [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-optional-rpms\/\"`" ] || \
+     [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-ose-3.0-rpms\/\"`" ]; then
+    echo "Failed to enable required repos!"
+    exit 1
+  fi
+}
+
+function _updateSoftware()
+{
+  yum clean all
+  yum install -y wget git net-tools bind-utils iptables-services bridge-utils rsync lvm2
+  yum update -y
+
+  yum install -y https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
+  sed -i -e "s/^enabled=1/enabled=0/" /etc/yum.repos.d/epel.repo
+  yum install -y --enablerepo=epel ansible
+}
+
+function _installCustomSoftware()
+{
+  # Copy some files
+  SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+  cp -r ${SCRIPT_BASE_DIR}/../../ose3eval/files/* /
+}
+
+function _finalTweaks()
+{
+  # Remove NetworkManager + 
+  # ensure networking is enabled
+  # - have to use 'chkconfig' for this
+  yum remove -y NetworkManager*
+  chkconfig network on
+
+  # Self distruct
+  2>/dev/null >/root/.ssh/authorized_keys
+  2>/dev/null >/home/cloud-user/.ssh/authorized_keys
+  rm -rf ${INSTALL_DIR}
+  history -c
+  > ~/.bash_history
+  shutdown -h now
+}
+
+
+
+#
+# "PUBLIC" FUNCTIONS
+#
+
+function usage()
+{
+  echo "Usage: "
+  echo "  $0 -r=<path_to_rhn_file>"
+  echo ""
+  echo "  where:"
+  echo "    -r|--rhn-file : File with RHN credentials/info."
+  echo ""
+  echo " NOTE: format of the RHN file:"
+  echo "   user=<username>"
+  echo "   passwd=<password>"
+  echo "   poolid=<Subscription Pool Id>"
+  echo "   remove=<yes|no> (optional: removes rhn file after use if set to "yes")"
+  echo ""
+}
+
+
+function tailorImage()
+{
+  _updateCloudInit
+  _updateSyslog
+  _updateRHSubscription
+  _updateSoftware
+  _installCustomSoftware
+
+  # This function to be executed last - always...
+  _finalTweaks
+}
+
+
+
+#
+# MAIN - main execution starts below
+#
+
+for i in "$@"
+do
+  case $i in
+    -r=*|--rhn-file=*)
+      RHN_file="${i#*=}"
+      shift;;
+    -h|--help)
+      usage
+      exit 0
+    ;;
+
+    *)
+      echo "Invalid Option: ${i#*=}"
+      exit 1;
+    ;;
+
+  esac
+done
+
+if [ -z "${RHN_file}" ]
+then
+  echo "Missing required args"
+  usage
+  exit 1
+fi
+
+ 
+tailorImage
+
+exit 0
+

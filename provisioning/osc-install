@@ -163,14 +163,11 @@ validate_ssh() {
 do_prep() {
   echo "Beginning action: Prep"
   yum clean all
-  yum_install "" https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm true
-  sed -i -e "s/^enabled=1/enabled=0/" /etc/yum.repos.d/epel.repo
   yum -y update &>/dev/null || error_out "Failed to run yum update during Prep phase."
-  yum_install --enablerepo=epel ansible true
 
-   for host in $(get_private_ips ${NODES} | sed 's/,/ /g'); do
-     ${SSH_CMD} root@${host} "yum clean all; yum update -y"
-   done
+  for host in $(get_private_ips ${NODES} | sed 's/,/ /g'); do
+    ${SSH_CMD} root@${host} "yum clean all; yum update -y"
+  done
 }
 
 do_dns() {

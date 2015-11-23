@@ -38,12 +38,26 @@ usage() {
   Options:
   --action=<action>             : Action to execute -- promote 
   --image-name                  : Name of the image to perform above action on
+  --ose-version                 : OSE version to use
   --debug                       : Will add -x to all bash commands
   "
 }
 
 
 do_promote() {
+  case $Version in
+    "3.0")
+      image_name="${image_name_30}"
+      ;;
+    "3.1")
+      image_name="${image_name_31}"
+      ;;
+    *)
+      echo "ERROR: Invalid OSE version specified - exiting..."
+      exit 1
+      ;;
+  esac
+
   prev_image_name="ose3-delete-after-`date --date="${image_retirement_lifespan}" +%d-%b-%Y`"
 
   echo -n "This will promote '${ImageName}' to '${image_name}' - do you want to continue? [Y]: "
@@ -100,6 +114,9 @@ do
       shift;;
     --image-name=*)
       ImageName="${i#*=}"
+      shift;;
+    --ose-version=*)
+      Version="${i#*=}"
       shift;;
     --debug)
       set -x;

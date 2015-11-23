@@ -67,6 +67,23 @@ function _updateSyslog()
     postrotate/" /etc/logrotate.d/syslog
 }
 
+function _setRepos()
+{
+  subscription-manager repos --disable="*"
+  subscription-manager repos \
+  --enable="rhel-7-server-rpms" \
+  --enable="rhel-7-server-extras-rpms" \
+  --enable="rhel-7-server-ose-3.1-rpms"
+
+  enabled_repos=`yum repolist`
+  if [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-rpms\/\"`" ] || \
+     [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-extras-rpms\/\"`" ] || \
+     [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-ose-3.1-rpms\/\"`" ]; then
+    echo "Failed to enable required repos!"
+    exit 1
+  fi
+}
+
 function _updateRHSubscription()
 {
   # expects a file with RHN credentials of the format:
@@ -85,28 +102,17 @@ function _updateRHSubscription()
 
   subscription-manager register --username=${username} --password=${password}
   subscription-manager attach --pool=${poolid}
-  subscription-manager repos --disable="*"
-  subscription-manager repos \
-  --enable="rhel-7-server-rpms" \
-  --enable="rhel-7-server-extras-rpms" \
-  --enable="rhel-7-server-optional-rpms" \
-  --enable="rhel-7-server-ose-3.0-rpms"
-
-  enabled_repos=`yum repolist`
-  if [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-rpms\/\"`" ] || \
-     [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-extras-rpms\/\"`" ] || \
-     [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-optional-rpms\/\"`" ] || \
-     [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-ose-3.0-rpms\/\"`" ]; then
-    echo "Failed to enable required repos!"
-    exit 1
-  fi
+  subscription-manager release --set=7.2
+  _setRepos
 }
 
 function _updateSoftware()
 {
   yum clean all
-  yum install -y wget git net-tools bind-utils iptables-services bridge-utils rsync lvm2
+  yum install -y wget git net-tools bind-utils iptables-services bridge-utils bash-completion rsync lvm2 
   yum update -y
+  yum install -y atomic-openshift-utils ansible
+  _setRepos
 }
 
 function _installCustomSoftware()
