@@ -105,12 +105,12 @@ setup_authentication() {
 
   # Set up authentication
   yum -y install httpd-tools &>/dev/null || error_out "Failed to install httpd-tools"
-  touch /etc/openshift/openshift-passwd
+  touch ${openshift_install_dir}/openshift-passwd
   for user in $users; do
-    htpasswd -b /etc/openshift/openshift-passwd ${user%:*} ${user#*:}
+    htpasswd -b ${openshift_install_dir}/openshift-passwd ${user%:*} ${user#*:}
   done
 
-  systemctl restart openshift-master
+  systemctl restart ${openshift_master_service}
 }
 
 setup_cleanup_job() {
@@ -202,7 +202,7 @@ do_post(){
   setup_authentication
 
   # Create router infrastructure
-  CA=/etc/openshift/master
+  CA="${openshift_install_dir}/${openshift_master_dir}"
 
   oadm ca create-server-cert --signer-cert=$CA/ca.crt \
   --signer-key=$CA/ca.key --signer-serial=$CA/ca.serial.txt \
@@ -220,7 +220,7 @@ do_post(){
   fi
 
   oadm router router-default --default-cert=$CA/cloudapps.router.pem \
-  --credentials=/etc/openshift/master/openshift-router.kubeconfig \
+  --credentials="${openshift_install_dir}/${openshift_master_dir}/openshift-router.kubeconfig" \
   --selector='region=infra' \
   --images='registry.access.redhat.com/openshift3/ose-${component}:${version}' \
   --service-account=router
@@ -247,7 +247,7 @@ do_post(){
 }
 
 do_create_registry() {
-  CA=/etc/openshift/master
+  CA="${openshift_install_dir}/${openshift_master_dir}"
 
   # First, a bit of cleanup so we can re-run and update things
   for resource in service deploymentConfig pod route serviceaccount secret; do
@@ -268,15 +268,15 @@ do_create_registry() {
   fi
 
   created_resources=$(oadm registry --service-account=registry \
-  --config=/etc/openshift/master/admin.kubeconfig \
-  --credentials=/etc/openshift/master/openshift-registry.kubeconfig \
+  --config="${openshift_install_dir}/${openshift_master_dir}/admin.kubeconfig" \
+  --credentials="${openshift_install_dir}/${openshift_master_dir}/openshift-registry.kubeconfig" \
   --images='registry.access.redhat.com/openshift3/ose-${component}:${version}' \
   --selector='region=infra' \
   --mount-host=/mnt/registry)
 
-  service_name=$(echo "${created_resources}" | awk -F'/' '/services/ {print $2}')
-  dc_name=$(echo "${created_resources}" | awk -F'/' '/deploymentconfigs/ {print $2}')
+  service_name=$(oc get service | awk '/registry/ {print $1}')
   service_ip=$(oc get service $service_name | awk '/registry/ {print $2}')
+  dc_name=$(oc get deploymentconfig | awk '/registry/ {print $1}')
 
   # Secure the Registry
   oadm ca create-server-cert --signer-cert=$CA/ca.crt \
@@ -300,7 +300,7 @@ do_create_registry() {
       $SSH_CMD $node "mkdir -p $dir"
       $SCP_CMD $CA/ca.crt $node:$dir
     done
-    $SSH_CMD $node "systemctl daemon-reload && systemctl restart docker && systemctl restart openshift-node"
+    $SSH_CMD $node "systemctl daemon-reload && systemctl restart docker && systemctl restart ${openshift_node_service}"
   done
 
   # Create Route for External Access
@@ -345,7 +345,7 @@ ANSIBLE_BRANCH=${CONF_ANSIBLE_BRANCH:=$ansible_branch}
 OPENSHIFT_USERS=${CONF_OPENSHIFT_USERS:=$openshift_users}
 OPENSHIFT_BASE_DOMAIN=${CONF_OPENSHIFT_BASE_DOMAIN:=$openshift_base_domain}
 OPENSHIFT_CLOUDAPPS_SUBDOMAIN=${CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN:=$cloudapps_subdomain}
-OPENSHIFT_MASTER_CONFIG=$openshift_master_config
+OPENSHIFT_MASTER_CONFIG="${openshift_install_dir}/${openshift_master_dir}/${openshift_master_config}"
 OPENSHIFT_ZONES=$openshift_zones
 OPENSHIFT_STORAGE_DISK_VOLUME=${CONF_STORAGE_DISK_VOLUME:=$storage_disk_volume}
 OPENSHIFT_STORAGE_SIZE_OSE=${CONF_STORAGE_SIZE_OSE:=$storage_size_ose}

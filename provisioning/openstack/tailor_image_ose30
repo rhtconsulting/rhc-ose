@@ -88,15 +88,13 @@ function _updateRHSubscription()
   subscription-manager release --set=7.1
   subscription-manager repos --disable="*"
   subscription-manager repos \
-  --enable="rhel-7-server-rpms" \
+  --enable="rhel-7-server-eus-rpms" \
   --enable="rhel-7-server-extras-rpms" \
-  --enable="rhel-7-server-optional-rpms" \
   --enable="rhel-7-server-ose-3.0-rpms"
 
   enabled_repos=`yum repolist`
-  if [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-rpms\/\"`" ] || \
+  if [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-eus-rpms\/\"`" ] || \
      [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-extras-rpms\/\"`" ] || \
-     [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-optional-rpms\/\"`" ] || \
      [ -z "`echo ${enabled_repos} | grep \" rhel-7-server-ose-3.0-rpms\/\"`" ]; then
     echo "Failed to enable required repos!"
     exit 1
@@ -106,7 +104,7 @@ function _updateRHSubscription()
 function _updateSoftware()
 {
   yum clean all
-  yum install -y wget git net-tools bind-utils iptables-services bridge-utils rsync lvm2
+  yum install -y wget git net-tools bind-utils iptables-services bridge-utils bash-completion rsync lvm2
   yum update -y
 
   yum install -y https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
