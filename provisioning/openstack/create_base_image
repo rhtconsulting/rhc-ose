@@ -27,7 +27,7 @@ SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 REPO_BASE_NAME=$( basename $( dirname $( dirname ${SCRIPT_BASE_DIR} ) ) )
 SRC_IMAGE_NAME_30="_OS1_rhel-guest-image-7.1-20150224.0.x86_64.qcow2"
 TAILOR_TOOL_30="tailor_image_ose30"
-SRC_IMAGE_NAME_31="_OS1_rhel-guest-image-7.1-20150224.0.x86_64.qcow2" # This needs to be updated to 7.2 as soon as enabled in OS1
+SRC_IMAGE_NAME_31="_OS1_rhel-guest-image-7.2-20151102.0.x86_64.qcow2"
 TAILOR_TOOL_31="tailor_image_ose31"
 INSTANCE_NAME="ose-test-img"
 
