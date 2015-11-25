@@ -48,9 +48,11 @@ do_promote() {
   case $Version in
     "3.0")
       image_name="${image_name_30}"
+      prev_image_name="ose3_0-delete-after-`date --date="${image_retirement_lifespan}" +%d-%b-%Y`"
       ;;
     "3.1")
       image_name="${image_name_31}"
+      prev_image_name="ose3_1-delete-after-`date --date="${image_retirement_lifespan}" +%d-%b-%Y`"
       ;;
     *)
       echo "ERROR: Invalid OSE version specified - exiting..."
@@ -58,7 +60,6 @@ do_promote() {
       ;;
   esac
 
-  prev_image_name="ose3-delete-after-`date --date="${image_retirement_lifespan}" +%d-%b-%Y`"
 
   echo -n "This will promote '${ImageName}' to '${image_name}' - do you want to continue? [Y]: "
   read answer
