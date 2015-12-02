@@ -54,7 +54,7 @@ source ${SCRIPT_BASE_DIR}/../lib/constants
 function usage()
 {
   echo "Usage: "
-  echo "  $0 -k <key> -v <version>"
+  echo "  $0 -k=<key> -v=<version>"
   echo ""
   echo "  where:"
   echo "    -k|--key      : OS1 key"

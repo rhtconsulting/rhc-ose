@@ -89,6 +89,7 @@ install_openshift() {
 
   # Make sure correct version of the ansible hosts file is used
   ${SSH_CMD} root@${master_public} "cp -f ~/${REPO_BASE_NAME}/provisioning/templates/${ANSIBLE_HOSTS_FILE} ~/${REPO_BASE_NAME}/provisioning/templates/ansible-hosts"
+  ${SSH_CMD} root@${master_public} "awk -F'=' '/${ANSIBLE_PLAYBOOK}/ {print \"ansible_playbook=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
   ${SSH_CMD} root@${master_public} "awk -F'=' '/${OPENSHIFT_INSTALL_DIR}/ {print \"openshift_install_dir=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
   ${SSH_CMD} root@${master_public} "awk -F'=' '/${OPENSHIFT_MASTER_SERVICE}/ {print \"openshift_master_service=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
   ${SSH_CMD} root@${master_public} "awk -F'=' '/${OPENSHIFT_NODE_SERVICE}/ {print \"openshift_node_service=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
@@ -296,6 +297,7 @@ case $action in
       "3.0")
         IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_30}
         ANSIBLE_HOSTS_FILE=${CONF_ANSIBLE_HOSTS_FILE:-$ansible_hosts_30}
+        ANSIBLE_PLAYBOOK="ansible_playbook_30"
         OPENSHIFT_INSTALL_DIR="openshift_install_dir_30"
         OPENSHIFT_MASTER_SERVICE="openshift_master_service_30"
         OPENSHIFT_NODE_SERVICE="openshift_node_service_30"
@@ -303,6 +305,7 @@ case $action in
      "3.1")
         IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_31}
         ANSIBLE_HOSTS_FILE=${CONF_ANSIBLE_HOSTS_FILE:-$ansible_hosts_31}
+        ANSIBLE_PLAYBOOK="ansible_playbook_31"
         OPENSHIFT_INSTALL_DIR="openshift_install_dir_31"
         OPENSHIFT_MASTER_SERVICE="openshift_master_service_31"
         OPENSHIFT_NODE_SERVICE="openshift_node_service_31"
@@ -312,6 +315,7 @@ case $action in
         echo "WARNING: Did not request a specific OSE version, or version not supported (3.0|3.1) - using default version/configuration"
         IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_default}
         ANSIBLE_HOSTS_FILE=${CONF_ANSIBLE_HOSTS_FILE:-$ansible_hosts_default}
+        ANSIBLE_PLAYBOOK="ansible_playbook_default"
         OPENSHIFT_INSTALL_DIR="openshift_install_dir_default"
         OPENSHIFT_MASTER_SERVICE="openshift_master_service_default"
         OPENSHIFT_NODE_SERVICE="openshift_node_service_default"

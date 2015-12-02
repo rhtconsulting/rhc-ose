@@ -193,7 +193,7 @@ do_install() {
   setup_ansible
 
   # Run ansible
-  command="ansible-playbook /root/openshift-ansible/playbooks/byo/config.yml"
+  command="ansible-playbook ${ansible_playbook}"
   $command || error_out "Ansible install had failures" $ERROR_CODE_ANSIBLE_INSTALL_FAILURE
 }
 
