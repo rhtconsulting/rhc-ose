@@ -93,6 +93,7 @@ install_openshift() {
   ${SSH_CMD} root@${master_public} "awk -F'=' '/${OPENSHIFT_INSTALL_DIR}/ {print \"openshift_install_dir=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
   ${SSH_CMD} root@${master_public} "awk -F'=' '/${OPENSHIFT_MASTER_SERVICE}/ {print \"openshift_master_service=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
   ${SSH_CMD} root@${master_public} "awk -F'=' '/${OPENSHIFT_NODE_SERVICE}/ {print \"openshift_node_service=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
+  ${SSH_CMD} root@${master_public} "awk -F'=' '/${OPENSHIFT_IDENTITY_PROVIDER}/ {print \"openshift_identity_provider_json=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
 
   ${SSH_CMD} root@${master_public} "$CONF_ENVIRONMENT bash${bash_opts} ~/${REPO_BASE_NAME}/provisioning/osc-install -m='${master_ip}' -n='${node_ips//$'\n'/,}' -a='prep,dns,install,post'"
 }
@@ -301,6 +302,7 @@ case $action in
         OPENSHIFT_INSTALL_DIR="openshift_install_dir_30"
         OPENSHIFT_MASTER_SERVICE="openshift_master_service_30"
         OPENSHIFT_NODE_SERVICE="openshift_node_service_30"
+	OPENSHIFT_IDENTITY_PROVIDER="openshift_identity_provider_json_30"
         ;;
      "3.1")
         IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_31}
@@ -309,6 +311,7 @@ case $action in
         OPENSHIFT_INSTALL_DIR="openshift_install_dir_31"
         OPENSHIFT_MASTER_SERVICE="openshift_master_service_31"
         OPENSHIFT_NODE_SERVICE="openshift_node_service_31"
+	OPENSHIFT_IDENTITY_PROVIDER="openshift_identity_provider_json_31"
         ;;
       *)
         # Use default values
@@ -319,6 +322,7 @@ case $action in
         OPENSHIFT_INSTALL_DIR="openshift_install_dir_default"
         OPENSHIFT_MASTER_SERVICE="openshift_master_service_default"
         OPENSHIFT_NODE_SERVICE="openshift_node_service_default"
+	OPENSHIFT_IDENTITY_PROVIDER="openshift_identity_provider_json_default"
         ;;
     esac
 
