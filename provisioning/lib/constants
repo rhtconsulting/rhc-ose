@@ -5,25 +5,50 @@ SCP_CMD='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogL
 env_id="testenv"
 num_of_masters=1 # Not used; currently only support a single master
 cloudapps_subdomain="apps"
+
+openshift_install_dir_30="/etc/openshift"
+openshift_install_dir_31="/etc/origin"
+openshift_install_dir_default="/etc/openshift" # default to 3.0.x for now ...
+openshift_master_dir="master"
 openshift_base_domain="ose.example.com"
-openshift_master_config='/etc/openshift/master/master-config.yaml'
+openshift_master_config="master-config.yaml"
 openshift_users="joe:redhat alice:redhat"
 openshift_zones=("east" "west")
 openshift_identity_provider=htpasswd_auth
-openshift_identity_provider_json="{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '\/etc\/openshift\/openshift-passwd'}"
-os_flavor="m1.medium"
-master_is_node=true
-platform="openstack" # Only one we support
-image_name="ose3-base"
-image_retirement_lifespan="3 months"
+openshift_identity_provider_json_30="{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '\/etc\/openshift\/openshift-passwd'}"
+openshift_identity_provider_json_31="{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '\/etc\/origin\/openshift-passwd'}"
+openshift_identity_provider_json_default="${openshift_identity_provider_json_30}"
+openshift_master_service_30=openshift-master
+openshift_master_service_31=atomic-openshift-master
+openshift_master_service_default=openshift-master # default to 3.0.x for now
+openshift_node_service_30=openshift-node
+openshift_node_service_31=atomic-openshift-node
+openshift_node_service_default=openshift-node # default to 3.0.x for now
+
 security_group_master="ose3-master"
 security_group_node="ose3-node"
 security_group_cicd="CI-CD"
-logfile="~/openstack_provision.log"
-no_install=false
-action="provision"
-provision_components="openshift"
+os_flavor="m1.medium"
+master_is_node=true
+platform="openstack" # Only one we support
+image_name_30="ose3_0-base"
+image_name_31="ose3_1-base"
+image_name_default="${image_name_30}"
+image_retirement_lifespan="3 months"
 storage_disk_volume="/dev/vdb"
 storage_volume_size="10"
 storage_size_ose="2"
 storage_size_logging="0"
+
+ansible_hosts_30="ansible-hosts-ose3_0"
+ansible_playbook_30="/root/openshift-ansible/playbooks/byo/config.yml"
+ansible_hosts_31="ansible-hosts-ose3_1"
+ansible_playbook_31="/usr/share/ansible/openshift-ansible/playbooks/byo/config.yml"
+ansible_hosts_default="${ansible_hosts_30}"
+ansible_playbook_default="${ansible_playbook_30}"
+
+logfile="~/openstack_provision.log"
+no_install=false
+action="provision"
+provision_components="openshift"
+

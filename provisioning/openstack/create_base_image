@@ -25,7 +25,10 @@
 
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 REPO_BASE_NAME=$( basename $( dirname $( dirname ${SCRIPT_BASE_DIR} ) ) )
-DEFAULT_SRC_IMAGE_NAME="_OS1_rhel-guest-image-7.1-20150224.0.x86_64.qcow2"
+SRC_IMAGE_NAME_30="_OS1_rhel-guest-image-7.1-20150224.0.x86_64.qcow2"
+TAILOR_TOOL_30="tailor_image_ose30"
+SRC_IMAGE_NAME_31="_OS1_rhel-guest-image-7.2-20151102.0.x86_64.qcow2"
+TAILOR_TOOL_31="tailor_image_ose31"
 INSTANCE_NAME="ose-test-img"
 
 
@@ -51,10 +54,11 @@ source ${SCRIPT_BASE_DIR}/../lib/constants
 function usage()
 {
   echo "Usage: "
-  echo "  $0 -k <key>"
+  echo "  $0 -k=<key> -v=<version>"
   echo ""
   echo "  where:"
-  echo "    -k|--key   : OS1 key"
+  echo "    -k|--key      : OS1 key"
+  echo "    -v|--version  : OSE version (3.0|3.1)"
   echo ""
 }
 
@@ -99,7 +103,7 @@ function provisionImage()
   command="${SCRIPT_BASE_DIR}/provision.sh \
     --instance-name ${NewImageName} \
     --key ${Key} \
-    --image-name ${DEFAULT_SRC_IMAGE_NAME} \
+    --image-name ${SrcImageName} \
     --flavor ${flavor} \
     --debug \
     --n"
@@ -131,7 +135,7 @@ function tailorImage()
   echo \"remove=yes\" >> ${RHN_file}
   "
 
-  ${SSH_CMD} -t cloud-user@${ip} "sudo ~/${REPO_BASE_NAME}/provisioning/openstack/tailor_image --rhn-file=${RHN_file}"
+  ${SSH_CMD} -t cloud-user@${ip} "sudo ~/${REPO_BASE_NAME}/provisioning/openstack/${TailorTool} --rhn-file=${RHN_file}"
 }
 
 function postSteps()
@@ -177,6 +181,9 @@ do
     -k=*|--key=*)
       Key="${i#*=}"
       shift;;
+    -v=*|--version=*)
+      Version="${i#*=}"
+      shift;;
     -h|--help)
       usage
       exit 0
@@ -190,12 +197,30 @@ do
   esac
 done
 
-if [ -z "${Key}" ]
+if [ -z "${Key}" -o -z "${Version}" ]
 then
-  echo "Missing required args"
+  echo "Missing required args..."
   usage
   exit 1
 fi
+
+# Validate the version + specify the version string
+case $Version in
+  "3.0")
+    VersionString="3_0"
+    SrcImageName="${SRC_IMAGE_NAME_30}"
+    TailorTool="${TAILOR_TOOL_30}"
+    ;;
+  "3.1")
+    VersionString="3_1"
+    SrcImageName="${SRC_IMAGE_NAME_31}"
+    TailorTool="${TAILOR_TOOL_31}"
+    ;;
+  *)
+    echo "Invalid version specified..."
+    exit 1
+  ;;
+esac
 
 obtainRHNdetails
 
@@ -207,9 +232,9 @@ Images=()
 for flavor in m1.large
 do
   current_time=`date +%H%M-%d-%h-%Y`
-  NewImageName="${INSTANCE_NAME}-${current_time}"
+  NewImageName="${INSTANCE_NAME}-${VersionString}-${current_time}"
 
-  echo "Provisioning New Instance, image: ${DEFAULT_SRC_IMAGE_NAME}, name: ${NewImageName} ..."
+  echo "Provisioning New Instance, image: ${SrcImageName}, name: ${NewImageName} ..."
   imageIPs=$(provisionImage "${flavor}")
   [ $? -ne 0 ] && error_out "Failed to start up new instance." $ERROR_CODE_PROVISION_FAILURE
 
