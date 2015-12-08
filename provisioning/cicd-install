@@ -72,10 +72,16 @@ function check_prereqs() {
 function install_prereqs() {
 	
 	# EPEL and software packages	
-	yum install -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm wget unzip git vim jq &>/dev/null || error_out "Failed to install prerequisite software" 2
+	yum install -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm wget firewalld unzip git vim &>/dev/null || error_out "Failed to install initial prerequisite software" 2
 
 	# JQ must be installed only after EPEL installed
-	yum install -y install jq &>/dev/null || error_out "Failed to install prerequisite software" 2
+	yum install -y install jq &>/dev/null || error_out "Failed to install jq" 2
+	
+	# Configure Firewall
+	systemctl disable iptables
+	systemctl stop iptables
+	systemctl enable firewalld
+	systemctl start firewalld
 }
 
 #
@@ -83,8 +89,7 @@ function install_prereqs() {
 #
 
 function install_java_jdk() {
-   subscription-manager repos --enable rhel-7-server-eus-thirdparty-oracle-java-rpms
-   yum install -y java-1.7.0-oracle-devel &>/dev/null || error_out "Failed to install Java JDK" 3
+   yum --enablerepo=rhel-7-server-thirdparty-oracle-java-rpms install -y java-1.8.0-oracle-devel &>/dev/null || error_out "Failed to install Java JDK" 3
 }
 
 
@@ -191,8 +196,7 @@ function install_groovy() {
 
 function install_maven() {
 
-  yum install -y maven  &>/dev/null || error_out "Failed to install Maven" 4
-  
+  yum --enablerepo=rhel-7-server-optional-rpms install -y maven  &>/dev/null || error_out "Failed to install Maven" 4
   cp -f ${SCRIPT_BASE_DIR}/cicd/maven/settings.xml /usr/share/maven/conf/
 }
 
