@@ -21,7 +21,7 @@ export OS_PASSWORD=mypassword
 ```
 NOTE: We will be switching to tokenized auth as soon as its supported in our environment, so as not to require storing passwords in text files.
 1. Install Openstack client packages
- * Option 1 (recommended): Setup the [OpenStack Docker Client](provisioning/openstack-docker-client/)
+ * Option 1 (recommended): Setup the [OpenStack Docker Client](/docker/openstack-docker-client)
  * Option 2: Install the nova client tools to your local machine.  Instructions can be found [here]( http://docs.openstack.org/user-guide/common/cli_install_openstack_command_line_clients.html#installing-from-packages).
 
 ## Create an Instance ##
