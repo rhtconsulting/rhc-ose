@@ -14,7 +14,7 @@ No warranty is offered or implied and use of these scripts may destroy your enti
 +
 ```bash
 [me@localhost]$ ssh root@<master ip>
-[root@<master>]# git clone git@github.com:redhat-consulting/ose-utils.git
+[root@<master>]# git clone git@github.com:rhtconsulting/rhc-ose.git
 ```
 4. Run the installer.
 +
@@ -40,7 +40,7 @@ Current implementations:
 +
 [source,bash]
 ----
-$ ./ose-utils/provisioning/osc-provision
+$ ./rhc-ose/provisioning/osc-provision
 Missing argument: --num-nodes <integer>
 
 Usage: ./provisioning/osc-provision --num-nodes=<integer> [options]
@@ -55,7 +55,7 @@ Options:
 
 4. To provision the most basic OpenShift environment, run the following command:
 ----
-$ ./ose-utils/provisioning/osc-provision --num-nodes=2 --key=laptop-key
+$ ./rhc-ose/provisioning/osc-provision --num-nodes=2 --key=laptop-key
 ----
 
 === Customizing the Install
