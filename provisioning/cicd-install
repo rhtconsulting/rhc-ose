@@ -181,6 +181,7 @@ function install_jenkins() {
   install_jenkins_plugin 'script-security' '1.15'
   install_jenkins_plugin 'durable-task' '1.7'
   install_jenkins_plugin 'docker-plugin' '0.16.0'
+  install_jenkins_plugin 'openshift-pipeline' '1.0.4'
   
   install_pinned_jenkins_plugin 'credentials' '1.24'
   install_pinned_jenkins_plugin 'cvs' '2.12'
