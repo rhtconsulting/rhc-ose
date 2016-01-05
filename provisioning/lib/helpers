@@ -174,35 +174,44 @@ EOF
   return 0
 }
 
-setup_openshift_storage() {
+setup_lvm_storage() {
   disk_path=${1}
   part_size=${2}
+  lv_name=${3}
 
-  vgdisplay vg-openshift &>/dev/null
+  LVM_ROOT_PATH="/var/lib"
+
+  if [ -z "${part_size}" -o ${part_size} -le 0 ]; then
+    echo "No separation of ${LVM_ROOT_PATH}/${lv_name} configured - skipping..."
+    return 0
+  fi
+
+  vgdisplay vg-${lv_name} &>/dev/null
   vg_rc=$?
 
   if [ ${vg_rc} -eq 0 ]; then
-    echo "openshift storage already configured!"
+    echo "${lv_name} storage already configured!"
     return 0
   fi
 
   disk_part=`partition_disk ${disk_path} ${part_size}`
   [ $? -ne 0 ] && return 1
 
-  # Create LVM and set up /var/lib/openshift
+  # Create LVM and set up partition
   pvcreate ${disk_part}
-  vgcreate vg-openshift ${disk_part}
-  lvcreate -l 100%FREE -n lv-ose vg-openshift
+  vgcreate vg-${lv_name} ${disk_part}
+  lvcreate -l 100%FREE -n lv-${lv_name} vg-${lv_name}
 
-  mkfs.xfs -q -f /dev/vg-openshift/lv-ose
+  mkfs.xfs -q -f /dev/vg-${lv_name}/lv-${lv_name}
 
-  mkdir -p /var/lib/openshift
-  echo "/dev/vg-openshift/lv-ose        /var/lib/openshift              xfs defaults 0 0" >> /etc/fstab
+  mkdir -p ${LVM_ROOT_PATH}/${lv_name}
+  echo "/dev/vg-${lv_name}/lv-${lv_name}        ${LVM_ROOT_PATH}/${lv_name}              xfs defaults 0 0" >> /etc/fstab
 
   mount -a
 
   return 0
 }
+
 
 setup_logging_storage() {
   disk_path=${1}

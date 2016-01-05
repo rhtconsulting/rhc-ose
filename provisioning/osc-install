@@ -137,8 +137,11 @@ setup_storage() {
   setup_logging_storage ${OPENSHIFT_STORAGE_DISK_VOLUME} ${OPENSHIFT_STORAGE_SIZE_LOGGING}
   [ $? -eq 0 ] || error_out "Could not setup logging storage" ${ERROR_CODE_STORAGE_FAILURE}
 
-  setup_openshift_storage ${OPENSHIFT_STORAGE_DISK_VOLUME} ${OPENSHIFT_STORAGE_SIZE_OSE}
+  setup_lvm_storage ${OPENSHIFT_STORAGE_DISK_VOLUME} ${OPENSHIFT_STORAGE_SIZE_OSE} "openshift"
   [ $? -eq 0 ] || error_out "Could not setup openshift storage" ${ERROR_CODE_STORAGE_FAILURE}
+
+  setup_lvm_storage ${OPENSHIFT_STORAGE_DISK_VOLUME} ${OPENSHIFT_STORAGE_SIZE_ETCD} "etcd"
+  [ $? -eq 0 ] || error_out "Could not setup etcd storage" ${ERROR_CODE_STORAGE_FAILURE}
 
   # Always run the docker storage setup last as it will use what's left of the disk
   setup_docker_storage ${OPENSHIFT_STORAGE_DISK_VOLUME}
@@ -149,7 +152,7 @@ setup_storage() {
 
 setup_storage_on_all_hosts() {
   for host in ${MASTER_HOSTNAME} ${NODE_HOSTNAMES//,/ }; do
-    ${SSH_CMD} root@${host} "$(typeset -f); $(typeset -p OPENSHIFT_STORAGE_DISK_VOLUME); $(typeset -p OPENSHIFT_STORAGE_SIZE_OSE); $(typeset -p OPENSHIFT_STORAGE_SIZE_LOGGING); setup_storage"
+    ${SSH_CMD} root@${host} "$(typeset -f); $(typeset -p OPENSHIFT_STORAGE_DISK_VOLUME); $(typeset -p OPENSHIFT_STORAGE_SIZE_OSE); $(typeset -p OPENSHIFT_STORAGE_SIZE_ETCD); $(typeset -p OPENSHIFT_STORAGE_SIZE_LOGGING); setup_storage"
   done
 }
 
@@ -349,6 +352,7 @@ OPENSHIFT_MASTER_CONFIG="${openshift_install_dir}/${openshift_master_dir}/${open
 OPENSHIFT_ZONES=$openshift_zones
 OPENSHIFT_STORAGE_DISK_VOLUME=${CONF_STORAGE_DISK_VOLUME:=$storage_disk_volume}
 OPENSHIFT_STORAGE_SIZE_OSE=${CONF_STORAGE_SIZE_OSE:=$storage_size_ose}
+OPENSHIFT_STORAGE_SIZE_ETCD=${CONF_STORAGE_SIZE_ETCD:=$storage_size_etcd}
 OPENSHIFT_STORAGE_SIZE_LOGGING=${CONF_STORAGE_SIZE_LOGGING:=$storage_size_logging}
 OPENSHIFT_IDENTITY_PROVIDER_JSON="${CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON:=$openshift_identity_provider_json}"
 
