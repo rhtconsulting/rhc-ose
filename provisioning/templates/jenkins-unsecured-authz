@@ -1,0 +1,1 @@
+<authorizationStrategy class="hudson.security.AuthorizationStrategy$Unsecured"/><securityRealm class="hudson.security.SecurityRealm$None"/>

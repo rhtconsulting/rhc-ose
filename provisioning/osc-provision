@@ -75,6 +75,25 @@ install_cicd() {
     tar cf - ${REPO_BASE_NAME} | ${SSH_CMD} root@${cicd_public} tar xf -
   popd >/dev/null
 
+  # Copy Nexus Configuration Files
+  if [ -n "${CONF_CICD_NEXUS_CONFIG_FILES}" ]; then
+	  for file in $(echo ${CONF_CICD_NEXUS_CONFIG_FILES} | tr "," " "); do
+	    source=${file%:*}
+	    dest=${file#*:}
+	    ${SCP_CMD} ${source} root@${cicd_public}:${dest}
+	  done
+  fi
+
+
+  # Copy Java Certificates Files
+  if [ -n "${CONF_JAVA_CERTS}" ]; then
+	  for file in $(echo ${CONF_JAVA_CERTS} | tr "," " "); do
+	    source=${file%:*}
+	    dest=${file#*:}
+	    ${SCP_CMD} ${source} root@${cicd_public}:${dest}
+	  done
+  fi
+
   ${SSH_CMD} root@${cicd_public} "$CONF_ENVIRONMENT bash${bash_opts} ~/${REPO_BASE_NAME}/provisioning/cicd-install"
 }
 
@@ -275,6 +294,7 @@ do
       ;;
   esac
 done
+
 
 # Set up environment based on default values and User input
 

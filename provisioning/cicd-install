@@ -90,6 +90,15 @@ function install_prereqs() {
 
 function install_java_jdk() {
    yum --enablerepo=rhel-7-server-thirdparty-oracle-java-rpms install -y java-1.8.0-oracle-devel &>/dev/null || error_out "Failed to install Java JDK" 3
+
+   if [ -n "${CONF_JAVA_CERTS}" ]; then
+	   jre_root=$(alternatives --list | grep jre_oracle | awk '{ print $3 }')
+ 	  for file in $(echo ${CONF_JAVA_CERTS} | tr "," " "); do
+ 	    source=${file%:*}
+ 	    dest=${file#*:}
+ 	    keytool -import -trustcacerts -alias $(basename $dest) -file $dest -keystore $jre_root/lib/security/cacerts -storepass changeit -noprompt
+ 	  done
+   fi
 }
 
 
@@ -142,6 +151,10 @@ function install_jenkins() {
   yum install -y jenkins  &>/dev/null || error_out "Failed to install Jenkins" 5
   
   cp -R ${SCRIPT_BASE_DIR}/cicd/jenkins/* /var/lib/jenkins
+
+  jenkins_config_file="$(process_template ${SCRIPT_BASE_DIR}/templates/config.xml JENKINS_AUTHZ_XML)"
+
+  echo $jenkins_config_file > /var/lib/jenkins/config.xml
 
   # Update Jenkins context
   sed -i "s/JENKINS_ARGS=\"\"/JENKINS_ARGS=\"--prefix=\/jenkins\"/g" /etc/sysconfig/jenkins
@@ -253,6 +266,16 @@ function install_nexus() {
   mkdir -p /usr/local/sonatype-work/nexus/conf
   cp -f ${SCRIPT_BASE_DIR}/cicd/nexus/nexus.xml /usr/local/sonatype-work/nexus/conf/
   
+  # Copy Custom Configurations
+  if [ -n "${CONF_CICD_NEXUS_CONFIG_FILES}" ]; then
+    for file in $(echo ${CONF_CICD_NEXUS_CONFIG_FILES} | tr "," " "); do
+      dest=${file#*:}
+      cp -f $dest /usr/local/sonatype-work/nexus/conf/
+    done
+
+  fi
+
+
   chown -R nexus:nexus /usr/local/nexus* /usr/local/sonatype-work /var/run/nexus
 
   sed -i "s/NEXUS_HOME=\"..\"/NEXUS_HOME=\"\/usr\/local\/nexus\"/g" /usr/local/nexus/bin/nexus
@@ -340,6 +363,8 @@ EOF
 	systemctl enable docker
 }
 
+# Configuring Variables
+JENKINS_AUTHZ_XML=${CONF_JENKINS_AUTHZ_XML:=jenkins_authz_xml}
 
 echo "===================================="
 echo "=   Installing CI/CD Environment   ="

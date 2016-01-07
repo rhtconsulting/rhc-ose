@@ -77,7 +77,7 @@ CONF_STORAGE_SIZE_LOGGING=4 # Allocate 4 GB for logs (e.g.: /var/log) # Default:
 ## OpenShift Configs
 CONF_OPENSHIFT_BASE_DOMAIN=openshift.example.com # Default: ose.example.com
 CONF_OPENSHIFT_CLOUDAPPS_SUBDOMAIN=cloudapps # Default: apps (generates "apps.ose.example.com")
-CONF_PROVISION_COMPONENTS=openshift # Comman separated list. Supported values are: openshift,cicd. Default: openshift
+CONF_PROVISION_COMPONENTS=openshift # Comma separated list. Supported values are: openshift,cicd. Default: openshift
 ----
 
 ==== Provisioning a CICD Server
