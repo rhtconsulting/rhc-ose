@@ -276,3 +276,19 @@ setup_logging_storage() {
   return 0
 }
 
+sync_files() {
+  # Sync files from variable with format "file1:dest1 file2:dest2"
+  files=$1
+  nodes=$2
+
+  # TODO: it may become necessary to support setting ownership, permissions, and SELinux context
+  for node in $nodes; do
+    for file in $files; do
+      source=${file%:*}
+      dest=${file#*:}
+	  dest_dir=$(dirname $dest)
+      ${SSH_CMD} root@${node} "mkdir -p $dest_dir" && ${SCP_CMD} ${source} root@${node}:${dest}
+    done
+  done
+}
+

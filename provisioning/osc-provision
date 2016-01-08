@@ -77,21 +77,13 @@ install_cicd() {
 
   # Copy Nexus Configuration Files
   if [ -n "${CONF_CICD_NEXUS_CONFIG_FILES}" ]; then
-	  for file in $(echo ${CONF_CICD_NEXUS_CONFIG_FILES} | tr "," " "); do
-	    source=${file%:*}
-	    dest=${file#*:}
-	    ${SCP_CMD} ${source} root@${cicd_public}:${dest}
-	  done
+      sync_files "${CONF_CICD_NEXUS_CONFIG_FILES//,/ }" "${cicd_public}"
   fi
 
 
   # Copy Java Certificates Files
   if [ -n "${CONF_JAVA_CERTS}" ]; then
-	  for file in $(echo ${CONF_JAVA_CERTS} | tr "," " "); do
-	    source=${file%:*}
-	    dest=${file#*:}
-	    ${SCP_CMD} ${source} root@${cicd_public}:${dest}
-	  done
+	  sync_files "${CONF_JAVA_CERTS//,/ }" "${cicd_public}"
   fi
 
   ${SSH_CMD} root@${cicd_public} "$CONF_ENVIRONMENT bash${bash_opts} ~/${REPO_BASE_NAME}/provisioning/cicd-install"
@@ -239,21 +231,6 @@ provision_nodes() {
   --n \
   --debug"
   $command || error_out "Node Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
-}
-
-sync_files() {
-  # Sync files from variable with format "file1:dest1 file2:dest2"
-  files=$1
-  nodes=$2
-
-  # TODO: it may become necessary to support setting ownership, permissions, and SELinux context
-  for node in $nodes; do
-    for file in $files; do
-      source=${file%:*}
-      dest=${file#*:}
-      ${SCP_CMD} ${source} root@${node}:${dest}
-    done
-  done
 }
 
 source ${SCRIPT_BASE_DIR}/lib/error_codes
