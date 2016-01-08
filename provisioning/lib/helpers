@@ -61,16 +61,37 @@ process_configfile() {
   # handle special cases
 
   # Setup user-defined auth Provider
-  if [ -f ${CONF_OPENSHIFT_IDENTITY_PROVIDER} ]; then
-    # User is providing a file containing custom auth provider, load it
-    CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=$(cat ${CONF_OPENSHIFT_IDENTITY_PROVIDER} | sed -e 's/[\/&]/\\&/g')
-  else
-    # Use the matching provider in templates directory
-    CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=$(cat ${SCRIPT_BASE_DIR}/templates/${CONF_OPENSHIFT_IDENTITY_PROVIDER} | sed -e 's/[\/&]/\\&/g')
+  if [ ! -z ${CONF_OPENSHIFT_IDENTITY_PROVIDER} ]; then
+    
+	if [ -f ${CONF_OPENSHIFT_IDENTITY_PROVIDER} ]; then
+      # User is providing a file containing custom auth provider, load it
+      CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=$(cat ${CONF_OPENSHIFT_IDENTITY_PROVIDER} | sed -e 's/[\/&]/\\&/g')
+    else
+      # Use the matching provider in templates directory
+      CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=$(cat ${SCRIPT_BASE_DIR}/templates/${CONF_OPENSHIFT_IDENTITY_PROVIDER} | sed -e 's/[\/&]/\\&/g')
+    fi
+	
+    CONF_ENVIRONMENT="${CONF_ENVIRONMENT}export CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=\"${CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON}\""$'\n'
+    export CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON="${CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON}"
+
+  fi
+  
+  # Setup user-defined Jenkins authz
+  if [ ! -z ${CONF_JENKINS_AUTHZ} ]; then
+
+    if [ -f ${CONF_JENKINS_AUTHZ} ]; then
+      # User is providing a file containing custom Jenkins Authentication/Authorization, load it
+      CONF_JENKINS_AUTHZ_XML=$(cat ${CONF_JENKINS_AUTHZ} | sed -e 's/[\/&/$\\"]/\\&/g')
+    else
+      # Use the matching provider in templates directory
+      CONF_JENKINS_AUTHZ_XML=$(cat ${SCRIPT_BASE_DIR}/templates/${CONF_JENKINS_AUTHZ} | sed -e 's/[\/&/$\\"]/\\&/g')
+    fi
+	
+    CONF_ENVIRONMENT="${CONF_ENVIRONMENT}export CONF_JENKINS_AUTHZ_XML=\"${CONF_JENKINS_AUTHZ_XML}\""$'\n'
+    export CONF_JENKINS_AUTHZ_XML="${CONF_JENKINS_AUTHZ_XML}"
+
   fi
 
-  CONF_ENVIRONMENT="${CONF_ENVIRONMENT}export CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=\"${CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON}\""$'\n'
-  export CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON="${CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON}"
 }
 
 ## Template Format ##
@@ -97,7 +118,7 @@ process_template() {
   local output="$(cat $template_file)"
 
   for var in $vars; do
-    value=${!var}
+    value=$(echo "${!var}" | sed -e 's/[$"]/\\&/g')
     echo "${value}" > /tmp/${var}
     output=$(echo "$output" | perl -pe "s/{{$var}}/${value}/g")
   done
@@ -253,5 +274,21 @@ setup_logging_storage() {
   systemctl restart rsyslog
 
   return 0
+}
+
+sync_files() {
+  # Sync files from variable with format "file1:dest1 file2:dest2"
+  files=$1
+  nodes=$2
+
+  # TODO: it may become necessary to support setting ownership, permissions, and SELinux context
+  for node in $nodes; do
+    for file in $files; do
+      source=${file%:*}
+      dest=${file#*:}
+	  dest_dir=$(dirname $dest)
+      ${SSH_CMD} root@${node} "mkdir -p $dest_dir" && ${SCP_CMD} ${source} root@${node}:${dest}
+    done
+  done
 }
 

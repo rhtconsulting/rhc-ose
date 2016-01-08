@@ -53,3 +53,7 @@ no_install=false
 action="provision"
 provision_components="openshift"
 
+jenkins_authz="jenkins-unsecured-authz"
+jenkins_authz_xml="<authorizationStrategy class=\"hudson.security.AuthorizationStrategy\$Unsecured\"\/><securityRealm class="hudson.security.SecurityRealm\$None"\/>"
+
+
