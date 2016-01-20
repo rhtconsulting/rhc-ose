@@ -86,3 +86,9 @@ Using the config above, you can provision a Jenkins server along with (or instea
 ----
 CONF_PROVISION_COMPONENTS=openshift,cicd
 ----
+
+=== Environment Deletion Instructions
+To permanently delete an environment:
+----
+$ ./ose-utils/provisioning/osc-provision --delete=<ENV-ID>
+----
