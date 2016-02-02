@@ -296,6 +296,9 @@ do_create_registry() {
 
   oc env deploymentConfig/$dc_name REGISTRY_HTTP_TLS_CERTIFICATE=/etc/secrets/registry.crt REGISTRY_HTTP_TLS_KEY=/etc/secrets/registry.key
 
+  # Fix secured registry in OSE 3.1.1 (https://bugzilla.redhat.com/show_bug.cgi?id=1302956)
+  oc get dc $service_name -o yaml | sed -e 's/scheme: HTTP/scheme: HTTPS/g' | oc replace -f -
+
   # Trust certs from all nodes
   certs_dirs="/etc/docker/certs.d/$service_ip:5000 /etc/docker/certs.d/docker-registry.default.svc.cluster.local:5000"
   for node in ${NODE_HOSTNAMES//,/ }; do
