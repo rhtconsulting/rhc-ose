@@ -292,3 +292,11 @@ sync_files() {
   done
 }
 
+# Usage: contains "term" "string"
+# Returns 0 if term found, 1 otherwise
+contains() {
+  local e
+  for e in "${@:2}"; do [[ "$e" == "$1" ]] && return 0; done
+  return 1
+}
+

@@ -42,7 +42,11 @@ else
   echo "Done"
 fi
 
+# Extract public key and ensure *this* host can SSH to itself
 public_key=$($SSH_CMD root@${MASTER} 'cat ~/.ssh/id_rsa.pub')
+$SSH_CMD root@${MASTER} 'mkdir -p ~/.ssh'
+echo "${public_key}" | $SSH_CMD root@${MASTER} 'cat  >> ~/.ssh/authorized_keys'
+$SSH_CMD root@${MASTER} 'chmod 700 ~/.ssh; chmod 600 ~/.ssh/*'
 
 for node in ${NODES//,/ }; do
   echo -n "Pushing key for node ${node}..."

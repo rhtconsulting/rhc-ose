@@ -36,6 +36,7 @@
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 VAR_NAMED_STATIC_DIR="/var/named/static"
 DEFAULT_WILDCARD_PREFIX="apps"
+DEFAULT_SUBNET_SIZE=24
 
 
 #
@@ -47,6 +48,7 @@ declare -a A_ACLlist
 # Source common features
 #
 source ${SCRIPT_BASE_DIR}/lib/constants
+source ${SCRIPT_BASE_DIR}/lib/helpers
 
 #
 # FUNCTIONS
@@ -88,6 +90,8 @@ function installDNSserver()
 {
   dns_host=${1}
 
+  echo "DNS : Installing DNS server (bind/named)..."
+
   ${SSH_CMD} root@${dns_host} 'yum -y install bind bind-utils'
 
   [ $? -ne 0 ] && echo "Failed to install DNS server on ${dns_host}" && exit 1
@@ -106,6 +110,8 @@ function prepDNSserver()
 {
   dns_host=${1}
   dns_domain=${2}
+
+  echo "DNS : Preparing DNS server ..."
 
   ${SSH_CMD} root@${dns_host} "rm -rf ${VAR_NAMED_STATIC_DIR}/*"
 
@@ -136,6 +142,8 @@ function prepDNSserver()
 function setIPtables()
 {
   dns_host=${1}
+
+  echo "DNS : Setting firewall (iptables) ... "
 
   udp='\-A INPUT \-p udp \-m state \-\-state NEW \-m udp \-\-dport 53 \-j ACCEPT'
   tcp='\-A INPUT \-p tcp \-m state \-\-state NEW \-m tcp \-\-dport 53 \-j ACCEPT'
@@ -179,6 +187,8 @@ function setDNSservers()
   search_domain=${2}
   nameserver=${3} 
 
+  echo "DNS : Updating resolv.conf for ${host} ..."
+
   ${SSH_CMD} root@${host} "
   sed -i 's/^PEERDNS=.*/PEERDNS=\"no\"/' /etc/sysconfig/network-scripts/ifcfg-*
   sed -i 's/^\(nameserver.*\)/# \1/g' /etc/resolv.conf
@@ -203,6 +213,8 @@ function setHostname()
 {
   dns_host=${1}
   hname=${2}
+
+  echo "DNS : Setting hostname for ${dns_host} ..."
 
   ${SSH_CMD} root@${dns_host} "
   if [ -e \"/etc/cloud/cloud.cfg\" ]
@@ -333,6 +345,8 @@ function setACLlist()
   dns_host=${1}
   acl_list=${2}
 
+  echo "DNS : Setting ACL list ..."
+
   ${SSH_CMD} root@${dns_host} "
   sed -i \"s/\t# ACL_PRIVATE_IP_ADDRESSES/${acl_list}/g\" /etc/named.conf
 "
@@ -351,6 +365,8 @@ function setACLlist()
 function restartDNSserver()
 {
   dns_host=${1}
+
+  echo "DNS : Applying DNS server configuration (restart) ..."
 
   ${SSH_CMD} root@${dns_host} 'systemctl restart named && systemctl enable named'
 
@@ -471,6 +487,8 @@ do
     exit 1
   fi
 
+  echo "DNS : Setting config for node - ${privateip} ..."
+
   setHostname ${privateip} node${i}.${BASE_DOMAIN}
   sleep 1
   setDNSservers ${privateip} ${BASE_DOMAIN} ${dh_private_ip}
@@ -480,7 +498,8 @@ do
   createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "node${i}" "A"
   createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "node${i}.${BASE_DOMAIN}" "PTR"
 
-  A_ACLlist+=(${privateip})
+  subnet=`ipcalc -n "${privateip}/${DEFAULT_SUBNET_SIZE}" | sed -ne 's/NETWORK=\(.*\)/\1/p'`
+  contains "${subnet}" "${A_ACLlist[@]}" || A_ACLlist+=(${subnet})
 
   i=$((i+1))
 done
@@ -501,6 +520,8 @@ do
     exit 1
   fi
 
+  echo "DNS : Setting config for master - ${privateip}|${publicip} ..."
+
   prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN} PRIVATE
   prepPTRConfig ${dh_private_ip} ${publicip} ${BASE_DOMAIN} PUBLIC
 
@@ -511,15 +532,19 @@ do
   sleep 1
   setDNSservers ${privateip} ${BASE_DOMAIN} ${dh_private_ip}
 
-  A_ACLlist+=(${privateip})
+  subnet=`ipcalc -n "${privateip}/${DEFAULT_SUBNET_SIZE}" | sed -ne 's/NETWORK=\(.*\)/\1/p'`
+  contains "${subnet}" "${A_ACLlist[@]}" || A_ACLlist+=(${subnet})
 
   i=$((i+1))
 done
 
+# Ensure *this* server also has the correct DNS settings
+setDNSservers '127.0.0.1' ${BASE_DOMAIN} ${dh_private_ip}
+
 fullacllist=
 for a in "${A_ACLlist[@]}"
 do
-  fullacllist="${fullacllist}\\t${a}\/32;\\n"
+  fullacllist="${fullacllist}\\t${a}\/${DEFAULT_SUBNET_SIZE};\\n"
 done
 
 # Finally, set the ACP list
