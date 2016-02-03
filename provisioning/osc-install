@@ -212,6 +212,9 @@ do_post(){
     $SSH_CMD $node 'sed -i "s/--insecure-registry=172.30.0.0\/16//" /etc/sysconfig/docker && systemctl restart docker'
   done
 
+  # Temporary workaround for an OSE v3.1.1 issue with the registry storage permissions
+  ${SSH_CMD} root@${MASTER_HOSTNAME} "chmod 0777 /mnt/registry"
+
   ### Workarounds for current issues - END
   ###########################################
 }
@@ -304,8 +307,8 @@ do_create_registry() {
 
     oc env deploymentConfig/\$dc_name REGISTRY_HTTP_TLS_CERTIFICATE=/etc/secrets/registry.crt REGISTRY_HTTP_TLS_KEY=/etc/secrets/registry.key
 
-  # Fix secured registry in OSE 3.1.1 (https://bugzilla.redhat.com/show_bug.cgi?id=1302956)
-  oc get dc $service_name -o yaml | sed -e 's/scheme: HTTP/scheme: HTTPS/g' | oc replace -f -
+    # Fix secured registry in OSE 3.1.1 (https://bugzilla.redhat.com/show_bug.cgi?id=1302956)
+    oc get dc \$service_name -o yaml | sed -e 's/scheme: HTTP/scheme: HTTPS/g' | oc replace -f -
 "
 
   # Create Route for External Access
