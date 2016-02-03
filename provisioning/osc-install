@@ -303,6 +303,9 @@ do_create_registry() {
     oc volume deploymentConfig/\$dc_name --add --type=secret --secret-name=registry-secret -m /etc/secrets
 
     oc env deploymentConfig/\$dc_name REGISTRY_HTTP_TLS_CERTIFICATE=/etc/secrets/registry.crt REGISTRY_HTTP_TLS_KEY=/etc/secrets/registry.key
+
+  # Fix secured registry in OSE 3.1.1 (https://bugzilla.redhat.com/show_bug.cgi?id=1302956)
+  oc get dc $service_name -o yaml | sed -e 's/scheme: HTTP/scheme: HTTPS/g' | oc replace -f -
 "
 
   # Create Route for External Access
