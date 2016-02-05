@@ -40,7 +40,7 @@ do
   	-n=*|--name=*)
       JEKYLL_DOCKER_IMAGE="${i#*=}"
       shift;;
-    -r=*|--rebuild=*)
+    -r|--rebuild)
       REBUILD="true"
 	  shift;;
   	-d=*|--directory=*)
@@ -82,15 +82,18 @@ if [ $? -gt 1 ]; then
   exit 1
 fi
 
+# Delete Image if image exists and rebuild indicated
+if [ ! -z $DOCKER_IMAGE ] && [ ! -z $REBUILD ]; then
+	echo "Removing ${JEKYLL_DOCKER_IMAGE} image...."
+	docker rmi -f ${JEKYLL_DOCKER_IMAGE}
+	DOCKER_IMAGE=
+fi
+
+
 # Check if Image has been build previously
 if [ -z $DOCKER_IMAGE ]; then
 	echo "Building Docker Image ${OPENSTACK_CLIENT_IMAGE}...."
 	docker build -t ${JEKYLL_DOCKER_IMAGE} ${SCRIPT_BASE_DIR}
-else
-	if [ ! -z $REBUILD ]; then
-		echo "Removing ${JEKYLL_DOCKER_IMAGE} image...."
-		docker rmi -f ${JEKYLL_DOCKER_IMAGE}
-	fi
 fi
 
 
