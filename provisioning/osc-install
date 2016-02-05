@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -
 
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
@@ -9,14 +9,6 @@ source ${SCRIPT_BASE_DIR}/lib/constants
 # Show script usage
 usage() {
   echo "Usage: $0 -m=|--master=\"<master1 private ip|master1 public ip>\" -n=|--nodes=\"<node1 private ip|node1 public ip>,...,<nodeN private ip|nodeN public ip>\" -a|--actions=\"action1,action2,...actionN\""
-}
-
-# Usage: contains "term" "string"
-# Returns 0 if term found, 1 otherwise
-contains() {
-  local e
-  for e in "${@:2}"; do [[ "$e" == "$1" ]] && return 0; done
-  return 1
 }
 
 # Determine whether master is a node, and if not, make node1 the 'infra' node
@@ -101,16 +93,18 @@ EOF
 }
 
 setup_authentication() {
-  users=$OPENSHIFT_USERS
+  ${SSH_CMD} root@${MASTER_HOSTNAME} "
+    users=\"${OPENSHIFT_USERS}\"
 
-  # Set up authentication
-  yum -y install httpd-tools &>/dev/null || error_out "Failed to install httpd-tools"
-  touch ${openshift_install_dir}/openshift-passwd
-  for user in $users; do
-    htpasswd -b ${openshift_install_dir}/openshift-passwd ${user%:*} ${user#*:}
-  done
+    # Set up authentication
+    yum -y install httpd-tools &>/dev/null || error_out \"Failed to install httpd-tools\"
+    touch ${openshift_install_dir}/openshift-passwd
+    for user in \$users; do
+      htpasswd -b ${openshift_install_dir}/openshift-passwd \${user%:*} \${user#*:}
+    done
 
-  systemctl restart ${openshift_master_service}
+    systemctl restart ${openshift_master_service}
+"
 }
 
 setup_cleanup_job() {
@@ -204,29 +198,7 @@ do_post(){
   echo "Post Install"
   setup_authentication
 
-  # Create router infrastructure
-  CA="${openshift_install_dir}/${openshift_master_dir}"
-
-  oadm ca create-server-cert --signer-cert=$CA/ca.crt \
-  --signer-key=$CA/ca.key --signer-serial=$CA/ca.serial.txt \
-  --hostnames="*.${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN}" \
-  --cert=$CA/cloudapps.crt --key=$CA/cloudapps.key
-
-
-  cat $CA/cloudapps.crt $CA/cloudapps.key $CA/ca.crt > $CA/cloudapps.router.pem
-
-  echo '{"kind":"ServiceAccount","apiVersion":"v1","metadata":{"name":"router"}}' | oc create -f -
-  oc get scc privileged -o yaml > priv.yaml
-  if [ $(grep -c 'system:serviceaccount:default:router' priv.yaml) -eq 0 ]; then
-    echo '- system:serviceaccount:default:router' >> priv.yaml
-    oc replace scc privileged -f priv.yaml
-  fi
-
-  oadm router router-default --default-cert=$CA/cloudapps.router.pem \
-  --credentials="${openshift_install_dir}/${openshift_master_dir}/openshift-router.kubeconfig" \
-  --selector='region=infra' \
-  --images='registry.access.redhat.com/openshift3/ose-${component}:${version}' \
-  --service-account=router
+  do_create_router
 
   do_create_registry
 
@@ -240,81 +212,125 @@ do_post(){
     $SSH_CMD $node 'sed -i "s/--insecure-registry=172.30.0.0\/16//" /etc/sysconfig/docker && systemctl restart docker'
   done
 
-  # Re-load previous ImageStream definitions ... 
-  oc delete imagestreams --all -n openshift
-  oc create -n openshift -f ${SCRIPT_BASE_DIR}/templates/image-streams-rhel7-ose3_0_2.json
-  oc create -n openshift -f /usr/share/openshift/examples/xpaas-streams/jboss-image-streams.json
+  # Temporary workaround for an OSE v3.1.1 issue with the registry storage permissions
+  ${SSH_CMD} root@${MASTER_HOSTNAME} "chmod 0777 /mnt/registry"
 
   ### Workarounds for current issues - END
   ###########################################
 }
 
+# Create router infrastructure
+do_create_router() {
+  CA="${openshift_install_dir}/${openshift_master_dir}"
+
+  ${SSH_CMD} root@${MASTER_HOSTNAME} "
+    # First, a bit of cleanup so we can re-run and update things
+    for resource in service deploymentConfig pod route serviceaccount; do
+      resource_names=\$(oc get \$resource | awk '/router/ {print \$1}')
+      for name in \${resource_names/\'\\n\'/ }; do
+        oc delete \$resource \$name
+      done
+    done
+
+    oadm ca create-server-cert \
+      --signer-cert=$CA/ca.crt \
+      --signer-key=$CA/ca.key \
+      --signer-serial=$CA/ca.serial.txt \
+      --hostnames=\"*.${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN}\" \
+      --cert=$CA/cloudapps.crt \
+      --key=$CA/cloudapps.key
+
+    cat $CA/cloudapps.crt $CA/cloudapps.key $CA/ca.crt > $CA/cloudapps.router.pem
+
+    echo '{\"kind\":\"ServiceAccount\",\"apiVersion\":\"v1\",\"metadata\":{\"name\":\"router\"}}' | oc create -f -
+    oc get scc privileged -o yaml > priv.yaml
+    if [ \$(grep -c \'system:serviceaccount:default:router\' priv.yaml) -eq 0 ]; then
+      echo '- system:serviceaccount:default:router' >> priv.yaml
+      oc replace scc privileged -f priv.yaml
+    fi
+
+    oadm router router-default \
+      --default-cert=$CA/cloudapps.router.pem \
+      --credentials=\"${openshift_install_dir}/${openshift_master_dir}/openshift-router.kubeconfig\" \
+      --selector='region=infra' \
+      --images='registry.access.redhat.com/openshift3/ose-\${component}:\${version}' \
+      --service-account=router
+"
+}
+
 do_create_registry() {
   CA="${openshift_install_dir}/${openshift_master_dir}"
 
-  # First, a bit of cleanup so we can re-run and update things
-  for resource in service deploymentConfig pod route serviceaccount secret; do
-    resource_names=$(oc get $resource | awk '/registry/ {print $1}')
-    for name in ${resource_names/'\n'/ }; do
-      oc delete $resource $name
+  ${SSH_CMD} root@${MASTER_HOSTNAME} "
+    # First, a bit of cleanup so we can re-run and update things
+    for resource in service deploymentConfig pod route serviceaccount secret; do
+      resource_names=\$(oc get \$resource | awk '/registry/ {print \$1}')
+      for name in \${resource_names/\'\\n\'/ }; do
+        oc delete \$resource \$name
+      done
     done
-  done
 
-  # Create registry
-  mkdir -p /mnt/registry
+    # Create registry
+    mkdir -p /mnt/registry
 
-  echo '{"kind":"ServiceAccount","apiVersion":"v1","metadata":{"name":"registry"}}' | oc create -f -
-  oc get scc privileged -o yaml > priv.yaml
-  if [ $(grep -c 'system:serviceaccount:default:registry' priv.yaml) -eq 0 ]; then
-    echo '- system:serviceaccount:default:registry' >> priv.yaml
-    oc replace scc privileged -f priv.yaml
-  fi
+    echo '{\"kind\":\"ServiceAccount\",\"apiVersion\":\"v1\",\"metadata\":{\"name\":\"registry\"}}' | oc create -f -
+    oc get scc privileged -o yaml > priv.yaml
+    if [ \$(grep -c \'system:serviceaccount:default:registry\' priv.yaml) -eq 0 ]; then
+      echo '- system:serviceaccount:default:registry' >> priv.yaml
+      oc replace scc privileged -f priv.yaml
+    fi
 
-  created_resources=$(oadm registry --service-account=registry \
-  --config="${openshift_install_dir}/${openshift_master_dir}/admin.kubeconfig" \
-  --credentials="${openshift_install_dir}/${openshift_master_dir}/openshift-registry.kubeconfig" \
-  --images='registry.access.redhat.com/openshift3/ose-${component}:${version}' \
-  --selector='region=infra' \
-  --mount-host=/mnt/registry)
+    created_resources=\$(oadm registry --service-account=registry \
+      --config=\"${openshift_install_dir}/${openshift_master_dir}/admin.kubeconfig\" \
+      --credentials=\"${openshift_install_dir}/${openshift_master_dir}/openshift-registry.kubeconfig\" \
+      --images='registry.access.redhat.com/openshift3/ose-\${component}:\${version}' \
+      --selector='region=infra' \
+      --mount-host=/mnt/registry)
 
-  service_name=$(oc get service | awk '/registry/ {print $1}')
-  service_ip=$(oc get service $service_name | awk '/registry/ {print $2}')
-  dc_name=$(oc get deploymentconfig | awk '/registry/ {print $1}')
+    service_name=\$(oc get service | awk '/registry/ {print \$1}')
+    service_ip=\$(oc get service \$service_name | awk '/registry/ {print \$2}')
+    dc_name=\$(oc get deploymentconfig | awk '/registry/ {print \$1}')
 
-  # Secure the Registry
-  oadm ca create-server-cert --signer-cert=$CA/ca.crt \
-    --signer-key=$CA/ca.key \
-    --signer-serial=$CA/ca.serial.txt  \
-    --hostnames="registry.${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN},docker-registry.default.svc.cluster.local,${service_ip}"\
-    --cert=$CA/registry.crt --key=$CA/registry.key
+    # Secure the Registry
+    oadm ca create-server-cert --signer-cert=$CA/ca.crt \
+      --signer-key=$CA/ca.key \
+      --signer-serial=$CA/ca.serial.txt  \
+      --hostnames=\"registry.${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN},docker-registry.default.svc.cluster.local,\${service_ip}\" \
+      --cert=$CA/registry.crt \
+      --key=$CA/registry.key
 
-  oc secrets new registry-secret $CA/registry.crt $CA/registry.key
+    oc secrets new registry-secret $CA/registry.crt $CA/registry.key
 
-  oc secrets add serviceaccounts/registry secrets/registry-secret
+    oc secrets add serviceaccounts/registry secrets/registry-secret
 
-  oc volume deploymentConfig/$dc_name --add --type=secret --secret-name=registry-secret -m /etc/secrets
+    oc volume deploymentConfig/\$dc_name --add --type=secret --secret-name=registry-secret -m /etc/secrets
 
-  oc env deploymentConfig/$dc_name REGISTRY_HTTP_TLS_CERTIFICATE=/etc/secrets/registry.crt REGISTRY_HTTP_TLS_KEY=/etc/secrets/registry.key
+    oc env deploymentConfig/\$dc_name REGISTRY_HTTP_TLS_CERTIFICATE=/etc/secrets/registry.crt REGISTRY_HTTP_TLS_KEY=/etc/secrets/registry.key
 
-  # Fix secured registry in OSE 3.1.1 (https://bugzilla.redhat.com/show_bug.cgi?id=1302956)
-  oc get dc $service_name -o yaml | sed -e 's/scheme: HTTP/scheme: HTTPS/g' | oc replace -f -
-
-  # Trust certs from all nodes
-  certs_dirs="/etc/docker/certs.d/$service_ip:5000 /etc/docker/certs.d/docker-registry.default.svc.cluster.local:5000"
-  for node in ${NODE_HOSTNAMES//,/ }; do
-    for dir in $certs_dirs; do
-      $SSH_CMD $node "mkdir -p $dir"
-      $SCP_CMD $CA/ca.crt $node:$dir
-    done
-    $SSH_CMD $node "systemctl daemon-reload && systemctl restart docker && systemctl restart ${openshift_node_service}"
-  done
+    # Fix secured registry in OSE 3.1.1 (https://bugzilla.redhat.com/show_bug.cgi?id=1302956)
+    oc get dc \$service_name -o yaml | sed -e 's/scheme: HTTP/scheme: HTTPS/g' | oc replace -f -
+"
 
   # Create Route for External Access
+  service_name=$($SSH_CMD root@${MASTER_HOSTNAME} "oc get service | awk '/registry/ {print \$1}'")
   SERVICE_NAME=$service_name
   HOSTNAME=registry.${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN}
   route_resource=$(process_template ${SCRIPT_BASE_DIR}/templates/registry-route.json SERVICE_NAME HOSTNAME )
 
-  echo "$route_resource" | oc create -f -
+  echo "${route_resource}" | $SSH_CMD root@${MASTER_HOSTNAME} "oc create -f -"
+
+  # Trust certs from all nodes - first obtain some info from the master, then copy the certs to the nodes
+  service_ip=$($SSH_CMD root@${MASTER_HOSTNAME} "oc get service ${service_name} | awk '/registry/ {print \$2}'")
+  ca_cert=$($SSH_CMD root@${MASTER_HOSTNAME} "cat $CA/ca.crt")
+
+  certs_dirs="/etc/docker/certs.d/${service_ip}:5000 /etc/docker/certs.d/docker-registry.default.svc.cluster.local:5000"
+  for node in ${NODE_HOSTNAMES//,/ }; do
+    for dir in $certs_dirs; do
+      $SSH_CMD $node "mkdir -p $dir"
+      echo "${ca_cert}" | $SSH_CMD root@${node} "cat >> $dir/ca.crt"
+    done
+    $SSH_CMD $node "systemctl daemon-reload && systemctl restart docker && systemctl restart ${openshift_node_service}"
+  done
 }
 
 # Process input

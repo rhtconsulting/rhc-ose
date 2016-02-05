@@ -66,6 +66,14 @@ do_delete() {
   $command || error_out "Delete failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
 }
 
+do_delete_by_ip() {
+  command="${SCRIPT_BASE_DIR}/${platform}/provision.sh
+  --action delete_by_ip
+  --ips ${1}
+  --n"
+  $command || error_out "Delete (by-ip) failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
+}
+
 install_cicd() {
   # Clean out previous install attempts
   ${SSH_CMD} root@${cicd_public} "rm -rf ~/${REPO_BASE_NAME}"
@@ -91,22 +99,22 @@ install_cicd() {
 
 install_openshift() {
   # Clean out previous install attempts
-  ${SSH_CMD} root@${master_public} "rm -rf ~/${REPO_BASE_NAME}"
+  ${SSH_CMD} root@${utility_public} "rm -rf ~/${REPO_BASE_NAME}"
   # Script is executed from ${REPO_BASE_NAME}/provisioning, so we need to strip two directories
   pushd $(dirname $(dirname ${SCRIPT_BASE_DIR})) >/dev/null
     # Pull Repo into master so we can continue installation
-    tar cf - ${REPO_BASE_NAME} | ${SSH_CMD} root@${master_public} tar xf -
+    tar cf - ${REPO_BASE_NAME} | ${SSH_CMD} root@${utility_public} tar xf -
   popd >/dev/null
 
   # Make sure correct version of the ansible hosts file is used
-  ${SSH_CMD} root@${master_public} "cp -f ~/${REPO_BASE_NAME}/provisioning/templates/${ANSIBLE_HOSTS_FILE} ~/${REPO_BASE_NAME}/provisioning/templates/ansible-hosts"
-  ${SSH_CMD} root@${master_public} "awk -F'=' '/${ANSIBLE_PLAYBOOK}/ {print \"ansible_playbook=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
-  ${SSH_CMD} root@${master_public} "awk -F'=' '/${OPENSHIFT_INSTALL_DIR}/ {print \"openshift_install_dir=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
-  ${SSH_CMD} root@${master_public} "awk -F'=' '/${OPENSHIFT_MASTER_SERVICE}/ {print \"openshift_master_service=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
-  ${SSH_CMD} root@${master_public} "awk -F'=' '/${OPENSHIFT_NODE_SERVICE}/ {print \"openshift_node_service=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
-  ${SSH_CMD} root@${master_public} "awk -F'=' '/${OPENSHIFT_IDENTITY_PROVIDER}/ {print \"openshift_identity_provider_json=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
+  ${SSH_CMD} root@${utility_public} "cp -f ~/${REPO_BASE_NAME}/provisioning/templates/${ANSIBLE_HOSTS_FILE} ~/${REPO_BASE_NAME}/provisioning/templates/ansible-hosts"
+  ${SSH_CMD} root@${utility_public} "awk -F'=' '/${ANSIBLE_PLAYBOOK}/ {print \"ansible_playbook=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
+  ${SSH_CMD} root@${utility_public} "awk -F'=' '/${OPENSHIFT_INSTALL_DIR}/ {print \"openshift_install_dir=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
+  ${SSH_CMD} root@${utility_public} "awk -F'=' '/${OPENSHIFT_MASTER_SERVICE}/ {print \"openshift_master_service=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
+  ${SSH_CMD} root@${utility_public} "awk -F'=' '/${OPENSHIFT_NODE_SERVICE}/ {print \"openshift_node_service=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
+  ${SSH_CMD} root@${utility_public} "awk -F'=' '/${OPENSHIFT_IDENTITY_PROVIDER}/ {print \"openshift_identity_provider_json=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
 
-  ${SSH_CMD} root@${master_public} "$CONF_ENVIRONMENT bash${bash_opts} ~/${REPO_BASE_NAME}/provisioning/osc-install -m='${master_ip}' -n='${node_ips//$'\n'/,}' -a='prep,dns,install,post'"
+  ${SSH_CMD} root@${utility_public} "$CONF_ENVIRONMENT bash${bash_opts} ~/${REPO_BASE_NAME}/provisioning/osc-install -m='${master_ip}' -n='${node_ips//$'\n'/,}' -a='prep,dns,install,post'"
 }
 
 random_string() {
@@ -139,6 +147,9 @@ provision_openshift() {
   fi
 
   # Provision instances
+  echo "Provisioning Utility Host. This could take several minutes."
+  utility_ip=$(provision_utility_host) || error_out "Provisioning Failed." $ERROR_CODE_PROVISION_FAILURE
+  echo "Complete!"
   echo "Provisioning master. This could take several minutes."
   master_ip=$(provision_masters) || error_out "Provisioning Failed." $ERROR_CODE_PROVISION_FAILURE
   echo "Complete!"
@@ -146,11 +157,12 @@ provision_openshift() {
   node_ips=$(provision_nodes) || error_out "Provisioning Failed." $ERROR_CODE_PROVISION_FAILURE
   echo "Complete!"
 
+  utility_public=$(get_public_ips "${utility_ip}")
   master_public=$(get_public_ips "${master_ip}")
   node_publics=$(get_public_ips "${node_ips//$'\n'/,}")
 
   # Sync SSH keys
-  ${SCRIPT_BASE_DIR}/osc-sync-keys -m="${master_public}" -n="${master_public},${node_publics}"
+  ${SCRIPT_BASE_DIR}/osc-sync-keys -m="${utility_public}" -n="${master_public},${node_publics}"
   [ $? -eq 0 ] || error_out "Key Sync Failed."
 
   if $master_is_node; then
@@ -173,6 +185,10 @@ provision_openshift() {
     install_openshift
   fi
 
+  # Clean-up
+  echo "Cleaning-up provisioning environment..."
+  do_delete_by_ip ${utility_public}
+
   dns_server=${node_publics##*,}
 
   FINAL_OUTPUT="${FINAL_OUTPUT}
@@ -188,7 +204,6 @@ Nodes: "
   done
   FINAL_OUTPUT="${FINAL_OUTPUT}
 DNS Server: $(get_hostnames $dns_server $OPENSHIFT_BASE_DOMAIN $dns_server)"
-
 }
 
 provision_cicd_server() {
@@ -202,6 +217,19 @@ provision_cicd_server() {
   --n \
   --debug"
   $command || error_out "CICD Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
+}
+
+provision_utility_host() {
+  instance_name="utility-${ENV_ID}"
+  command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
+  --instance-name ${instance_name} \
+  --key ${key} \
+  --flavor ${OS_FLAVOR} \
+  --image-name ${IMAGE_NAME} \
+  --security-groups ${SECURITY_GROUP_MASTER} \
+  --n \
+  --debug"
+  $command || error_out "Utility Host Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
 }
 
 provision_masters() {
