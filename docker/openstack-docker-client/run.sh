@@ -17,7 +17,7 @@ usage() {
      Usage: $0 [options]
      Options:
      --configdir=<configdir>       : Directory containing Openstack configuration files (Default: ~/.openstack/)
-     --name=<name>                 : Name of the assembled image (Default: rhtconsulting/rhc-openstack-client)
+     --image-name=<name>           : Name of the image to build or use (Default: rhtconsulting/rhc-openstack-client)
      --keep                        : Whether to keep the the container after exiting
      --ssh=<ssh>                   : Location of SSH keys to mount into the container (Default: ~/.ssh)
      --repository=<repository>     : Directory containing a repository to mount inside the container
@@ -38,7 +38,7 @@ do
 	  -k|--keep)
       REMOVE_CONTAINER_ON_EXIT=""
       shift;;
-  	-n=*|--name=*)
+  	-n=*|--image-name=*)
       OPENSTACK_CLIENT_IMAGE="${i#*=}"
       shift;;
     -s=*|--ssh=*)
