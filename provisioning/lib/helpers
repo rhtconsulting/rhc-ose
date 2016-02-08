@@ -58,17 +58,20 @@ process_configfile() {
     export $var
   done
 
+}
+
+post_process_config() {
   # handle special cases
 
   # Setup user-defined auth Provider
-  if [ ! -z ${CONF_OPENSHIFT_IDENTITY_PROVIDER} ]; then
+  if [ -n "${OPENSHIFT_IDENTITY_PROVIDER}" ]; then
     
-	if [ -f ${CONF_OPENSHIFT_IDENTITY_PROVIDER} ]; then
+    if [ -f ${OPENSHIFT_IDENTITY_PROVIDER} ]; then
       # User is providing a file containing custom auth provider, load it
       CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=$(cat ${CONF_OPENSHIFT_IDENTITY_PROVIDER} | sed -e 's/[\/&]/\\&/g')
     else
       # Use the matching provider in templates directory
-      CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=$(cat ${SCRIPT_BASE_DIR}/templates/${CONF_OPENSHIFT_IDENTITY_PROVIDER} | sed -e 's/[\/&]/\\&/g')
+      CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=$(cat ${SCRIPT_BASE_DIR}/templates/${OPENSHIFT_IDENTITY_PROVIDER} | sed -e 's/[\/&]/\\&/g')
     fi
 	
     CONF_ENVIRONMENT="${CONF_ENVIRONMENT}export CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON=\"${CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON}\""$'\n'
