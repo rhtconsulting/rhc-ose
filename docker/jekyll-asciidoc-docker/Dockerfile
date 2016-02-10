@@ -4,7 +4,7 @@ MAINTAINER Andrew Block “andrew.block@redhat.com”
 
 # Update System and install clients
 RUN yum update -y; \
-	yum install -y epel-release git tar java-1.8.0-openjdk libyaml-devel openssh-server autoconf gcc-c++ readline-devel zlib-devel libffi-devel openssl-devel automake libtool bison sqlite-devel; \
+	yum install -y epel-release which git tar java-1.8.0-openjdk libyaml-devel openssh-server autoconf gcc-c++ readline-devel zlib-devel libffi-devel openssl-devel automake libtool bison sqlite-devel; \
 	yum install -y nodejs; \
  	yum clean all; \
 	useradd builder; \
