@@ -112,7 +112,7 @@ install_openshift() {
   ${SSH_CMD} root@${utility_public} "awk -F'=' '/${OPENSHIFT_INSTALL_DIR}/ {print \"openshift_install_dir=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
   ${SSH_CMD} root@${utility_public} "awk -F'=' '/${OPENSHIFT_MASTER_SERVICE}/ {print \"openshift_master_service=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
   ${SSH_CMD} root@${utility_public} "awk -F'=' '/${OPENSHIFT_NODE_SERVICE}/ {print \"openshift_node_service=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
-  ${SSH_CMD} root@${utility_public} "awk -F'=' '/${OPENSHIFT_IDENTITY_PROVIDER}/ {print \"openshift_identity_provider_json=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
+  ${SSH_CMD} root@${utility_public} "awk -F'=' '/${OPENSHIFT_IDENTITY_PROVIDER_JSON}/ {print \"openshift_identity_provider_json=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
 
   ${SSH_CMD} root@${utility_public} "$CONF_ENVIRONMENT bash${bash_opts} ~/${REPO_BASE_NAME}/provisioning/osc-install -m='${master_ip}' -n='${node_ips//$'\n'/,}' -a='prep,dns,install,post'"
 }
@@ -316,41 +316,47 @@ OPENSHIFT_MASTER_FILES="${CONF_OPENSHIFT_MASTER_FILES}"
 OPENSHIFT_NODE_FILES="${CONF_OPENSHIFT_NODE_FILES}"
 OPENSHIFT_VERSION="${CONF_OPENSHIFT_VERSION}"
 
+# Determine version specific details...
+case $CONF_OPENSHIFT_VERSION in
+  "3.0")
+    IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_30}
+    ANSIBLE_HOSTS_FILE=${CONF_ANSIBLE_HOSTS_FILE:-$ansible_hosts_30}
+    ANSIBLE_PLAYBOOK="ansible_playbook_30"
+    OPENSHIFT_INSTALL_DIR="openshift_install_dir_30"
+    OPENSHIFT_MASTER_SERVICE="openshift_master_service_30"
+    OPENSHIFT_NODE_SERVICE="openshift_node_service_30"
+    OPENSHIFT_IDENTITY_PROVIDER_JSON="openshift_identity_provider_json_30"
+    OPENSHIFT_IDENTITY_PROVIDER=${CONF_OPENSHIFT_IDENTITY_PROVIDER:-$openshift_identity_provider_30}
+    ;;
+  "3.1")
+    IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_31}
+    ANSIBLE_HOSTS_FILE=${CONF_ANSIBLE_HOSTS_FILE:-$ansible_hosts_31}
+    ANSIBLE_PLAYBOOK="ansible_playbook_31"
+    OPENSHIFT_INSTALL_DIR="openshift_install_dir_31"
+    OPENSHIFT_MASTER_SERVICE="openshift_master_service_31"
+    OPENSHIFT_NODE_SERVICE="openshift_node_service_31"
+    OPENSHIFT_IDENTITY_PROVIDER_JSON="openshift_identity_provider_json_31"
+    OPENSHIFT_IDENTITY_PROVIDER=${CONF_OPENSHIFT_IDENTITY_PROVIDER:-$openshift_identity_provider_31}
+    ;;
+  *)
+    # Use default values
+    echo "WARNING: Did not request a specific OSE version, or version not supported (3.0|3.1) - using default version/configuration"
+    IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_default}
+    ANSIBLE_HOSTS_FILE=${CONF_ANSIBLE_HOSTS_FILE:-$ansible_hosts_default}
+    ANSIBLE_PLAYBOOK="ansible_playbook_default"
+    OPENSHIFT_INSTALL_DIR="openshift_install_dir_default"
+    OPENSHIFT_MASTER_SERVICE="openshift_master_service_default"
+    OPENSHIFT_NODE_SERVICE="openshift_node_service_default"
+    OPENSHIFT_IDENTITY_PROVIDER_JSON="openshift_identity_provider_json_default"
+    OPENSHIFT_IDENTITY_PROVIDER=${CONF_OPENSHIFT_IDENTITY_PROVIDER:-$openshift_identity_provider_default}
+    ;;
+esac
+
+# Apply additional tweaks...
+post_process_config
+
 case $action in
   "provision")
-    # Determine version specific details...
-    case $CONF_OPENSHIFT_VERSION in
-      "3.0")
-        IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_30}
-        ANSIBLE_HOSTS_FILE=${CONF_ANSIBLE_HOSTS_FILE:-$ansible_hosts_30}
-        ANSIBLE_PLAYBOOK="ansible_playbook_30"
-        OPENSHIFT_INSTALL_DIR="openshift_install_dir_30"
-        OPENSHIFT_MASTER_SERVICE="openshift_master_service_30"
-        OPENSHIFT_NODE_SERVICE="openshift_node_service_30"
-	OPENSHIFT_IDENTITY_PROVIDER="openshift_identity_provider_json_30"
-        ;;
-     "3.1")
-        IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_31}
-        ANSIBLE_HOSTS_FILE=${CONF_ANSIBLE_HOSTS_FILE:-$ansible_hosts_31}
-        ANSIBLE_PLAYBOOK="ansible_playbook_31"
-        OPENSHIFT_INSTALL_DIR="openshift_install_dir_31"
-        OPENSHIFT_MASTER_SERVICE="openshift_master_service_31"
-        OPENSHIFT_NODE_SERVICE="openshift_node_service_31"
-	OPENSHIFT_IDENTITY_PROVIDER="openshift_identity_provider_json_31"
-        ;;
-      *)
-        # Use default values
-        echo "WARNING: Did not request a specific OSE version, or version not supported (3.0|3.1) - using default version/configuration"
-        IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_default}
-        ANSIBLE_HOSTS_FILE=${CONF_ANSIBLE_HOSTS_FILE:-$ansible_hosts_default}
-        ANSIBLE_PLAYBOOK="ansible_playbook_default"
-        OPENSHIFT_INSTALL_DIR="openshift_install_dir_default"
-        OPENSHIFT_MASTER_SERVICE="openshift_master_service_default"
-        OPENSHIFT_NODE_SERVICE="openshift_node_service_default"
-	OPENSHIFT_IDENTITY_PROVIDER="openshift_identity_provider_json_default"
-        ;;
-    esac
-
     do_provision;
     ;;
   "delete")
