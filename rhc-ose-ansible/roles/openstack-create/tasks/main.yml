@@ -1,0 +1,49 @@
+---
+- name: Validate OpenStack Variables
+  fail: msg="Required OpenStack Variables not defined!"
+  when: 
+       - image_name is not defined or security_groups is not defined or key_name is not defined or image_name is not defined or flavor_name is not defined or env_id is not defined
+
+- name: "Search for valid OpenStack Flavor"
+  shell: "nova flavor-list | awk \"/{{flavor_name }}/\"'{print $2}'"
+  register: flavor_query
+
+- name: Validate OpenStack Image
+  fail: msg="Unable to determine a unique OpenStack Image"
+  when: flavor_query.stdout.split()|length  != 1
+
+- name: Setting OpenStack Image ID Fact
+  set_fact:
+    flavor_id: "{{ flavor_query.stdout }}"
+
+- name: "Provision OpenStack {{ type }}"
+  nova_compute:
+    name: "{{ type }}{{ item }}-{{ env_id }}"
+    state: present
+    image_name: "{{ image_name }}"
+    flavor_id: "{{ flavor_id }}"
+    key_name: "{{ key_name }}"
+    security_groups: "{{ security_groups }}"
+    wait_for: 200
+  with_sequence: "start=1 end={{ node_count | default(1) }}"
+  register: "openstack_create"
+
+- add_host:
+    hostname: "{{ item.info.name }}"
+    ansible_ssh_host: "{{ item.public_ip }}"
+    ansible_ssh_user: root
+    groups: "{{ register_host_group }}"
+  with_items: openstack_create.results
+
+- name: "Wait for {{ type }} to be available"
+  wait_for: port=22 host={{ item.public_ip }}
+  with_items: openstack_create.results
+  
+# Create Volumes
+- include: create-volume.yml
+  when: volume_size is defined and disk_volume is defined
+  vars:
+    instance_type: "{{ type }}"
+    openstack_machines: "{{ openstack_create }}"
+    storage_volume_size: "{{ volume_size }}"
+    storage_disk_volume: "{{ disk_volume }}"
