@@ -57,12 +57,12 @@ to /etc/sysconfig/docker:
 http_proxy=http://proxy.corp.example.com:8080
 https_proxy=http://proxy.corp.example.com:8080
 # This is the IP address for the registry
-no_proxy=172.30.48.143:5000,172.30.0.1,kubernesquid.default.svc.cluster.local:3128tes.default.svc.cluster.local,docker-registry.default.svc.cluster.local:5000
+no_proxy=172.30.48.143:5000,172.30.0.1,kubernetes.default.svc.cluster.local,docker-registry.default.svc.cluster.local:5000
 ```
 Replace proxy.corp.example.com:8080 with the actual corporate proxy. If the coroporate proxy requires credentials, the following may work during initial setup:
 ```
 http_proxy=http://username:password@proxy.corp.example.com:8080
 https_proxy=http://username:password@proxy.corp.example.com:8080
 # This is the IP address for the registry
-no_proxy=172.30.48.143:5000,172.30.0.1,kubernesquid.default.svc.cluster.local:3128tes.default.svc.cluster.local,docker-registry.default.svc.cluster.local:5000
+no_proxy=172.30.48.143:5000,172.30.0.1,kubernetes.default.svc.cluster.local,docker-registry.default.svc.cluster.local:5000
 ```
