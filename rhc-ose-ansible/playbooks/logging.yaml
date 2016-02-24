@@ -1,4 +1,4 @@
 ---
 - hosts: masters[0]
   roles: 
-    - post_install
+    - logging
