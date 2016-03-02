@@ -1,0 +1,11 @@
+---
+- hosts: masters
+  tasks:
+    - name: "Enable cluster metrics"
+      lineinfile: dest=/etc/origin/master/master-config.yaml state=present regexp='metricsPublicURL=' insertafter='assetConfig:' line=metricsPublicURL=https://{{ metrics_hostname }}/hawkular/metrics
+
+    - name: "Enable logging integration"
+      lineinfile: dest=/etc/origin/master/master-config.yaml state=present regexp='loggingPublicUrl=' insertafter='metricsPublic:' line=loggingPublicUrl=https://{{ kibana_hostname }}
+
+    - name: "Restart master service"
+      service: state=restarted name={{ master_service }}
