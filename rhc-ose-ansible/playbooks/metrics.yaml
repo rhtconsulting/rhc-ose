@@ -1,4 +1,0 @@
----
-- hosts: masters[0]
-  roles:
-    - metrics
