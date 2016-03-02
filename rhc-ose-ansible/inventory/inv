@@ -1,0 +1,71 @@
+# Create an OSEv3 group that contains the master, nodes, etcd, and lb groups.
+# The lb group lets Ansible configure HAProxy as the load balancing solution.
+# Comment lb out if your load balancer is pre-configured.
+[OSEv3:children]
+masters
+nodes
+etcd
+
+# Set variables common for all OSEv3 hosts
+[OSEv3:vars]
+ansible_ssh_user=root
+deployment_type=openshift-enterprise
+osm_default_subdomain=paas.example.com
+
+#Vars for the automation scripts
+activationKey=''
+oseVersion="3.1"
+docker_storage_devs="/dev/sdb"
+docker_storage_vg="docker-vg"
+master_service='atomic-openshift-master-api'
+#proxy_services=["atomic-openshift-master-api","atomic-openshift-node", "docker"]
+target_registry="registry.example.com:5000"
+insecure_registry="true"
+
+#Logging
+kibana_hostname=kibana.paas.example.com
+master_url=https://example.com:8443
+fluentd_replicas=3
+es_cluster_size=3
+
+#Metrics
+metrics_hostname=metrics.paas.example.com
+metrics_pv_size=2G
+openshift_infra_selector='region=infra'
+
+#Setup the ldap authentication on install
+openshift_master_identity_providers=[{"name": "ose_ldap","challenge": "true", "login": "true","kind": "LDAPPasswordIdentityProvider", "attributes": { "id": ["dn"],"email": ["mail"],"name": [""], "preferredUsername": [""]},"bindDN": "","bindPassword": "", "ca": "","insecure": "false","url": "ldaps://","mappingMethod": "claim"}]
+
+# Native high availbility cluster method with optional load balancer.
+#  If no lb group is defined installer assumes that a load balancer has
+#  been preconfigured. For installation the value of
+#  openshift_master_cluster_hostname must resolve to the load balancer
+#  or to one or all of the masters defined in the inventory if no load
+#  balancer is present.
+openshift_master_cluster_method=native
+openshift_master_cluster_hostname=private.example.com
+openshift_master_cluster_public_hostname=public.example.com
+#
+# override the default controller lease ttl
+# osm_controller_lease_ttl=30
+#
+# host group for masters
+[masters]
+master1
+master2
+master3
+#
+# host group for etcd
+[etcd]
+etcd1
+etcd2
+etcd3
+#
+#Specify load balancer host
+[lb]
+
+# host group for nodes, includes region info
+[nodes]
+node1 openshift_node_labels="{'region': 'master'}"
+node2 openshift_node_labels="{'region': 'infra'}"
+node3 openshift_node_labels="{'region': 'app'}"
