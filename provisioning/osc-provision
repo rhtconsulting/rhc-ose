@@ -188,7 +188,7 @@ provision_openshift() {
 
   # Clean-up
   echo "Cleaning-up provisioning environment..."
-  if [ "${keep_util_host}" != "yes" ]; then
+  if [ "${keep_util_host}" != true ]; then
     do_delete_by_ip ${utility_public}
   fi
 
