@@ -35,4 +35,8 @@ Git repo that hold the scripts (s2i) used to consume development artifacts (war)
 https://github.com/themoosman/ticket-monster-ose-s2i-build
 
 
-
+## Presenter Information
+Any presenter should have:
+1. Working knowledge on how OSE works
+2. Extensive knowledge around how OPS works (both current day and historical)
+3. How CI/CD works within an OSE environment
