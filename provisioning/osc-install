@@ -212,8 +212,8 @@ do_post(){
     $SSH_CMD $node 'sed -i "s/--insecure-registry=172.30.0.0\/16//" /etc/sysconfig/docker && systemctl restart docker'
   done
 
-  # Temporary workaround for an OSE v3.1.1 issue with the registry storage permissions
-  ${SSH_CMD} root@${MASTER_HOSTNAME} "chmod 0777 /mnt/registry"
+  # Workaround for OSE v3.1.1 issue with the registry storage permissions (https://access.redhat.com/solutions/2173071)
+  ${SSH_CMD} root@${MASTER_HOSTNAME} "chown -R 1001 /mnt/registry"
 
   ### Workarounds for current issues - END
   ###########################################
