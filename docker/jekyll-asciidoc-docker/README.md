@@ -28,9 +28,9 @@ The process of creating and running the docker container is facilitated through 
 It will produce the docker image based on a *Dockerfile* and run the docker container based on the following parameters:
 
 ```
-$ ./docker/openstack-docker-client/run.sh --help
+$ ./docker/jekyll-asciidoc-docker/run.sh --help
 
-     Usage: ./docker/jekyll-asciidoc/run.sh [options]
+     Usage: ./docker/jekyll-asciidoc-docker/run.sh [options]
      Options:
      --name=<name>                 : Name of the assembled image (Default: rhtconsulting/jekyll-asciidoc)
      --keep                        : Whether to keep the the container after exiting
