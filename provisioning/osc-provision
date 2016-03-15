@@ -38,6 +38,7 @@ usage() {
   --num-nodes=<integer>         : Number of Nodes to provision
   --config=<path>               : Path to a config file for defining the environment
   --no-install                  : Provision instances and sync keys, but do not run the OpenShift installer
+  --keep-util-host              : Keep Utility Host around after the execution has completed
   --key=<key name>              : SSH Key used to authenticate to Cloud API
   --delete=<Environment ID>     : Delete specified environment
   --ose-version=<version>       : Specify which version of OSE to deploy (3.0|3.1)
@@ -187,7 +188,9 @@ provision_openshift() {
 
   # Clean-up
   echo "Cleaning-up provisioning environment..."
-  do_delete_by_ip ${utility_public}
+  if [ "${keep_util_host}" != true ]; then
+    do_delete_by_ip ${utility_public}
+  fi
 
   dns_server=${node_publics##*,}
 
@@ -275,6 +278,10 @@ do
       shift;;
     --no-install)
       no_install=true;
+      keep_util_host=true;
+      shift;;
+    --keep-util-host)
+      keep_util_host=true;
       shift;;
     --key=*)
       key="${i#*=}"
