@@ -1,119 +1,148 @@
 # Ticket-Monster OpenShift V3 Demo
 
-This folder contains the resources necessary to run the Ticket-Monster demonstration application on OpenShfit V3
+This demonstration describes the process for building and deploying Ticket-Monster  application on OpenShfit V3
 
-## What is Ticket-Monster?
-
-The Ticket-Monster is a moderately complex application that demonstrates how to build modern applications using JBoss web technologies. It is used to illustrate how to utilize JBoss Applications within the OpenShift V3 environment.
-
-## Build and deployment Options
-
-OpenShift provides three options for building applications:
-
-1. Docker Build
-2. Source to image (S2I) 
-3. Custom Image Builder
-
-Examples of retrieving a pre-packaged application from a remote source is demonstrated in this repository using a custom image builder and a source to image. While the overall outcome is the same, there are reasons for choosing each type of build.
-
-## Source to Image (S2I Build) 
-
-A Source to Image (S2I) is a tool for building repeatable docker images.  It will take existing source code and produce a new layer that is built on top of an existing image. One of the benefits of a S2I is that is supports the concept of *incremental builds*, which will save a previous build on the image for use in subsequent builds. S2I features a configurable platform for defining the build steps and ultimate execution of an images. S2I scripts can be defined within a image or in source code. 
-
-This is the recommended strategy moving forward.
-
-## Custom Builder 
-
-A custom build is similar to a traditional docker build, with the exception of specifically controlling the functionality and execution of the build itself. By default, images are built using the generic OpenShift *docker-builder*. This option is desirable when it is desired to customize the process of building and deploying a Docker image.
-
-The Custom Builder strategy for this implementation was developed to overcome a limitation during the OSE beta phase where it was not possible to inject environment variables into the build process.
-
-## Installing the Configurations
-
-This folder contains the following files necessary to prepare OpenShift to run the demo. 
-
-* *jboss-eap-packaged-builder-imagestream.json* - ImageStream for for the custom image builder
-* *ticket-monster-app-custom-template.json* - Used to produce the objects in OpenShift necessary to run the demo built using a custom builder
-* *ticket-monster-app-s2i-template.json* - Used to produce the objects in OpenShift necessary to run the demo using S2I
-
-### EAP Packaged Builder ImageStream (Custom Builder)
-
-The EAP Packaged Builder is a custom image builder used to retrieve a previously packaged application (such as a war or ear) outside of OpenShift (and stored in an Enterprise Maven Repository [Such as Nexus]) onto an instance of JBoss Enterprise Application Platform. 
-
-To add the ImageStream, run the following command on the OpenShift master as *root* or using a user with access to the *openshift* project:
-
-    oc create -f jboss-eap-packaged-builder-imagestream.json -n openshift
+![Ticket Monster](images/ticketmonster.png "Ticket Monster")
 
 
-## Running an Example
 
-You can choose to leverage the custom builder or S2I build strategy. The following will describe both strategies for instantiating a template followed by building and deploying the application. The Ticket-Monster template will instantiate the objects necessary to run the Ticket-Monster application within OpenShift. Optional and required parameters are used to drive the configurations of the application
+## Overview
 
-### Custom Builder Ticket-Monster Template (Custom Builder)
+The Ticket-Monster is a moderately complex application that demonstrates how to build modern applications using JBoss web technologies.  A full overview of the project can be found on the [Ticket Monster jboss.org site](http://www.jboss.org/ticket-monster/).
 
-Execute the following command to add the template either on the OpenShift master as *root* or using an user with access to the *openshift* project:  
+OpenShift supports several methods for deploying JBoss Applications within the OpenShift V3 environment will be demonstrated. This demonstration will describe the process for creating a new application by specifying a docker image or a template.  
 
-    oc create -f ticket-monster-app-template.json -n openshift
+## Bill of Materials
 
+### Environment Specifications
 
-## Creating an Application from the Ticket Monster Custom Builder Template
+This demo should be run on an installation of OpenShift Enterprise V3
 
-The Custom Builder Ticket Monster template contains a set of parameters that are used to configure the application. These parameters not only provide configurations for the application itself, but the source location of the remote packaged archive.  
+### Template Files
 
-The following table describes the parameters in the template
+* eap64-basic-s2i - JBoss EAP 6.4 basic template from the `openshift` namespace
 
-| Name | Description | Default Value|
-|----------|----------------|--------------------|
-|APPLICATION_NAME| The name for the application| |
-|APPLICATION_HOSTNAME|Custom hostname for service routes.  Leave blank for default hostname, e.g.: <application-name>.<project>.<default-domain-suffix>| |
-|SRC_APP_URL|Location of the prepackaged application| |
-|SRC_APP_NAME|Final name of the deployed application|ROOT.war |
-|UPSTREAM_IMAGE|Image used to run the application|registry.access.redhat.com/jboss-eap-6/eap-openshift|
-|UPSTREAM_IMAGE_TAG|Tag of the image used to run the application|latest|
-|HORNETQ_QUEUES|Queue names| |
-|HORNETQ_TOPICS|Topic names| |
-|HORNETQ_CLUSTER_PASSWORD|HornetQ cluster admin password|Generated expression|
+### Config Files
 
-The following command can be used to create a new application from the template:
+None
 
-    oc new-app eap6-custom-packaged --param=APPLICATION_NAME=tm,APPLICATION_HOSTNAME=tm.ose.example.com,SRC_APP_URL="http://example.com/nexus/com/example/sample-app/1.0.0/sample-app-1.0.0.war"
+### External Source Code Repositories
+
+* [Ticket Monster](https://github.com/jboss-developer/ticket-monster) -  Public repository for the Ticket Monster application
+
+## Setup Instructions
+
+There is no specific requirements necessary for this demonstration. The presenter should have an OpenShift Enterprise 3 environment available and the OpenShift Command Line Tools installed on their machine.
+
+## Presenter Notes
+
+The following steps are to be used to demonstrate two methods for deploying the Ticket Monster application in OpenShift V3
+
+### Deploy via Docker Image
+
+A Docker image containing the JBoss Enterprise Platform and that is compatible with the Source to Image process can be used to build and deploy application source code.
+
+Create a new project called `ticket-monster-image` to contain the resources. Using the terminal, execute the following to create the new project:
+
+    oc new-project ticket-monster-image
     
+Create a new application by passing in the docker image name, source code repository, branch and the context directory within the repository containing the source code
 
-## Creating an Application from the Ticket Monster Custom Builder Template
+    oc new-app jboss-eap64-openshift~https://github.com/jboss-developer/ticket-monster#2.7.0.Final --context-dir=demo --name=ticketmonster
 
-The S2I Ticket Monster template contains a set of parameters that are used to configure the application. These parameters not only provide configurations for the application itself, but the source location of the remote packaged archive.  
+Let's break down the command in further detail
 
-The following table describes the parameters in the template
+* `oc new-app` - OpenShift command to create a new application
+* `jboss-eap64-openshift` - Name of the Docker Image (S2I compatible)
+* `~` - Specifying that source code will be provided
+* `https://github.com/jboss-developer/ticket-monster` - URL of the Git repository
+* `#2.7.0.Final` - Branch name
+* `--context-dir` - Location within the repository containing source code
+* `--name=ticketmonster` - Name for all of the created resources
 
-| Name | Description | Default Value|
-|----------|----------------|--------------------|
-|APPLICATION_NAME| The name for the application| |
-|APPLICATION_HOSTNAME|Custom hostname for service routes.  Leave blank for default hostname, e.g.: <application-name>.<project>.<default-domain-suffix>| |
-|SRC_APP_URL|Location of the prepackaged application| |
-|SRC_APP_NAME|Final name of the deployed application|ROOT.war |
-|UPSTREAM_IMAGE|Image used to run the application|jboss-eap6-openshift|
-|UPSTREAM_IMAGE_TAG|Tag of the image used to run the application|latest|
-|GIT_URI|Git source URI for S2I application scripts|https://github.com/sabre1041/jboss-eap-packaged-builder|
-|GIT_REF|Git branch/tag reference for the S2I application scripts|3.0|
-|HORNETQ_QUEUES|Queue names| |
-|HORNETQ_TOPICS|Topic names| |
-|HORNETQ_CLUSTER_PASSWORD|HornetQ cluster admin password|Generated expression|
 
-The following command can be used to create a new application from the template:
+After executing the command, the following is shown displaying the objects that were created
 
-    oc new-app eap6-s2i-packaged --param=APPLICATION_NAME=tm,APPLICATION_HOSTNAME=tm.ose.example.com,SRC_APP_URL="http://example.com/nexus/com/example/sample-app/1.0.0/sample-app-1.0.0.war"
-    
+```
+--> Found image 7c80ddb (2 weeks old) in image stream "jboss-eap64-openshift in project openshift" under tag :latest for "jboss-eap64-openshift"
+    * A source build using source code from https://github.com/jboss-developer/ticket-monster#2.7.0.Final will be created
+      * The resulting image will be pushed to image stream "ticketmonster:latest"
+    * This image will be deployed in deployment config "ticketmonster"
+    * Ports 8080/tcp, 8443/tcp, 8778/tcp will be load balanced by service "ticketmonster"
+--> Creating resources with label app=ticketmonster ...
+    ImageStream "ticketmonster" created
+    BuildConfig "ticketmonster" created
+    DeploymentConfig "ticketmonster" created
+    Service "ticketmonster" created
+--> Success
+    Build scheduled for "ticketmonster" - use the logs command to track its progress.
+    Run 'oc status' to view your app.
+```
 
-## Build the application
+A new image will be built combining the source code from the Git repository and the base JBoss image.
 
-Once the objects from the template have been created (irregardless of the type of builder used), start a build of the application:
+Create a route to the application so that can be access from outside the OpenShift cluster by exposing the `ticketmonster` service
 
-    oc start-build tm
+    oc expose service ticketmonster
 
-The template has been configured to deploy the newly created image as soon as it has been built. If the new application example from the previous section was used, the application will be available at [http://tm.ose.example.com](http://tm.ose.example.com)
+This will make the application available at `http://ticketmonster-ticket-monster-image.<app_subdomain>`
+
+You can verify the hostname by running `oc get route ticketmonster`
+ 
+Launch a web browser and navigate to the hostname found above to view the application
+
+
+### Deploy via Template 
+
+Ticket Monster can also be deployed using a template. A template provides the definition for the OpenShift objects that should be created to build, deploy and access an application. OpenShift contains a set of built in templates to allow developers to quickly become productive with the platform which are located in the *openshift* project. 
+
+The `eap64-basic-s2i` template from the *openshift* namespace provides a simple method for building and deploying JBoss Applications and can be used to deploy the Ticket Monster application. 
+
+A template also allows parameters to be passed during processing to dynamically configure OpenShift objects. When using the `oc new-app` command, parameters can be added by using `-p=key1=value1,key2=value2` 
+
+Create a new project called `ticket-monster-template`. 
+
+    oc new-project ticket-monster-template
+
+Now, instantiate the `eap64-basic-s2i` template based on the configuration for the Ticket Monster application
+
+    oc new-app --template=eap64-basic-s2i -p=APPLICATION_NAME=ticketmonster,SOURCE_REPOSITORY_URL=https://github.com/jboss-developer/ticket-monster,SOURCE_REPOSITORY_REF=2.7.0.Final,CONTEXT_DIR=demo
+
+After executing the command, the following is shown displaying the objects that were created:
+
+```
+--> Deploying template eap64-basic-s2i in project openshift for "eap64-basic-s2i"
+     With parameters:
+      APPLICATION_NAME=ticketmonster
+      APPLICATION_DOMAIN=
+      SOURCE_REPOSITORY_URL=https://github.com/jboss-developer/ticket-monster
+      SOURCE_REPOSITORY_REF=2.7.0.Final
+      CONTEXT_DIR=demo
+      HORNETQ_QUEUES=
+      HORNETQ_TOPICS=
+      HORNETQ_CLUSTER_PASSWORD=A5p5umq8 # generated
+      GITHUB_WEBHOOK_SECRET=acttDLBN # generated
+      GENERIC_WEBHOOK_SECRET=rw4U3ndX # generated
+      IMAGE_STREAM_NAMESPACE=openshift
+--> Creating resources with label app=ticketmonster ...
+    Service "ticketmonster" created
+    Route "ticketmonster" created
+    ImageStream "ticketmonster" created
+    BuildConfig "ticketmonster" created
+    DeploymentConfig "ticketmonster" created
+--> Success
+    Build scheduled for "ticketmonster" - use the logs command to track its progress.
+    Run 'oc status' to view your app.
+```
+
+A new build using the Source to Image will be started to produce a new docker image
+
+Unlike the previous example, the template defines a route be created, so there is no need to expose a service. This can be verified by running the `oc get route ticketmonster`
+
+Launch a web browser and navigate to the hostname found above
+
 
 ## Resources
 
-* Builds
-	* [Origin Builds](https://github.com/openshift/origin/blob/master/docs/builds.md)
-	* [OSE Builds](https://docs.openshift.com/enterprise/3.0/dev_guide/builds.html)
+* [Creating New Applications](https://docs.openshift.com/enterprise/latest/dev_guide/new_app.html)
+* [Templates](https://docs.openshift.com/enterprise/latest/architecture/core_concepts/templates.html)
