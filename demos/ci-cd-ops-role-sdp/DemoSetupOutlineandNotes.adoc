@@ -1,0 +1,282 @@
+
+= OPS Integration Within CICD DEMO
+By Karl Moos - Consultant Red Hat <kmoos@redhat.com>
+v1.0, 2016-02-26
+:toc:
+:doctype: article
+:encoding: utf-8
+:lang: en
+:numbered:
+:imagesdir: images
+
+
+
+
+Date: {docdatetime}
+
+<<<
+
+== Components required for demo
+
+The following components are required:
+
+* Jenkins server or other artifact repository to hold binary assembly (war, ear, etc)
+* OSE V3.1 Install (See configuration details below)
+* Git Server (GitHub, or GitLab)
+
+== Git Repos used in demo
+
+* Ticket Monster
+
+** Reference JBOSS web application reference architecture
+** Used to create a war artifact that will be used as the Jenkins artifact
+** https://github.com/jboss-developer/ticket-monster
+ 
+* Ops Git Repo
+
+** Git repo that holds configuration information (Infrastructure as Code) used to generate (in our case) a custom EAP6 image
+** https://github.com/themoosman/ops-custom-eap6
+
+* Ticket Monster s2i Image Build
+
+** Git repo that hold the scripts (s2i) used to consume development artifacts (war) and create a docker image.  Said image is uploaded to a master image repository where it's pushed to dev, qa, prod, etc.
+** https://github.com/themoosman/ticket-monster-ose-s2i-build
+
+
+== Demo Environment Overview
+
+
+
+=== OSE Configuration
+
+The same layout as was used during the bootcamp. 
+
+ ** 1 Load Balancer / NFS server
+ ** 3 Master nodes
+ ** 2 Infrastructure Node (hold router and registry)
+ ** 2 Application Nodes
+ * My environment was built using RHEL 7.2 VM's running on vSphere6
+
+=== Jenkins (Install and Configuration)
+
+Jenkins will be used as the CI server for this project.
+
+==== Installing Jenkins on Fedora / RHEL
+
+* For demo purposes you can just install (using the repos) and run it
+* Instructions can be found here: 
+* https://wiki.jenkins-ci.org/display/JENKINS/Installing+Jenkins+on+Red+Hat+distributions
+
+==== Jenkins Configuration
+
+* Add Git, Git Client, and SCM API plugins
+* To compile the Ticket Monster project create a new Maven project in Jenkins
+* For Repo URL use the GitHub url above, i.e. 
+ 
+https://github.com/jboss-developer/ticket-monster
+
+[source,]
+----
+ * Select Poll SCM and add */10 * * * ** to poll every 10 minutes
+ * Change root POM to: *demo/pom.xml*
+----
+
+=== OSE EAP Project - Pull
+
+ * Ops Customer EAP6
+ ** s2i project
+ ** Takes a GitHub repo (Ops Git Repo) and overlays a set of changes to the #registry.access.redhat.com/jboss-eap-6/eap-openshift# official image.  
+
+
+=== Ticket Monster Image - Pull
+
+ ** s2i project
+ ** Take a GitHub repo (Ticket Monster s2i Image Build) and injects a war file (built and hosted on Jenkins)
+ ** This project takes the custom image produced in Ops Customer EAP6, overlays the war artifact, and any other changes.  Finally the image is pushed into the global repository.  This image is then used to deploy to dev, qa, test, etc.
+
+
+
+== DEMO Install
+
+=== Create OSE Demo Projects and Users 
+
+Create users and roles (using htaccess not ldap)
+
+* On each master create the 3 new users.  "tsar" will be the cluster admin 
+
+[source,]
+----
+$ htpasswd /etc/origin/htpasswd tsar
+$ htpasswd /etc/origin/htpasswd dev  
+$ htpasswd /etc/origin/htpasswd ops
+----
+
+
+=== Create OSE Projects
+
+Log on to OSE as system:admin
+
+Create the 2 new projects
+
+[source,]
+----
+
+$ oc login -u system:admin
+
+$ oc new-project ops-custom-eap6-proj
+$ oc new-project ticket-monster-proj
+# or combine them
+$ oc new-project ops-custom-eap6-proj && oc
+new-project ticket-monster-proj
+----
+
+
+=== Demo Setup Commands -The “user” method
+
+
+This method create users and gives those users explicit access to projects.
+
+On the master logged in as system:admin issue the following commands
+
+[source,]
+----
+#Give tsar cluster admin privileges, ops gets edit privileges
+
+$ oadm policy add-cluster-role-to-user cluster-admin tsar
+
+#This command gives the ops user edit access to the eap project
+
+$ oadm policy add-role-to-user edit ops -n ops-custom-eap6-proj
+
+#This command gives the dev user view access to the eap project
+
+$ oadm policy add-role-to-user view dev -n ops-custom-eap6-proj
+
+#This command gives the dev user edit access to the ticket monster image build project
+
+$ oadm policy add-role-to-user edit dev -n ticket-monster-proj
+----
+* This command is key. #It gives the ticket-monseter-proj access to pull the custom image from the eap project#
+[source,]
+----
+$ oc policy add-role-to-group system:image-puller system:serviceaccounts:ticket-monster-proj -n ops-custom-eap6-proj
+----
+
+==== Login and create the App
+
+* Log in as the ops user and create the application, ...let it complete  
+[source,bash]
+----
+$ oc login -u ops  
+$ oc new-app http://registry.access.redhat.com/jboss-eap-6/eap-openshift~https://github.com/themoosman/ops-custom-eap6.git --name=ops-custom-eap6
+
+----
+
+* Login as the dev user and create the app, using the image created by the eap project
+
+[source,bash]
+----
+$ oc login -u dev  
+$ oc new-app ops-custom-eap6-proj/ops-custom-eap6:latest~https://github.com/themoosman/ticket-monster-ose-s2i-build.git --name=ticket-monster && \
+oc expose service ticket-monster --name=ticket-monster-route --hostname=<Add Hostname Here>
+----
+=== Demo Setup Commands -The “group” method
+
+This method creates two users and two groups
+
+* On the master logged in as system:admin issue the following commands
+
+[source,]
+----
+
+#Give tsar cluster admin privileges, ops gets edit privileges
+
+$ oadm policy add-cluster-role-to-user cluster-admin tsar
+
+
+#Create new groups (ops-edit, dev-view, dev-edit)
+
+$ oadm groups new ops-edit
+
+$ oadm groups new dev-view
+
+$ oadm groups new dev-edit
+
+
+# Add users to the groups
+
+$ oadm groups add-users ops-edit ops && \
+
+oadm groups add-users dev-view dev && \
+
+oadm groups add-users dev-edit dev
+
+
+#Grant access to the different groups
+#This command gives the ops-edit group edit access to the eap project
+
+$ oadm policy add-role-to-group edit ops-edit -n ops-custom-eap6-proj
+
+
+#This command gives the dev-view group view access to the eap project
+
+$ oadm policy add-role-to-group view dev-view -n ops-custom-eap6-proj
+
+
+#This command gives the dev-edit group edit access to the ticket monster image build project
+
+$ oadm policy add-role-to-group edit dev-edit -n ticket-monster-proj
+
+
+#This command is key. 
+#It gives the ticket-monster-proj access to pull the custom image from the eap project
+
+$ oc policy add-role-to-group system:image-puller system:serviceaccounts:ticket-monster-proj -n ops-custom-eap6-proj
+
+
+#View the final roles
+
+$ oc describe policyBindings :default -n ops-custom-eap6-proj
+$ oc describe policyBindings :default -n ticket-monster-proj
+
+----
+
+==== Login and create the App
+* Log in as the ops user and create the application, ...let it complete  
+[source,bash]
+----
+$ oc login -u ops  
+$ oc new-app http://registry.access.redhat.com/jboss-eap-6/eap-openshift~https://github.com/themoosman/ops-custom-eap6.git --name=ops-custom-eap6
+
+----
+
+* Login as the dev user and create the app, using the image created by the eap project
+
+[source,]
+----
+$ oc login -u dev  
+$ oc new-app ops-custom-eap6-proj/ops-custom-eap6:latest~https://github.com/themoosman/ticket-monster-ose-s2i-build.git --name=ticket-monster && \
+oc expose service ticket-monster --name=ticket-monster-route --hostname=<Add Hostname Here>
+----
+
+<<<
+
+== Appendix A: Trello Project Card
+
+Trello project card.
+
+image:trello-card.png[trello-card.png]
+
+<<<
+
+== Appendix B: Karl's Designs
+
+Ops / Dev OSE Process Flow.
+
+image:Ops-Dev-OSE-Flow-Slide-v2.png[Ops-Dev-OSE-Flow-Slide-v2.png]
+
+OSE Project and Image Security Access.
+
+image:Project-Image-Access-For-Demo-v2.png[Project-Image-Access-For-Demo-v2.png]
+
+
