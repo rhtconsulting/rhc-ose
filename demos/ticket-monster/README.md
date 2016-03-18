@@ -7,7 +7,7 @@ This demonstration describes the process for building and deploying Ticket-Monst
 ## Table of Contents
 
 * [Overview](#overview)
-* [Bill of Material](#bill-of-materials)
+* [Bill of Materials](#bill-of-materials)
 	* [Environment Specifications](#environment-specifications)
 	* [Template Files](#template-files)
 	* [Config Files](#config-files)
