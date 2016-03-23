@@ -47,8 +47,8 @@ None
 ### External Source Code Repositories
 
 * [Ticket Monster](https://github.com/jboss-developer/ticket-monster) -  Public repository for the Ticket Monster application, used to generate war artifact.  
-* [Ops Repo - EAP6 Customization](https://github.com/themoosman/ops-custom-eap6) -  Public repository that holds configuration information (Infrastructure as Code) used to generate (in our case) a custom EAP6 image.
-* [Ticket Monster s2i Image Build](https://github.com/themoosman/ticket-monster-ose-s2i-build) - Public repository that holds the scripts (s2i) used to consume development artifacts (war) and create a docker image.
+* [Ops Repo - EAP6 Customization](https://github.com/rhtconsulting/ops-custom-eap6) -  Public repository that holds configuration information (Infrastructure as Code) used to generate (in our case) a custom EAP6 image.
+* [Ticket Monster s2i Image Build](https://github.com/rhtconsulting/ticket-monster-ose-s2i-build) - Public repository that holds the scripts (s2i) used to consume development artifacts (war) and create a docker image.
 
 
 ## Setup Instructions
@@ -134,7 +134,7 @@ oc login -u ops
 
 Create the Ops application
 ```bash
-oc new-app registry.access.redhat.com/jboss-eap-6/eap-openshift~http://github.com/themoosman/ops-custom-eap6.git --name=ops-custom-eap6
+oc new-app registry.access.redhat.com/jboss-eap-6/eap-openshift~http://github.com/rhtconsulting/ops-custom-eap6.git --name=ops-custom-eap6
 ```
 
 Launch a web browser and navigate to the OSE login page.  Login as `ops` and monitor the image build and deploy.  
@@ -148,7 +148,7 @@ oc login -u dev
 Create the app, using the image created by the `ops-custom-eap6` project
 ```bash
 oc project ticket-monster-proj && \
-oc new-app ops-custom-eap6-proj/ops-custom-eap6:latest~http://github.com/themoosman/ticket-monster-build.git --name=ticket-monster && \
+oc new-app ops-custom-eap6-proj/ops-custom-eap6:latest~http://github.com/rhtconsulting/ticket-monster-build.git --name=ticket-monster && \
 oc expose service ticket-monster --name=ticket-monster-route --hostname=ticket-monster.[Enter Hostname]
 ```
 
@@ -159,7 +159,7 @@ As the `dev` user open the `ops-custom-eap6-proj` and demonstrate how the `dev` 
 Launch a web browser and navigate to the OSE login page.  Login as `tsar` and show how this user has full access to both projects.
 
 
-## Presenter Notes
+### Points of emphasis
 
 * Make sure to login as each of the three users to demonstrate that security if fully functional.
 * When discussing security make sure to acknowledge that security is implemented using htpass.  However, since groups are used a transition to LDAP is possible by using groups that already exist in the LDAP environment.  
