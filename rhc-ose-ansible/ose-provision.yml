@@ -3,6 +3,8 @@
 - hosts: localhost
   pre_tasks:
   - include: roles/common/pre_tasks/pre_tasks.yml
+  - include: roles/subscription-manager/pre_tasks/pre_tasks.yml
+  - include: roles/openstack-create/pre_tasks/pre_tasks.yml
   roles:
     - role: common
     - role: openshift-common
@@ -34,4 +36,5 @@
     - openshift_masters
     - openshift_nodes
   roles:
+    - { role: subscription-manager, when: not hostvars.localhost.rhsm_skip, tags: 'subscription-manager' }
     - openshift-provision
