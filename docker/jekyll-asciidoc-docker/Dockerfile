@@ -15,15 +15,15 @@ ADD bin/start.sh /home/builder/
 RUN echo "export BUNDLE_PATH=/home/builder/bundle" >> /home/builder/.bash_profile; \
     ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N ''; \
     chown builder:builder /home/builder/start.sh; \
-    curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.29.0/install.sh | bash; \
+    curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.0/install.sh | bash; \
 	bash -c "source /root/.nvm/install.sh"; \
 	gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3; \
 	curl -sSL https://get.rvm.io | bash -s stable; \
 	source /etc/profile.d/rvm.sh;
 	
 RUN	/bin/bash -l -c "rvm requirements"; 
-RUN	/bin/bash -l -c "rvm install 2.2.1";
-RUN	/bin/bash -l -c "rvm use 2.2.1";
+RUN	/bin/bash -l -c "rvm install 2.3.0";
+RUN	/bin/bash -l -c "rvm use 2.3.0";
 RUN	/bin/bash -l -c "rvm rubygems latest";
 RUN /bin/bash -l -c "gem install bundler";
 
