@@ -1,0 +1,84 @@
+#!/bin/bash --
+
+#
+#   Copyright 2015 Red Hat Inc.
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+#
+
+#
+# osc-create-rootCAs - Used to create a new rootCA
+#
+# Usage: See usage function below
+#
+
+# Constants
+KEY_LENGTH=2048
+KEY_FILE_NAME="rootCA.key"
+
+CA_FILE_NAME="rootCA.pem"
+CA_DAYS=3650
+CA_COUNTRY="US"
+CA_STATE="NC"
+CA_CITY="Raleigh"
+CA_ORG="RHC"
+CA_ORG_UNIT="CASL"
+CA_CN="CASL CA"
+CA_E_MAIL="casl@example.com"
+
+
+
+# Show script usage
+usage() {
+  echo "
+  Usage: $0 [--debug]
+
+  This command will generate rootCA.key and rootCA.pem in your current directory.
+
+  Options:
+  --debug                       : Will add -x to all bash commands
+  "
+}
+
+
+# Process input
+for i in "$@"
+do
+  case $i in
+    --debug)
+      set -x;
+      bash_opts=" -x"
+      shift;;
+    --help)
+      usage
+      exit 0;;
+    *)
+      echo "Invalid Option: ${i%=*}"
+      exit 1;
+      ;;
+  esac
+done
+
+
+# First generate the key
+echo "Generating the root CA key"
+openssl genrsa -out ${KEY_FILE_NAME} ${KEY_LENGTH} 
+
+# Generate rootCA and self-sign it
+echo "Generating the root CA cert"
+openssl req -x509 -new -nodes -key rootCA.key -sha256 -days ${CA_DAYS} -subj "/C=${CA_COUNTRY}/ST=${CA_STATE}/L=${CA_CITY}/O=${CA_ORG}/OU=${CA_ORG_UNIT}/CN=${CA_CN}/emailAddress=${CA_E_MAIL}" -out ${CA_FILE_NAME} 
+
+echo "Done!"
+
+
+

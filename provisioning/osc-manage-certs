@@ -1,0 +1,115 @@
+#!/bin/bash --
+
+#
+#   Copyright 2015 Red Hat Inc.
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+#
+
+#
+# osc-manage-certs - Used to manage Certificates 
+#
+# Usage: See usage function below
+#
+
+# CONSTANTS
+KEY_LENGTH=2048
+CERT_DAYS=730 # 2 years 
+
+
+# Show script usage
+usage() {
+  echo "
+  Usage: $0 [--ca_cert=<path> --ca_key=<path>] --country=<country> --state=<state> --loc=<locality|city> --org=<organization> --org_unit=<organization unit> --cn=<Common Name> --email=<e-mail address>
+
+  If no ca_cert is provided, it is expected to be found in current directory and named rootCA.pem / rootCA.key
+
+  Options:
+  --debug                       : Will add -x to all bash commands
+  --ca_cert			: Path to the rootCA file
+  --ca_key			: Path to the rootCA key file
+ All options below are values to be used for the new certificate:
+  --country			: Country
+  --state			: State or Province
+  --loc				: Locality or City
+  --org				: Organization 
+  --org_unit			: Organization Unit
+  --cn				: Common name (e.g.: FQDN)
+  --email			: E-mail address
+  "
+}
+
+
+
+# Process input
+for i in "$@"
+do
+  case $i in
+    --ca_cert)
+      ca_cert_path="${i#*=}"
+      shift;;
+    --ca_key)
+      ca_key_path="${i#*=}"
+      shift;;
+    --country=*)
+      cert_country="${i#*=}"
+      shift;;
+    --state=*)
+      cert_state="${i#*=}"
+      shift;;
+    --loc=*)
+      cert_loc="${i#*=}"
+      shift;;
+    --org=*)
+      cert_org="${i#*=}"
+      shift;;
+    --org_unit=*)
+      cert_org_unit="${i#*=}"
+      shift;;
+    --cn=*)
+      cert_cn="${i#*=}"
+      shift;;
+    --email=*)
+      cert_email="${i#*=}"
+      shift;;
+    --debug)
+      set -x;
+      bash_opts=" -x"
+      shift;;
+    --help)
+      usage
+      exit 0;;
+    *)
+      echo "Invalid Option: ${i%=*}"
+      exit 1;
+      ;;
+  esac
+done
+
+[ -z "${ca_cert_path}" ] && ca_cert_path="rootCA.pem" && ca_key_path="rootCA.key"
+
+
+# First generate the key
+echo "Generating key for $cn"
+openssl genrsa -out ${cert_cn}.key ${KEY_LENGTH}
+
+# Generate the CSR
+echo "Generating the Certificate Signing Request (CSR)"
+openssl req -new -key ${cert_cn}.key -out ${cert_cn}.csr -subj "/C=${cert_country}/ST=${cert_state}/L=${cert_loc}/O=${cert_org}/OU=${cert_org_unit}/CN=${cert_cn}/emailAddress=${cert_email}"
+
+# Generate the certifcate and sign-it
+echo "Generating the certificate (and signing it with the root CA)"
+openssl x509 -req -in ${cert_cn}.csr -CA ${ca_cert_path} -CAkey ${ca_key_path} -CAcreateserial -out ${cert_cn}.crt -days ${CERT_DAYS} -sha256 
+
+echo "Done!"
+
