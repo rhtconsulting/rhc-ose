@@ -35,7 +35,8 @@ usage() {
   Usage: $0 [options]
 
   Options:
-  --num-nodes=<integer>         : Number of Nodes to provision
+  --num-nodes=<integer>         : Number of node instances to provision
+  --num-etcd=<integer>          : Number of etcd instances to provision
   --config=<path>               : Path to a config file for defining the environment
   --no-install                  : Provision instances and sync keys, but do not run the OpenShift installer
   --keep-util-host              : Keep Utility Host around after the execution has completed
@@ -89,7 +90,6 @@ install_cicd() {
       sync_files "${CONF_CICD_NEXUS_CONFIG_FILES//,/ }" "${cicd_public}"
   fi
 
-
   # Copy Java Certificates Files
   if [ -n "${CONF_JAVA_CERTS}" ]; then
 	  sync_files "${CONF_JAVA_CERTS//,/ }" "${cicd_public}"
@@ -115,7 +115,7 @@ install_openshift() {
   ${SSH_CMD} root@${utility_public} "awk -F'=' '/${OPENSHIFT_NODE_SERVICE}/ {print \"openshift_node_service=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
   ${SSH_CMD} root@${utility_public} "awk -F'=' '/${OPENSHIFT_IDENTITY_PROVIDER_JSON}/ {print \"openshift_identity_provider_json=\"\$2}' ~/${REPO_BASE_NAME}/provisioning/lib/constants >> ~/${REPO_BASE_NAME}/provisioning/lib/constants"
 
-  ${SSH_CMD} root@${utility_public} "$CONF_ENVIRONMENT bash${bash_opts} ~/${REPO_BASE_NAME}/provisioning/osc-install -m='${master_ip}' -n='${node_ips//$'\n'/,}' -a='prep,dns,install,post'"
+  ${SSH_CMD} root@${utility_public} "$CONF_ENVIRONMENT bash${bash_opts} ~/${REPO_BASE_NAME}/provisioning/osc-install -m='${master_ip}' -e='${etcd_ips//$'\n'/,}' -n='${node_ips//$'\n'/,}' -a='prep,dns,install,post'"
 }
 
 random_string() {
@@ -137,12 +137,11 @@ provision_cicd() {
   fi
 
   FINAL_OUTPUT="CICD Server: $cicd_ip"
-
 }
 
 provision_openshift() {
   if [ -z $num_of_nodes ]; then
-    echo "Missing argument: --num-nodes <integer>"
+    echo "Missing argument: --num-nodes=<integer>"
     usage
     exit 1;
   fi
@@ -154,16 +153,28 @@ provision_openshift() {
   echo "Provisioning master. This could take several minutes."
   master_ip=$(provision_masters) || error_out "Provisioning Failed." $ERROR_CODE_PROVISION_FAILURE
   echo "Complete!"
+  if $etcd_on_master; then
+    num_etcd_instances=$(( $num_of_etcd-1 ))
+  else
+    num_etcd_instances=${num_of_etcd}
+    echo "etcd will NOT be on master"
+  fi
+  if [[ $num_etcd_instances > 0 ]]; then
+    echo "Provisioning $num_etcd_instances etcd. This could take several minutes."
+    etcd_ips=$(provision_etcds) || error_out "Provisioning Failed." $ERROR_CODE_PROVISION_FAILURE
+    echo "Complete!"
+  fi
   echo "Provisioning $num_of_nodes nodes. This could take several minutes."
   node_ips=$(provision_nodes) || error_out "Provisioning Failed." $ERROR_CODE_PROVISION_FAILURE
   echo "Complete!"
 
   utility_public=$(get_public_ips "${utility_ip}")
   master_public=$(get_public_ips "${master_ip}")
+  etcd_publics=$(get_public_ips "${etcd_ips//$'\n'/,}")
   node_publics=$(get_public_ips "${node_ips//$'\n'/,}")
 
   # Sync SSH keys
-  ${SCRIPT_BASE_DIR}/osc-sync-keys -m="${utility_public}" -n="${master_public},${node_publics}"
+  ${SCRIPT_BASE_DIR}/osc-sync-keys -m="${utility_public}" -e="${etcd_publics}" -n="${master_public},${node_publics}"
   [ $? -eq 0 ] || error_out "Key Sync Failed."
 
   if $master_is_node; then
@@ -174,6 +185,10 @@ provision_openshift() {
   # Sync user file to instances
   if [ -n "${OPENSHIFT_MASTER_FILES}" ]; then
     sync_files "${OPENSHIFT_MASTER_FILES}" "${master_public}"
+  fi
+
+  if [ -n "${OPENSHIFT_ETCD_FILES}" ]; then
+    sync_files "${OPENSHIFT_ETCD_FILES}" "${etcd_publics}"
   fi
 
   if [ -n "${OPENSHIFT_NODE_FILES}"]; then
@@ -198,6 +213,14 @@ provision_openshift() {
 Master:
   - Hostname: $( get_hostnames $master_public $OPENSHIFT_BASE_DOMAIN $dns_server)
   - IPs: ${master_ip}
+Etcd: "
+  for etcd in ${etcd_ips//$'\n'/ }; do
+    FINAL_OUTPUT="${FINAL_OUTPUT}
+  - Etcd
+  -- Hostname: $(get_hostnames $(get_public_ips ${etcd}) $OPENSHIFT_BASE_DOMAIN $dns_server)
+  -- IPs: ${etcd}"
+  done
+  FINAL_OUTPUT="${FINAL_OUTPUT}
 Nodes: "
   for node in ${node_ips//$'\n'/ }; do
     FINAL_OUTPUT="${FINAL_OUTPUT}
@@ -249,6 +272,21 @@ provision_masters() {
   $command || error_out "Master Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
 }
 
+provision_etcds() {
+  instance_name="etcd-${ENV_ID}"
+  command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
+  --instance-name ${instance_name} \
+  --key ${key} \
+  --flavor ${OS_FLAVOR} \
+  --image-name ${IMAGE_NAME} \
+  --security-groups ${SECURITY_GROUP_MASTER} \
+  --num-instances $num_etcd_instances \
+  --add-volume ${VOLUME_SIZE} \
+  --n \
+  --debug"
+  $command || error_out "Etcd Provision failed. See log at ${LOGFILE}." ${ERROR_CODE_PROVISION_FAILURE}
+}
+
 provision_nodes() {
   instance_name="node-${ENV_ID}"
   command="${SCRIPT_BASE_DIR}/${platform}/provision.sh \
@@ -272,6 +310,9 @@ do
   case $i in
     --num-nodes=*)
       num_of_nodes="${i#*=}"
+      shift;;
+    --num-etcd=*)
+      num_of_etcd="${i#*=}"
       shift;;
     --config=*)
       process_configfile "${i#*=}"
@@ -320,8 +361,10 @@ OS_FLAVOR=${CONF_OS_FLAVOR:-$os_flavor}
 PROVISION_COMPONENTS=${CONF_PROVISION_COMPONENTS:-$provision_components}
 VOLUME_SIZE=${CONF_VOLUME_SIZE:-$storage_volume_size}
 OPENSHIFT_MASTER_FILES="${CONF_OPENSHIFT_MASTER_FILES}"
+OPENSHIFT_ETCD_FILES="${CONF_OPENSHIFT_ETCD_FILES}"
 OPENSHIFT_NODE_FILES="${CONF_OPENSHIFT_NODE_FILES}"
 OPENSHIFT_VERSION="${CONF_OPENSHIFT_VERSION}"
+OPENSHIFT_ETCD_ON_MASTER=${CONF_OPENSHIFT_ETCD_ON_MASTER:-$etcd_on_master}
 
 # Determine version specific details...
 case $CONF_OPENSHIFT_VERSION in

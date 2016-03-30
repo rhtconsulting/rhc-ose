@@ -17,8 +17,10 @@ openshift_master_identity_providers=[{{OPENSHIFT_IDENTITY_PROVIDER_JSON}}]
 [masters]
 {{MASTER_HOSTNAME}} openshift_hostname={{MASTER_HOSTNAME}} openshift_public_hostname={{MASTER_HOSTNAME}} openshift_schedulable=True
 
+# host group for etcd
 [etcd]
 {{MASTER_HOSTNAME}}
+{{ETCDSTRING}}
 
 # host group for nodes
 [nodes]

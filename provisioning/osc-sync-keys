@@ -6,7 +6,7 @@ source ${SCRIPT_BASE_DIR}/lib/constants
 ## Functions
 
 usage() {
-  echo "Usage: $0 -m=|--master=\"<master hostname>\" -n=|--nodes=\"<node1 hostname>,..,<nodeN hostname>\""
+  echo "Usage: $0 -m=|--master=\"<master hostname>\" -e=|--etcd=\"<etcd1 hostname>,..,<etcdN hostname>\" -n=|--nodes=\"<node1 hostname>,..,<nodeN hostname>\""
 }
 
 for i in "$@"
@@ -14,6 +14,10 @@ do
 case $i in
   -m=*|--master=*)
     MASTER="${i#*=}"
+    shift
+    ;;
+  -e=*|--etcd=*)
+    ETCD="${i#*=}"
     shift
     ;;
   -n=*|--nodes=*)
@@ -48,7 +52,7 @@ $SSH_CMD root@${MASTER} 'mkdir -p ~/.ssh'
 echo "${public_key}" | $SSH_CMD root@${MASTER} 'cat  >> ~/.ssh/authorized_keys'
 $SSH_CMD root@${MASTER} 'chmod 700 ~/.ssh; chmod 600 ~/.ssh/*'
 
-for node in ${NODES//,/ }; do
+for node in ${NODES//,/ } ${ETCD//,/ }; do
   echo -n "Pushing key for node ${node}..."
   $SSH_CMD root@${node} 'mkdir -p ~/.ssh'
   echo "${public_key}" | $SSH_CMD root@${node} 'cat  >> ~/.ssh/authorized_keys'
