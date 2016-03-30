@@ -159,12 +159,11 @@ validate_ssh() {
 ## Action functions
 do_prep() {
   echo "Beginning action: Prep"
-  subscription-manager refresh &>/dev/null || error_out "Failed to run 'subscription-manager refresh' during Prep phase."
   yum clean all
   yum -y update &>/dev/null || error_out "Failed to run yum update during Prep phase."
 
   for host in $(get_private_ips ${NODES} | sed 's/,/ /g'); do
-    ${SSH_CMD} root@${host} "subscription-manager refresh; yum clean all; yum update -y"
+    ${SSH_CMD} root@${host} "yum clean all; yum update -y"
   done
 }
 
