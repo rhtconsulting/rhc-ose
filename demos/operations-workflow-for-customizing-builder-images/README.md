@@ -19,15 +19,15 @@ This demonstration describes how Dev code and Ops code are merged in the build p
 
 
 
-##Overview
+## Overview
 
-The demo aims to show how the Ops group can customize an external image (Red Hat JBoss Enterprise Application Platform (EAP) 6) and then have that image used by development.  The following diagram shows that process at a high level.  The demo 
+The demo aims to show how the Ops group can customize an external image (Red Hat JBoss Enterprise Application Platform (EAP) 6) and then have that image used by development.  The following diagram shows that process at a high level.  The demo
 ![Demo Overview](images/demo-overview.png "Demo Overview")
 
 The demo also includes a basic security outline on groups can control access to both the Ops and Development projects.  The following diagram show the security model that's utilized in the demo.  
 ![Security Overview](images/security-overview.png "Security Overview")
 
-*The full presentation deck is included in the Git repo.* 
+*The full presentation deck is included in the Git repo.*
 
 
 ## Bill of Materials
@@ -54,8 +54,8 @@ None
 ## Setup Instructions
 
 There are two general requirement for this demo.
-[1]: The presenter should have an OpenShift Enterprise 3 environment available and the OpenShift Command Line Tools installed on their machine
-[2]: A Jenkins server (or other artifact repository) is required to host the development artifact (war)
+1. The presenter should have an OpenShift Enterprise 3 environment available and the OpenShift Command Line Tools installed on their machine
+2. A Jenkins server (or other artifact repository) is required to host the development artifact (war)
 
 ## Presenter Notes
 
@@ -142,7 +142,7 @@ oc new-app registry.access.redhat.com/jboss-eap-6/eap-openshift~http://github.co
 Launch a web browser and navigate to the OSE login page.  Login as `ops` and monitor the image build and deploy.  
 
 
-Login as the `dev` user 
+Login as the `dev` user
 ```bash
 oc login -u dev
 ```
