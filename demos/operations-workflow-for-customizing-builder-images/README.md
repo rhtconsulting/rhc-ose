@@ -21,7 +21,7 @@ This demonstration describes how Dev code and Ops code are merged in the build p
 
 ##Overview
 
-The demo aims to show how the Ops group can customize an external image (Red Hat EAP6) and then have that image used by development.  The following diagram shows that process at a high level.  The demo 
+The demo aims to show how the Ops group can customize an external image (Red Hat JBoss Enterprise Application Platform (EAP) 6) and then have that image used by development.  The following diagram shows that process at a high level.  The demo 
 ![Demo Overview](images/demo-overview.png "Demo Overview")
 
 The demo also includes a basic security outline on groups can control access to both the Ops and Development projects.  The following diagram show the security model that's utilized in the demo.  
@@ -54,8 +54,8 @@ None
 ## Setup Instructions
 
 There are two general requirement for this demo.
-1. The presenter should have an OpenShift Enterprise 3 environment available and the OpenShift Command Line Tools installed on their machine
-2. A Jenkins server (or other artifact repository) is required to host the development artifact (war)
+[1]: The presenter should have an OpenShift Enterprise 3 environment available and the OpenShift Command Line Tools installed on their machine
+[2]: A Jenkins server (or other artifact repository) is required to host the development artifact (war)
 
 ## Presenter Notes
 
@@ -66,20 +66,22 @@ The following steps are to be used to demonstrate how Dev code and Ops code are 
 
 In the demo 3 separate users will be need.  
 
-Create `tsar`, who will be the cluster admin
+Create `tsar`, who will be the cluster admin.  *This action must be performed on all masters in the cluster.*
 ```bash
 htpasswd /etc/origin/htpasswd tsar
 ```
 
-Create a `dev` user
+Create a `dev` user.  *This action must be performed on all masters in the cluster.*
 ```bash
 htpasswd /etc/origin/htpasswd dev
 ```
 
-Create the `ops` user
+Create the `ops` user. *This action must be performed on all masters in the cluster.*
 ```bash
 htpasswd /etc/origin/htpasswd ops
 ```
+
+**All the commands below need to be run on any master in the cluster.**
 
 Login as the `system:admin` user
 ```bash
@@ -134,7 +136,7 @@ oc login -u ops
 
 Create the Ops application
 ```bash
-oc new-app registry.access.redhat.com/jboss-eap-6/eap-openshift~http://github.com/rhtconsulting/ops-custom-eap6.git --name=ops-custom-eap6
+oc new-app registry.access.redhat.com/jboss-eap-6/eap-openshift~http://github.com/rhtconsulting/ops-custom-eap6.git --name=ops-custom-eap6 --namespace=ops-custom-eap6-proj
 ```
 
 Launch a web browser and navigate to the OSE login page.  Login as `ops` and monitor the image build and deploy.  
