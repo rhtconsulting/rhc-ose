@@ -54,6 +54,7 @@ None
 ## Setup Instructions
 
 There are two general requirement for this demo.
+
 1. The presenter should have an OpenShift Enterprise 3 environment available and the OpenShift Command Line Tools installed on their machine
 2. A Jenkins server (or other artifact repository) is required to host the development artifact (war)
 
