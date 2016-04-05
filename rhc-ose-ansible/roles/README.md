@@ -7,7 +7,7 @@ Below are the variables[Required and Optional] for each of the defined roles. Th
 ###dns
 
   - Required
-    -
+    - var
     -
     -
   - Optional
