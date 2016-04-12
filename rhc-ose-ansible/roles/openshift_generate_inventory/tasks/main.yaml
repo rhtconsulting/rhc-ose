@@ -1,0 +1,5 @@
+---
+  - name: "Creating template"
+    template: "dest=/tmp/inventory_{{ env_id }} src={{ role_path }}/templates/inventory_template.j2"
+#    - include: /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml
+#     when: ose_install | default(true) | bool

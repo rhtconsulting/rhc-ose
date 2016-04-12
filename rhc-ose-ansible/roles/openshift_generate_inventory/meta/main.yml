@@ -1,0 +1,6 @@
+#---
+#Commented out for testing
+#dependencies:
+#  - { role: openshift_common }
+#  - { role: common }
+  

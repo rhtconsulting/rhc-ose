@@ -1,0 +1,23 @@
+---
+- hosts: localhost
+  vars_prompt:
+    - name: "inv_cluster_method"
+      prompt: "Enter Clustering method"
+      default: "native"
+      
+    - name: "inv_cluster_public_hostname"
+      prompt: "Enter cluster public hostname"
+
+    - name: "inv_cluster_hostname"
+      prompt: "Enter cluster hostname"
+
+    - name: "inv_ssh_user"
+      prompt: "Ansible ssh user"
+      default: "root"
+
+    - name: "inv_identity_provider"
+      prompt: "Enter identity provider string"
+      default: "{{ htpasswd }}"
+
+  roles:
+    - role: openshift_generate_inventory
