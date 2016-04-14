@@ -4,19 +4,22 @@
 [OSEv3:children]
 masters
 nodes
+{% if groups['openshift_etcds'] is defined %}
 etcd
+{% endif %}
+{% if groups['openshift_lbs'] is defined %}
 lb
+{% endif %}
 
 # Set variables common for all OSEv3 hosts
 [OSEv3:vars]
-ansible_ssh_user={{ inv_ssh_user }}
+ansible_ssh_user={{ inv_ssh_user | default("root") }}
 deployment_type=openshift-enterprise
-
 
 # Uncomment the following to enable htpasswd authentication; defaults to
 # DenyAllPasswordIdentityProvider.
 #openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '/etc/origin/master/htpasswd'}]
-openshift_master_identity_providers={{ inv_identity_provider }}
+openshift_master_identity_providers={{ inv_identity_provider | default( htpasswd ) }}
 
 # Native high availbility cluster method with optional load balancer.
 # If no lb group is defined installer assumes that a load balancer has
@@ -36,26 +39,23 @@ openshift_master_cluster_public_hostname={{ inv_cluster_public_hostname }}
 {% for inv_master in groups['openshift_masters'] %}
 {{ inv_master }}
 {% endfor %}
+{% if groups['openshift_etcds'] is defined %}
 
 # host group for etcd
 [etcd]
-{% if openshift_etcds is defined %}
 {% for inv_etcd in groups['openshift_etcds'] %}
 {{ inv_etcd }}
 {% endfor %}
-{% else %}
-{% for inv_master in groups['openshift_masters'] %}
-{{ inv_master }}
-{% endfor %}
 {% endif %}
+{% if groups['openshift_lbs'] is defined %}
 
 # Specify load balancer host
 [lb]
-{% if openshift_lbs is defined %}
-{% for inv_lbs in groups['lbs'] %}
+{% for inv_lbs in groups['openshift_lbs'] %}
 {{ inv_lbs }}
 {% endfor %}
 {% endif %}
+
 # host group for nodes, includes region info
 [nodes]
 {% for inv_master in groups['openshift_masters'] %}

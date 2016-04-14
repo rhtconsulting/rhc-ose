@@ -1,7 +1,6 @@
 [all:vars]
-
 # Enter the security key to provision new OpenStack instances
-openstack_key_name=""
+openstack_key_name="jkwiatko"
 
 # The following variables can be used to override the defaults
 #openshift_master_count=1
@@ -9,9 +8,15 @@ openstack_key_name=""
 #openshift_storage_disk_volume=/dev/vdb
 #openstack_flavor_name="m1.medium"
 #openstack_image_name="ose3_1-base"
-#openshift_openstack_master_storage_size: 10
-#openshift_openstack_node_storage_size: 10
-
+#openshift_openstack_master_storage_size=10
+#openshift_openstack_node_storage_size=10
+#env_id=
+inv_cluster_method=native
+inv_cluster_public_hostname=public.hostname.com
+inv_cluster_hostname=hostname.com
+#inv_ssh_user=root
+#inv_identity_provider=htpasswd
+deployment_type=openshift-enterprise
 
 # This is the ose3 inventory file...
 [ose3]
