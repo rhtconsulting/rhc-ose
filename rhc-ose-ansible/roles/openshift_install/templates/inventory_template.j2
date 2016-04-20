@@ -13,13 +13,13 @@ lb
 
 # Set variables common for all OSEv3 hosts
 [OSEv3:vars]
-ansible_ssh_user={{ inv_ssh_user | default("root") }}
+ansible_ssh_user={{ rhc_ose_ssh_user | default("root") }}
 deployment_type=openshift-enterprise
 
 # Uncomment the following to enable htpasswd authentication; defaults to
 # DenyAllPasswordIdentityProvider.
 #openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '/etc/origin/master/htpasswd'}]
-openshift_master_identity_providers={{ inv_identity_provider | default( htpasswd ) }}
+openshift_master_identity_providers={{ rhc_ose_identity_provider | default( htpasswd ) }}
 
 # Native high availbility cluster method with optional load balancer.
 # If no lb group is defined installer assumes that a load balancer has
@@ -27,9 +27,9 @@ openshift_master_identity_providers={{ inv_identity_provider | default( htpasswd
 # openshift_master_cluster_hostname must resolve to the load balancer
 # or to one or all of the masters defined in the inventory if no load
 # balancer is present.
-openshift_master_cluster_method={{ inv_cluster_method }}
-openshift_master_cluster_hostname={{ inv_cluster_hostname }}
-openshift_master_cluster_public_hostname={{ inv_cluster_public_hostname }}
+openshift_master_cluster_method={{ rhc_ose_cluster_method }}
+openshift_master_cluster_hostname={{ rhc_ose_cluster_hostname }}
+openshift_master_cluster_public_hostname={{ rhc_ose_cluster_public_hostname }}
 
 # override the default controller lease ttl
 #osm_controller_lease_ttl=30
