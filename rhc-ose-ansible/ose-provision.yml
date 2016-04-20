@@ -4,6 +4,7 @@
   pre_tasks:
   - include: roles/openstack-create/pre_tasks/pre_tasks.yml
   - include: roles/common/pre_tasks/pre_tasks.yml
+  - include: roles/subscription-manager/pre_tasks/pre_tasks.yml
   roles:
     - role: common
     - role: openshift-common
@@ -35,4 +36,5 @@
     - openshift_masters
     - openshift_nodes
   roles:
+    - { role: subscription-manager, when: hostvars.localhost.rhsm_register, tags: 'subscription-manager', ansible_sudo: true }
     - openshift-provision
