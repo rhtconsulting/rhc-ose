@@ -12,7 +12,7 @@ openstack_key_name=""
 #openshift_openstack_master_storage_size: 10
 #openshift_openstack_node_storage_size: 10
 
-env_id=johntest
+#env_id=
 rhc_ose_inv_dest=.
 rhc_ose_cluster_method=native
 rhc_ose_cluster_public_hostname=public.hostname.com

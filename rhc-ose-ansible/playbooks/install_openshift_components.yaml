@@ -1,5 +1,8 @@
 ---
   - hosts: openshift_masters[0]
     roles:
-      - { role: openshift_hosted_logging,  when: rhc_ose_enable_efk == true }
-      - { role: openshift_metrics, openshift_hosted_metrics_deploy=True when: rhc_ose_enable_hawkular == true }
+      - { role: openshift_hosted_logging,
+          when: rhc_ose_enable_efk == true }
+      - { role: openshift_metrics,
+          openshift_hosted_metrics_deploy: "true",
+          when: rhc_ose_enable_hawkular == true }
