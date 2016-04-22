@@ -1,0 +1,20 @@
+---
+- name: "Installing Dependancies"
+  action: "{{ ansible_pkg_mgr }} name={{item}} state=present"
+  with_item:
+    - python-pip
+    - httpd-tools
+
+- name: "Install python dependencies"
+  pip: name=passlib
+
+- name: Create htpasswd file
+  htpasswd:
+    create: yes
+    state: present
+    path: "{{ htpasswd_file}}"
+    name: "{{ item.0 }}"
+    password: "{{ item.1 }}"
+  with_together:
+    - "{{ users }}"
+    - "{{ passwds}}"
