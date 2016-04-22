@@ -1,9 +1,10 @@
 ---
-- name: "Installing Dependancies"
-  action: "{{ ansible_pkg_mgr }} name={{item}} state=present"
-  with_item:
+- name: "Installing Dependencies"
+  action: "{{ ansible_pkg_mgr }} name={{ item }} state=present"
+  with_items:
     - python-pip
     - httpd-tools
+    - python
 
 - name: "Install python dependencies"
   pip: name=passlib
