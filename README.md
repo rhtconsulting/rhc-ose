@@ -20,6 +20,10 @@ Collection of scripts used for provisioning OpenShift Environments.
 
 See [Provisioning Documentation](provisioning/README.adoc) for more details.
 
+## Authentication Helper Scripts
+
+- oc-login-pki.sh : a simple "oc login" wrapper script that uses a RequestHeader "Challenging Proxy" setup with x509/PKI certificates (passwordless) for authentication [detailed here](https://docs.openshift.com/enterprise/3.1/install_config/configuring_authentication.html#RequestHeaderIdentityProvider)
+
 ## Contributing
 
 See our [Contribution Guide](./CONTRIBUTING.md) for details on how to contribute.
