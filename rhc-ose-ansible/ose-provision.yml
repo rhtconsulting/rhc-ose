@@ -27,11 +27,58 @@
       register_host_group: "openshift_nodes"
       node_count: "{{ openshift_node_count }}"
       disk_volume: "{{ openshift_storage_disk_volume }}"
-      volume_size: "{{ openshift_openstack_master_storage_size }}"      
+      volume_size: "{{ openshift_openstack_master_storage_size }}"
+
+    # Provision DNS
+
+- include: playbooks/dns-provision.yaml
+
+- hosts: all:!dns:!localhost
+  remote_user: "cloud-user"
+  become: true
+  become_method: sudo
+  become_user: root
+  vars:
+    ansible_ssh_user: cloud-user
+    ansible_user: cloud-user
+  roles:
+    - role: hostnames
+
+- hosts: all:!localhost
+  remote_user: "cloud-user"
+  become: true
+  vars:
+    ansible_ssh_user: cloud-user
+    ansible_user: cloud-user
+  roles:
+    - { role: subscription-manager, repos: ["rhel-7-server-rpms", "rhel-7-server-ose-3.1-rpms", "rhel-7-server-extras-rpms"] }
+
+- hosts: dns
+  remote_user: "cloud-user"
+  become: true
+  vars:
+    ansible_ssh_user: cloud-user
+    ansible_user: cloud-user
+  pre_tasks:
+    - name: "Generate dns-server views"
+      include: playbooks/dns_dual_view.yaml
+      delegate_to: localhost
+
+    - name: "Include the generated views"
+      include_vars: /tmp/named_views.yaml
+      delegate_to: localhost
+
+    - name: "Include generated dns records"
+      include: /tmp/records.yaml
+
+  roles:
+    - role: dns-server
+    - role: dns
+
 
 # Install and configure OpenShift
-- hosts:
-    - openshift_masters
-    - openshift_nodes
-  roles:
-    - openshift-provision
+# - hosts:
+#     - openshift_masters
+#     - openshift_nodes
+#   roles:
+#     - role: subscription-manager
