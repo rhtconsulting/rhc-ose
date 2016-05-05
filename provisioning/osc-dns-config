@@ -63,6 +63,7 @@ function usage()
 {
   echo "Usage: "
   echo "  $0 -m=|--master=\"<master1 private ip|master1 public ip>,...,<masterN private ip|masterN public ip>\""
+  echo "                   -e=|--etcd=\"<etcd1 private ip|etcd1 public ip>,...,<etcdN private ip|etcdN public ip>\""
   echo "                   -n=|--nodes=\"<node1 private ip|node1 public ip>,...,<nodeN private ip|nodeN public ip>\""
   echo "                   -b=|--base_domain=\"<base domain>\""
   echo "                   -d=|--dns_host=\"<DNS host private ip|DHS host public ip>\""
@@ -71,6 +72,7 @@ function usage()
   echo ""
   echo "  where:"
   echo "    -m|--master      : comma separated list of master instances, private and public IPs separated by '|'"
+  echo "    -e|--etcd        : comma separated list of etcd instances, private and public IPs separated by '|'"
   echo "    -n|--nodes       : comma separated list of node instances, private and public IPs separated by '|'"
   echo "    -b|--base_domain : base DNS domain for use with the master(s) and nodes"
   echo "    -d|--dns_host    : server to use for hosting DNS (bind), private and public IPs separated by '|'"
@@ -391,6 +393,11 @@ do
       shift
     ;;
 
+    -e=*|--etcd=*)
+      ETCD="${i#*=}"
+      shift
+    ;;
+
     -n=*|--nodes=*)
       NODES="${i#*=}"
       shift
@@ -442,6 +449,7 @@ fi
 
 
 IFS=',' read -a masters <<< "${MASTER}"
+IFS=',' read -a etcds <<< "${ETCD}"
 IFS=',' read -a nodes <<< "${NODES}"
 
 dh_private_ip=${DNS_HOST%|*}
@@ -504,6 +512,38 @@ do
   i=$((i+1))
 done
 
+i=
+[ ${#etcds[@]} -gt 1 ] && i=1
+
+for e in "${etcds[@]}"
+do
+  privateip=${e%|*}
+  publicip=${e#*|}
+  if [ -z "${privateip}" -o \
+       -z "${publicip}" ]
+  then
+    echo "Invalid etcd IP combination for ${e}"
+    usage
+    exit 1
+  fi
+
+  echo "DNS : Setting config for etcd - ${privateip}|${publicip} ..."
+
+  prepPTRConfig ${dh_private_ip} ${privateip} ${BASE_DOMAIN} PRIVATE
+  prepPTRConfig ${dh_private_ip} ${publicip} ${BASE_DOMAIN} PUBLIC
+
+  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "etcd${i}" "A"
+  createDNSrecord ${dh_private_ip} ${privateip} ${publicip} "etcd${i}.${BASE_DOMAIN}" "PTR"
+
+  setHostname ${privateip} etcd${i}.${BASE_DOMAIN}
+  sleep 1
+  setDNSservers ${privateip} ${BASE_DOMAIN} ${dh_private_ip}
+
+  subnet=`ipcalc -n "${privateip}/${DEFAULT_SUBNET_SIZE}" | sed -ne 's/NETWORK=\(.*\)/\1/p'`
+  contains "${subnet}" "${A_ACLlist[@]}" || A_ACLlist+=(${subnet})
+
+  i=$((i+1))
+done
 
 i=
 [ ${#masters[@]} -gt 1 ] && i=1
