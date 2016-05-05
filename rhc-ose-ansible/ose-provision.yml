@@ -90,3 +90,4 @@
   roles:
     - { role: docker, tags: 'docker' }
     - { role: openshift-provision, tags: 'openshift-provision', ansible_sudo: true }
+    - { role: openshift-install}
