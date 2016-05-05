@@ -72,10 +72,10 @@ function check_prereqs() {
 function install_prereqs() {
 	
 	# EPEL and software packages	
-	yum install -y install http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm wget firewalld unzip git vim &>/dev/null || error_out "Failed to install initial prerequisite software" 2
+	yum install -y http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-6.noarch.rpm wget firewalld unzip git vim &>/dev/null || error_out "Failed to install initial prerequisite software" 2
 
 	# JQ must be installed only after EPEL installed
-	yum install -y install jq &>/dev/null || error_out "Failed to install jq" 2
+	yum install -y jq &>/dev/null || error_out "Failed to install jq" 2
 	
 	# Configure Firewall
 	systemctl disable iptables
