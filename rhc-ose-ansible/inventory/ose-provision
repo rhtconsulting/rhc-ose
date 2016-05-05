@@ -8,9 +8,9 @@ openstack_key_name=""
 #openshift_storage_disk_volume=/dev/vdb
 #openstack_flavor_name="m1.medium"
 #openstack_image_name="ose3_1-base"
-#openshift_openstack_master_storage_size=10
-#openshift_openstack_node_storage_size=10
-#env_id=
+#openshift_openstack_master_storage_size: 10
+#openshift_openstack_node_storage_size: 10
+
 #rhc_ose_inv_dest='/tmp'
 rhc_ose_cluster_method=native
 rhc_ose_cluster_public_hostname=public.hostname.com
