@@ -77,7 +77,6 @@
     - role: dns-server
     - role: dns
 
-
 # Install and configure OpenShift
 # - hosts:
 #     - openshift_masters
