@@ -1,6 +1,0 @@
-# user_accounts: |
-#   - { name: 'alice', pass: 'ose'}
-#   - { name: 'joe', pass: 'ose'}
-htpasswd_file: /etc/origin/openshift-passwd
-users: ['alice', 'joe']
-passwds: ['redhat','redhat']
