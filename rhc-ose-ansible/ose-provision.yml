@@ -90,4 +90,10 @@
   roles:
     - { role: docker, tags: 'docker' }
     - { role: openshift-provision, tags: 'openshift-provision', ansible_sudo: true }
-    - { role: openshift-install}
+
+- hosts: openshift_masters[0]
+  roles:
+    - openshift-install
+  # tasks:
+  #   - name: "Run openshift installer"
+  #     command: ansible-playbook -i {{ rhc_ose_inv_dest | default('/tmp') }}/inventory_{{ hostvars['localhost'].env_id }} /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml
