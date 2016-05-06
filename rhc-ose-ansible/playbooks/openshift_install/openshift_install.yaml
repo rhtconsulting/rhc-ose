@@ -1,4 +1,4 @@
 ---
 - hosts: localhost
   roles:
-    - role: openshift_install
+    - role: openshift-install
