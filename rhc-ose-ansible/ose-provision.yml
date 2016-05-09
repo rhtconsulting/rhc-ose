@@ -38,7 +38,6 @@
 - hosts: all:!dns:!localhost
   remote_user: "cloud-user"
   become: true
-  become_method: sudo
   become_user: root
   vars:
     ansible_ssh_user: cloud-user

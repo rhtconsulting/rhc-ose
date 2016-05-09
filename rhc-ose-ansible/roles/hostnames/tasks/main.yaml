@@ -8,11 +8,10 @@
     when: "'openshift_nodes' in group_names"
 
   - name: "Templating records"
+    become: false
+    remote_user: cloud-user
     template:
       src: "{{ role_path }}/templates/records.template.yaml"
       dest: "/tmp/records.yaml"
       force: yes
     delegate_to: localhost
-
-  - name: "Include generated varibles"
-    include: "/tmp/records.yaml"
