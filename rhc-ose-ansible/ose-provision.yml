@@ -71,6 +71,7 @@
 
     - name: "Include generated dns records"
       include: /tmp/records.yaml
+      when: "{{ dns_records_add }} is not defined"
 
   roles:
     - role: dns-server
@@ -82,16 +83,32 @@
 #     - openshift_nodes
 #   roles:
 #     - role: subscription-manager
+
 - hosts:
     - openshift_masters
     - openshift_nodes
+  vars:
+    ansible_ssh_user: cloud-user
+    ansible_user: cloud-user
+  remote_user: "cloud-user"
+  become: true
+  become_method: sudo
+  become_user: root
   roles:
     - { role: docker, tags: 'docker' }
     - { role: openshift-provision, tags: 'openshift-provision', ansible_sudo: true }
 
 - hosts: openshift_masters[0]
+  vars:
+    ansible_ssh_user: cloud-user
+    ansible_user: cloud-user
+  remote_user: "cloud-user"
+  become: true
+  become_method: sudo
+  become_user: root
   roles:
     - openshift-install
+
   # tasks:
   #   - name: "Run openshift installer"
   #     command: ansible-playbook -i {{ rhc_ose_inv_dest | default('/tmp') }}/inventory_{{ hostvars['localhost'].env_id }} /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml
