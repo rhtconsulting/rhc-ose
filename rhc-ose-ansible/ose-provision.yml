@@ -68,7 +68,7 @@
     include_vars: /tmp/named_views.yaml
     delegate_to: localhost
   - name: "Include generated dns records"
-    include: /tmp/records.yaml
+    include_vars: /tmp/records.yaml
     delegate_to: localhost
   roles:
     - role: dns-server
