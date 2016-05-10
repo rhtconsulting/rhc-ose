@@ -61,28 +61,20 @@
     ansible_ssh_user: cloud-user
     ansible_user: cloud-user
   pre_tasks:
-    - name: "Generate dns-server views"
-      include: playbooks/dns_dual_view.yaml
-      delegate_to: localhost
-
-    - name: "Include the generated views"
-      include_vars: /tmp/named_views.yaml
-      delegate_to: localhost
-
-    - name: "Include generated dns records"
-      include: /tmp/records.yaml
-      when: "{{ dns_records_add }} is not defined"
-
+  - name: "Generate dns-server views"
+    include: playbooks/dns_dual_view.yaml
+    delegate_to: localhost
+  - name: "Include the generated views"
+    include_vars: /tmp/named_views.yaml
+    delegate_to: localhost
+  - name: "Include generated dns records"
+    include: /tmp/records.yaml
+    delegate_to: localhost
   roles:
     - role: dns-server
     - role: dns
 
 # Install and configure OpenShift
-# - hosts:
-#     - openshift_masters
-#     - openshift_nodes
-#   roles:
-#     - role: subscription-manager
 
 - hosts:
     - openshift_masters
