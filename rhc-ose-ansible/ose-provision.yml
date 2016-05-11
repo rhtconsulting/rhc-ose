@@ -76,7 +76,7 @@
 
 # Install and configure OpenShift
 
-- hosts: openshift-masters:openshift-nodest
+- hosts: openshift-masters:openshift-nodes
   become: true
   become_method: sudo
   vars:
