@@ -76,31 +76,28 @@
 
 # Install and configure OpenShift
 
-- hosts:
-    - openshift_masters
-    - openshift_nodes
+- hosts: openshift-masters:openshift-nodest
+  become: true
+  become_method: sudo
   vars:
     ansible_ssh_user: cloud-user
     ansible_user: cloud-user
-  remote_user: "cloud-user"
-  become: true
-  become_method: sudo
-  become_user: root
+  tasks:
+  - name: "Edit /etc/resolv.conf on masters/nodes"
+    lineinfile:
+      state: present
+      dest: /etc/resolv.conf
+      regexp: "nameserver {%for host in groups['dns']%} {{ hostvars[host].dns_public_ip }} {% endfor %}"
+      line: "nameserver {%for host in groups['dns']%} {{ hostvars[host].dns_public_ip }} {% endfor %}"
+      insertafter: search*
   roles:
     - { role: docker, tags: 'docker' }
     - { role: openshift-provision, tags: 'openshift-provision', ansible_sudo: true }
 
-- hosts: openshift_masters[0]
-  vars:
-    ansible_ssh_user: cloud-user
-    ansible_user: cloud-user
-  remote_user: "cloud-user"
-  become: true
-  become_method: sudo
-  become_user: root
+- hosts: localhost
   roles:
     - openshift-install
+  tasks:
+    - name: "Run openshift installer"
+      command: "ansible-playbook -i {{ rhc_ose_inv_dest | default('/tmp') }}/inventory_{{ hostvars['localhost'].env_id }} /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml"
 
-  # tasks:
-  #   - name: "Run openshift installer"
-  #     command: ansible-playbook -i {{ rhc_ose_inv_dest | default('/tmp') }}/inventory_{{ hostvars['localhost'].env_id }} /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml
