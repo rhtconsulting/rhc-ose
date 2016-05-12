@@ -97,23 +97,19 @@
 - hosts: localhost
   roles:
     - openshift-install
-  tasks:
-
-- hosts: localhost
-  tasks:
+  post_tasks:
     - name: "Edit /etc/hosts in container"
       lineinfile:
         state: present
         dest: /etc/hosts
-        regexp: "{%for host in groups['openshift_masters']%}{{ hostvars[host].dns_public_ip }} {{ hostvars[host].ansible_hostname }}\n{% endfor %}"
-        line:   "{%for host in groups['openshift_masters']%}{{ hostvars[host].dns_public_ip }} {{ hostvars[host].ansible_hostname }}\n{% endfor %}"
+        regexp: "{%for host in groups['openshift_masters']%}{{ hostvars[host].dns_public_ip }} {{ hostvars[host].ansible_hostname }}{{dns_domain}}\n{% endfor %}"
+        line:   "{%for host in groups['openshift_masters']%}{{ hostvars[host].dns_public_ip }} {{ hostvars[host].ansible_hostname }}{{dns_domain}}\n{% endfor %}"
     - name: "Edit /etc/hosts in container"
       lineinfile:
         state: present
         dest: /etc/hosts
-        regexp: "{%for host in groups['openshift_nodes']%}{{ hostvars[host].dns_public_ip }} {{ hostvars[host].ansible_hostname }}\n{% endfor %}"
-        line:   "{%for host in groups['openshift_nodes']%}{{ hostvars[host].dns_public_ip }} {{ hostvars[host].ansible_hostname }}\n{% endfor %}"
+        regexp: "{%for host in groups['openshift_nodes']%}{{ hostvars[host].dns_public_ip }} {{ hostvars[host].ansible_hostname }}{{dns_domain}}\n{% endfor %}"
+        line:   "{%for host in groups['openshift_nodes']%}{{ hostvars[host].dns_public_ip }} {{ hostvars[host].ansible_hostname }}{{dns_domain}}\n{% endfor %}"
 
     - name: "Run openshift installer"
       command: "ansible-playbook -e ansible_ssh_user=cloud-user -i {{ rhc_ose_inv_dest | default('/tmp') }}/inventory_{{ hostvars['localhost'].env_id }} /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml"
-
