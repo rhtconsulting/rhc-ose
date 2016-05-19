@@ -7,18 +7,20 @@ error_out() {
 }
 
 do_sync() {
-  image_url="${registry_url}/${image}"
+  local image_url="${registry_url}/${image}"
+  local push_url="${local_registry_url}/${image}"
 
   echo "(1/3) Pulling Image ${image_url}..." | tee -a ${LOGFILE}
   docker pull ${image_url} &>>${LOGFILE} || error_out "Failed to PULL image: docker pull ${image_url}"
   image_awk="${registry_url}/$(echo ${image} | sed -r 's/:([^:]*)$/.*\1/')"
-  image_id=`docker images | awk "/${image_awk//\//\\/}/"' {print $3}'`
+  image_awk=${image_awk//\//\\/}
+  image_id=`docker images | awk "/${image_awk}/"' {print $3}'`
 
   echo "(2/3) Tagging Image ${image_id}|${image}..." | tee -a ${LOGFILE}
-  docker tag -f ${image_id} ${local_registry_url}/${image} &>>${LOGFILE} || error_out "Failed to tag image: docker tag -f ${image_id} ${local_registry_url}/${image}"
+  docker tag -f "${image_id}" "${push_url}" &>>${LOGFILE} || error_out "Failed to tag image: docker tag -f ${image_id} ${push_url}"
 
-  echo "(3/3) Pushing Tag ${local_registry_url}/${image}..." | tee -a ${LOGFILE}
-  docker push ${local_registry_url}/${image} &>>${LOGFILE} || error_out "Failed to push image: docker push ${local_registry_url}/${image}"
+  echo "(3/3) Pushing Tag ${push_url}..." | tee -a ${LOGFILE}
+  docker push ${push_url} &>>${LOGFILE} || error_out "Failed to push image: docker push ${push_url}"
   echo "Completed Push of image: ${image}"
 }
 
@@ -34,6 +36,7 @@ Options:
   --from <public-registry-hostname> : Name of the public registry you wish to PULL images from (i.e. docker.io, registry.access.redhat.com)
   --local <local-registry>          : Location of private registry you wish to PUSH images to (i.e. localhost:5000, registry.mydomain.com)
   --file <image-file>               : Text file containing a list of image names (one image name per line)
+  --tag=<tag name>                  : Tag to pull/push
   --parallel                        : Run multiple syncs in parallel, for faster runs on beefy servers
 "
 }
@@ -54,8 +57,14 @@ do
     --local=*)
       local_registry_url="${i#*=}"
       shift;;
+    --tag=*)
+      tag="${i#*=}"
+      shift;;
     --parallel)
       parallel=true;
+      shift;;
+    --help|-h)
+      usage;
       shift;;
     *)
       echo "Invalid Option: ${i%=*}"
