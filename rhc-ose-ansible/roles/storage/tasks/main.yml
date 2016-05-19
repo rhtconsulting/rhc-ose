@@ -28,6 +28,7 @@
       vg: '{{item.vg}}'
       pvs: '{{item.disk}}1'
       pesize: 32
+      state: present
     with_items: volume_groups
     tags:
       - disk
@@ -45,7 +46,7 @@
     filesystem:
       fstype: '{{item.fstype}}'
       dev: '/dev/{{item.vg}}/{{item.lv}}'
-    with_items: volume_groups
+    with_items: logical_volumes
     tags:
       - disk
 
