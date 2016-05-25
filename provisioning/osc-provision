@@ -388,9 +388,19 @@ case $CONF_OPENSHIFT_VERSION in
     OPENSHIFT_IDENTITY_PROVIDER_JSON="openshift_identity_provider_json_31"
     OPENSHIFT_IDENTITY_PROVIDER=${CONF_OPENSHIFT_IDENTITY_PROVIDER:-$openshift_identity_provider_31}
     ;;
+  "3.2")
+    IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_32}
+    ANSIBLE_HOSTS_FILE=${CONF_ANSIBLE_HOSTS_FILE:-$ansible_hosts_32}
+    ANSIBLE_PLAYBOOK="ansible_playbook_32"
+    OPENSHIFT_INSTALL_DIR="openshift_install_dir_32"
+    OPENSHIFT_MASTER_SERVICE="openshift_master_service_32"
+    OPENSHIFT_NODE_SERVICE="openshift_node_service_32"
+    OPENSHIFT_IDENTITY_PROVIDER_JSON="openshift_identity_provider_json_32"
+    OPENSHIFT_IDENTITY_PROVIDER=${CONF_OPENSHIFT_IDENTITY_PROVIDER:-$openshift_identity_provider_32}
+    ;;
   *)
     # Use default values
-    echo "WARNING: Did not request a specific OSE version, or version not supported (3.0|3.1) - using default version/configuration"
+    echo "WARNING: Did not request a specific OSE version, or version not supported (3.0|3.1|3.2) - using default version/configuration"
     IMAGE_NAME=${CONF_IMAGE_NAME:-$image_name_default}
     ANSIBLE_HOSTS_FILE=${CONF_ANSIBLE_HOSTS_FILE:-$ansible_hosts_default}
     ANSIBLE_PLAYBOOK="ansible_playbook_default"
