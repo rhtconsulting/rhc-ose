@@ -124,12 +124,6 @@ function _installCustomSoftware()
 
 function _finalTweaks()
 {
-  # Remove NetworkManager + 
-  # ensure networking is enabled
-  # - have to use 'chkconfig' for this
-  yum remove -y NetworkManager*
-  chkconfig network on
-
   # Self distruct
   2>/dev/null >/root/.ssh/authorized_keys
   2>/dev/null >/home/cloud-user/.ssh/authorized_keys
