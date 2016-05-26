@@ -186,7 +186,7 @@ do_prep() {
 
 do_dns() {
   echo "Beginning action: DNS"
-  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -e=${ETCD} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN} -d=${NODES##*,} -w=${NODES%%,*} -p=${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}"
+  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -e=${ETCD} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN} -d=${UTILITY} -w=${NODES%%,*} -p=${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}"
   $command || error_out "DNS Install & Configuration failed." $ERROR_CODE_DNS_FAILURE
 }
 
@@ -363,6 +363,9 @@ do
       shift;;
     -n=*|--nodes=*)
       NODES="${i#*=}"
+      shift;;
+    -u=*|--utility=*)
+      UTILITY="${i#*=}"
       shift;;
     -a=*|--actions=*)
       ACTIONS="${i#*=}"
