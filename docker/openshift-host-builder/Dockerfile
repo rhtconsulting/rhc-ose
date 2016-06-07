@@ -28,7 +28,6 @@ RUN yum update -y; \
 	python-troveclient \
 	python-openstackclient && \
     yum install -y --enablerepo=rhel-7-server-ose-3.1-rpms \
-	ansible-1.9 \
 	atomic-openshift-utils && \
     yum clean all
 
