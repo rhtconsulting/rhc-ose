@@ -229,8 +229,6 @@ Nodes: "
   -- Hostname: $(get_hostnames $(get_public_ips ${node}) $OPENSHIFT_BASE_DOMAIN $dns_server)
   -- IPs: ${node}"
   done
-  FINAL_OUTPUT="${FINAL_OUTPUT}
-DNS Server: $(get_hostnames $dns_server $OPENSHIFT_BASE_DOMAIN $dns_server)"
 }
 
 provision_cicd_server() {
