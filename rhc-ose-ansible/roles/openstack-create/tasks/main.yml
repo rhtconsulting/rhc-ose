@@ -66,6 +66,8 @@
 - add_host:
     hostname: "{{ item.info.name }}"
     ansible_ssh_host: "{{ item.public_ip }}"
+    dns_public_ip: "{{ item.public_ip }}"
+    dns_private_ip: "{{ item.private_ip}}"
     ansible_ssh_user: root
     groups: "{{ register_host_group }}"
   with_items: openstack_create.results
