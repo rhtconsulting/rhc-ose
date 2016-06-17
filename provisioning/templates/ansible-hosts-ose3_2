@@ -1,0 +1,27 @@
+# This is an example of a bring your own (byo) host inventory
+
+[OSEv3:children]
+masters
+nodes
+etcd
+
+[OSEv3:vars]
+deployment_type=openshift-enterprise
+ansible_ssh_user=root
+osm_default_subdomain={{CLOUDAPPS_SUBDOMAIN}}
+
+# enable htpasswd authentication
+openshift_master_identity_providers=[{{OPENSHIFT_IDENTITY_PROVIDER_JSON}}]
+
+# host group for masters
+[masters]
+{{MASTER_HOSTNAME}} openshift_hostname={{MASTER_HOSTNAME}} openshift_public_hostname={{MASTER_HOSTNAME}} openshift_schedulable=True
+
+# host group for etcd
+[etcd]
+{{MASTER_HOSTNAME}}
+{{ETCDSTRING}}
+
+# host group for nodes
+[nodes]
+{{NODESTRING}}
