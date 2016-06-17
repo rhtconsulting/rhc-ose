@@ -30,12 +30,12 @@ usage() {
 Description: Syncs images from a public docker registry to a private registry. Use this to populate private registries in a closed off environment.
 Must be run from a linux host capable of running docker commands which has access both to the internet and the private registry.
 
-Usage: $0 --from <public-registry-hostname> --local <local-registry> --file <image-file>
+Usage: $0 --from=<public-registry-hostname> --to=<registry-to-sync-to> --file=<image-file>
 
 Options:
-  --from <public-registry-hostname> : Name of the public registry you wish to PULL images from (i.e. docker.io, registry.access.redhat.com)
-  --local <local-registry>          : Location of private registry you wish to PUSH images to (i.e. localhost:5000, registry.mydomain.com)
-  --file <image-file>               : Text file containing a list of image names (one image name per line)
+  --from=<public-registry-hostname> : Name of the public registry you wish to PULL images from (i.e. docker.io, registry.access.redhat.com)
+  --to=<local-registry>          : Location of private registry you wish to PUSH images to (i.e. localhost:5000, registry.mydomain.com)
+  --file=<image-file>               : Text file containing a list of image names (one image name per line)
   --tag=<tag name>                  : Tag to pull/push
   --parallel                        : Run multiple syncs in parallel, for faster runs on beefy servers
 "
@@ -54,7 +54,7 @@ do
     --file=*)
       file_path="${i#*=}"
       shift;;
-    --local=*)
+    --to=*)
       local_registry_url="${i#*=}"
       shift;;
     --tag=*)
@@ -73,7 +73,7 @@ do
   esac
 done
 
-for arg in "from:$registry_url" "file:$file_path" "local:$local_registry_url"; do
+for arg in "from:$registry_url" "file:$file_path" "to:$local_registry_url"; do
   if [ -z ${arg#*:} ]; then
     echo "Missing argument --${arg%:*}."
     usage

@@ -33,7 +33,6 @@ openshift3/logging-fluentd:3.2.0
 openshift3/ose-docker-registry:v3.2.0.20
 openshift3/ose-haproxy-router:v3.2.0.20
 openshift3/image-inspector:v3.2
-openshift3/ose:v3.2.0.20
 openshift3/ose-deployer:v3.2.0.20
 openshift3/ose-keepalived-ipfailover:v3.2.0.20
 openshift3/ose-f5-router:v3.2.0.20
