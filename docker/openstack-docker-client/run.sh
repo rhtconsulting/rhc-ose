@@ -105,7 +105,12 @@ else
 	echo "Warning: SSH Directory not found"
 fi
 
+# silently check for user defined ansible config and mount it if present
+if [ -f ~/.ansible.cfg ]; then
+  ANSIBLE_CFG="-v $HOME/.ansible.cfg:/root/.ansible.cfg:z"
+fi
+
 
 echo "Starting OpenStack Client Container...."
 echo
-docker run -it ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.openstack:z ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${OPENSTACK_CLIENT_IMAGE}
+docker run -it ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.openstack:z ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${ANSIBLE_CFG} ${OPENSTACK_CLIENT_IMAGE}

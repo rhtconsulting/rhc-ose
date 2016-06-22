@@ -1,0 +1,20 @@
+# Squid service definition
+#
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: squid
+  name: squid
+  namespace: default
+spec:
+  ports:
+  - port: 3128
+    protocol: TCP
+    targetPort: 3128
+  selector:
+    squid: default
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer: {}

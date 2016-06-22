@@ -54,6 +54,10 @@ do_promote() {
       image_name="${image_name_31}"
       prev_image_name="ose3_1-delete-after-`date --date="${image_retirement_lifespan}" +%d-%b-%Y`"
       ;;
+    "3.2")
+      image_name="${image_name_32}"
+      prev_image_name="ose3_2-delete-after-`date --date="${image_retirement_lifespan}" +%d-%b-%Y`"
+      ;;
     *)
       echo "ERROR: Invalid OSE version specified - exiting..."
       exit 1

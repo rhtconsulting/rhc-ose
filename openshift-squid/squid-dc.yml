@@ -1,0 +1,59 @@
+# Protype DeploymentConfig
+# Substitute your organization's external proxy below
+# And adjust IP in image definition to match registry service IP.
+# 
+# See README for other customizations.
+#
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  labels:
+    name: squid
+    squid: default
+  name: squid
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    squid: default
+  strategy:
+    resources: {}
+    rollingParams:
+      intervalSeconds: 1
+      maxSurge: 25%
+      maxUnavailable: 25%
+      timeoutSeconds: 600
+      updatePeriodSeconds: 1
+    type: Rolling
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        squid: default
+    spec:
+      containers:
+      - env:
+        - name: UPSTREAM_PROXY
+          value: proxy.corp.example.com:8080
+        - name: LOCAL_DOMAINS
+          value: .corp.example.com .redhat.com
+        image: 172.30.48.143:5000/openshift/squid:latest
+        imagePullPolicy: Always
+        name: squid
+        ports:
+        - containerPort: 3128
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+  test: false
+  triggers:
+  - type: ConfigChange
+status:
+  details:
+    causes:
+    - type: ConfigChange
+  latestVersion: 1

@@ -24,12 +24,12 @@ ${message}" $exit_code
 # Usage: get_hostnames "<ip address>,<ip address>,...,<ip address>" "<base dn>" "[<dns server ip>]"
 get_hostnames() {
   # Can reverse lookup hostname for an ip with
-  # dig -x 172.16.166.11 | sed -ne 's/.*\(node[0-9]*.ose.example.com\).*/\1/p'
+  # dig -x 172.16.166.11 | sed -ne 's/.*\(\(node\|etcd\)[0-9]*.ose.example.com\).*/\1/p'
   if [ -n "$3" ]; then
     local nameserver="@${3}"
   fi
   for ip in ${1//,/ }; do
-    hostnames="${hostnames},$(dig $nameserver -x $ip | sed -n "s/.*\(\(master\|node\)[0-9]*.${2}\).*/\1/p" | sort | head -n1)"
+    hostnames="${hostnames},$(dig $nameserver -x $ip | sed -n "s/.*\(\(master\|etcd\|node\)[0-9]*.${2}\).*/\1/p" | sort | head -n1)"
   done
   # Strip off leading comma
   echo ${hostnames#,*}

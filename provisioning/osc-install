@@ -8,7 +8,7 @@ source ${SCRIPT_BASE_DIR}/lib/constants
 
 # Show script usage
 usage() {
-  echo "Usage: $0 -m=|--master=\"<master1 private ip|master1 public ip>\" -n=|--nodes=\"<node1 private ip|node1 public ip>,...,<nodeN private ip|nodeN public ip>\" -a|--actions=\"action1,action2,...actionN\""
+  echo "Usage: $0 -m=|--master=\"<master1 private ip|master1 public ip>\" -e=|--etcd=\"<etcd1 private ip|etcd1 public ip>,...,<etcdN private ip|etcdN public ip>\" -n=|--nodes=\"<node1 private ip|node1 public ip>,...,<nodeN private ip|nodeN public ip>\" -a|--actions=\"action1,action2,...actionN\""
 }
 
 # Determine whether master is a node, and if not, make node1 the 'infra' node
@@ -73,14 +73,31 @@ EOF
 
   done
 
+#  if [ !$etcd_on_master ]; then
+#    mv ${SCRIPT_BASE_DIR}/templates/ansible-hosts ${SCRIPT_BASE_DIR}/templates/ansible-hosts.template
+#    sed '/^{{MASTER_HOSTNAME}}$/d' ${SCRIPT_BASE_DIR}/templates/ansible-hosts.template > ${SCRIPT_BASE_DIR}/templates/ansible-hosts
+#  fi
+
+#  ETCD_HOST_NAMES=`echo $ETCD_HOSTNAMES | sed 's/,/\\\n/g'`
+  for etcd in ${ETCD_HOSTNAMES//,/ }; do
+    # This is a hack to make sure we don't get host key checks during ansible run
+    validate_ssh ${etcd}
+
+    read -d '' ETCDSTRING <<EOF
+$ETCDSTRING
+${etcd} openshift_hostname=${etcd} openshift_public_hostname=${etcd}
+EOF
+
+  done
+
   # Prepare the apps sub domain:
   CLOUDAPPS_SUBDOMAIN="${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}.${OPENSHIFT_BASE_DOMAIN}"
 
   if [ -z "${OPENSHIFT_IDENTITY_PROVIDER_JSON}" ]; then
     error_out "OPENSHIFT_IDENTITY_PROVIDER_JSON cannot be empty: ${OPENSHIFT_IDENTITY_PROVIDER_JSON}"
   fi
-  echo "process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN OPENSHIFT_IDENTITY_PROVIDER_JSON"
-  ansible_hosts_file="$(process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME NODESTRING CLOUDAPPS_SUBDOMAIN OPENSHIFT_IDENTITY_PROVIDER_JSON)"
+  echo "process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME ETCDSTRING NODESTRING CLOUDAPPS_SUBDOMAIN OPENSHIFT_IDENTITY_PROVIDER_JSON"
+  ansible_hosts_file="$(process_template ${SCRIPT_BASE_DIR}/templates/ansible-hosts MASTER_HOSTNAME ETCDSTRING NODESTRING CLOUDAPPS_SUBDOMAIN OPENSHIFT_IDENTITY_PROVIDER_JSON)"
 
   cd
   rm -rf ~/openshift-ansible
@@ -145,7 +162,7 @@ setup_storage() {
 }
 
 setup_storage_on_all_hosts() {
-  for host in ${MASTER_HOSTNAME} ${NODE_HOSTNAMES//,/ }; do
+  for host in ${MASTER_HOSTNAME} ${NODE_HOSTNAMES//,/ } ${ETCD_HOSTNAMES//,/ }; do
     ${SSH_CMD} root@${host} "$(typeset -f); $(typeset -p OPENSHIFT_STORAGE_DISK_VOLUME); $(typeset -p OPENSHIFT_STORAGE_SIZE_OSE); $(typeset -p OPENSHIFT_STORAGE_SIZE_ETCD); $(typeset -p OPENSHIFT_STORAGE_SIZE_LOGGING); setup_storage"
   done
 }
@@ -169,7 +186,7 @@ do_prep() {
 
 do_dns() {
   echo "Beginning action: DNS"
-  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN} -d=${NODES##*,} -w=${NODES%%,*} -p=${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}"
+  command="bash ${SCRIPT_BASE_DIR}/osc-dns-config -m=${MASTER} -e=${ETCD} -n=${NODES} -b=${OPENSHIFT_BASE_DOMAIN} -d=${UTILITY} -w=${NODES%%,*} -p=${OPENSHIFT_CLOUDAPPS_SUBDOMAIN}"
   $command || error_out "DNS Install & Configuration failed." $ERROR_CODE_DNS_FAILURE
 }
 
@@ -181,6 +198,7 @@ do_install() {
   fi
 
   MASTER_HOSTNAME=$(get_hostnames $(get_private_ips "${MASTER}") "${OPENSHIFT_BASE_DOMAIN}")
+  ETCD_HOSTNAMES=$(get_hostnames $(get_private_ips "${ETCD}") "${OPENSHIFT_BASE_DOMAIN}")
   NODE_HOSTNAMES=$(get_hostnames $(get_private_ips "${NODES}") "${OPENSHIFT_BASE_DOMAIN}")
 
   echo "Install"
@@ -208,12 +226,12 @@ do_post(){
   ### Workarounds for current issues - START
 
   # Remove --insecure-registry flag set by ansible (https://github.com/openshift/openshift-ansible/issues/497)
-  for node in ${NODE_HOSTNAMES//,/ }; do
+  for node in ${NODE_HOSTNAMES//,/ } ${ETCD_HOSTNAMES//,/ }; do
     $SSH_CMD $node 'sed -i "s/--insecure-registry=172.30.0.0\/16//" /etc/sysconfig/docker && systemctl restart docker'
   done
 
-  # Temporary workaround for an OSE v3.1.1 issue with the registry storage permissions
-  ${SSH_CMD} root@${MASTER_HOSTNAME} "chmod 0777 /mnt/registry"
+  # Workaround for OSE v3.1.1 issue with the registry storage permissions (https://access.redhat.com/solutions/2173071)
+  ${SSH_CMD} root@${MASTER_HOSTNAME} "chown -R 1001 /mnt/registry"
 
   ### Workarounds for current issues - END
   ###########################################
@@ -340,8 +358,14 @@ do
     -m=*|--master=*)
       MASTER="${i#*=}"
       shift;;
+    -e=*|--etcd=*)
+      ETCD="${i#*=}"
+      shift;;
     -n=*|--nodes=*)
       NODES="${i#*=}"
+      shift;;
+    -u=*|--utility=*)
+      UTILITY="${i#*=}"
       shift;;
     -a=*|--actions=*)
       ACTIONS="${i#*=}"
@@ -374,6 +398,7 @@ OPENSHIFT_STORAGE_SIZE_OSE=${CONF_STORAGE_SIZE_OSE:=$storage_size_ose}
 OPENSHIFT_STORAGE_SIZE_ETCD=${CONF_STORAGE_SIZE_ETCD:=$storage_size_etcd}
 OPENSHIFT_STORAGE_SIZE_LOGGING=${CONF_STORAGE_SIZE_LOGGING:=$storage_size_logging}
 OPENSHIFT_IDENTITY_PROVIDER_JSON="${CONF_OPENSHIFT_IDENTITY_PROVIDER_JSON:=$openshift_identity_provider_json}"
+#OPENSHIFT_ETCD_ON_MASTER=${CONF_OPENSHIFT_ETCD_ON_MASTER:=$etcd_on_master}
 
 # Begin installation phases
 process_actions ${ACTIONS?"Missing argument -a or --action"}
