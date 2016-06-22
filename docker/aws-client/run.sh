@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Run.sh - Script to build and run a Docker container to facilitate communicate with OpenStack
+# Run.sh - Script to build and run a Docker container to facilitate communicate with AWS
 
 
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
@@ -19,7 +19,7 @@ usage() {
      Options:
      --credsfile=<file>             : File containing AWS API credentials (Default: ~/.aws_creds/)
      --configfile=<file>            : File containing ec2 environment variables (Default: ~/.aws_env)
-     --image-name=<name>           : Name of the image to build or use (Default: rhtconsulting/rhc-openstack-client)
+     --image-name=<name>           : Name of the image to build or use (Default: rhtconsulting/rhc-client-tools)
      --keep                        : Whether to keep the the container after exiting
      --ssh=<ssh>                   : Location of SSH keys to mount into the container (Default: ~/.ssh)
      --repository=<repository>     : Directory containing a repository to mount inside the container
@@ -111,7 +111,7 @@ else
 fi
 
 
-echo "Starting OpenStack Client Container...."
+echo "Starting AWS Client Container...."
 echo
 if [ -f ${AWS_ENV_CONFIGS} ]; then
   docker run -it ${REMOVE_CONTAINER_ON_EXIT} -v ${AWS_CREDS_FILE}:/root/.aws_creds:z -v ${AWS_ENV_CONFIGS}:/root/.aws_env:z ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${AWS_CLIENT_IMAGE}
