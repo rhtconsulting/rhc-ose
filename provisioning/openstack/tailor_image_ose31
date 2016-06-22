@@ -108,6 +108,7 @@ function _updateRHSubscription()
 
 function _updateSoftware()
 {
+  sed -i "s/\[main\]/[main]\nexclude=docker-1.9* docker-selinux-1.9*/" /etc/yum.conf
   yum clean all
   yum install -y wget git net-tools bind-utils iptables-services bridge-utils bash-completion rsync lvm2 
   yum update -y

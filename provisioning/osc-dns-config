@@ -197,6 +197,7 @@ function setDNSservers()
   sed -i 's/^\(search.*\)/# \1/g' /etc/resolv.conf
   echo \"search ${search_domain}\" >> /etc/resolv.conf
   echo \"nameserver ${nameserver}\" >> /etc/resolv.conf
+  echo \"DHCP4_DOMAIN_NAME_SERVERS=${nameserver}\" >> /etc/sysconfig/network
 "
 
   [ $? -ne 0 ] && echo "Failed to configure DNS on ${host}" && exit 1
