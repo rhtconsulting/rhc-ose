@@ -33,6 +33,20 @@
   shell: nova secgroup-add-rule {{ security_groups.split(',').0 }} tcp 22 22 0.0.0.0/0
   when: not ssh_rule_found
 
+- name: "Check for DNS rule in Security Groups"
+  set_fact:
+    dns_rule_found: true
+  when:
+    - item.stdout | search('udp.*53.*53')
+    - type == "dns"
+  with_items: secgroup_rule_list.results
+
+- name: "Create DNS Rule in first Security Group if required"
+  shell: nova secgroup-add-rule {{ security_groups.split(',').0 }} udp 53 53 0.0.0.0/0
+  when:
+    - dns_rule_found is not defined
+    - type == "dns"
+
 - name: "Search for valid OpenStack Flavor"
   shell: "nova flavor-list | awk \"/{{flavor_name }}/\"'{print $2}'"
   register: flavor_query
