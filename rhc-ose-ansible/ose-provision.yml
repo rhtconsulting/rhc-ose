@@ -71,6 +71,7 @@
 
 # Use newly configured DNS server for this container ...
 - hosts: localhost
+  become: yes
   tasks:
   - name: "Edit /etc/resolv.conf in container"
     shell: "sed '0,/.*nameserver.*/s/.*nameserver.*/nameserver {%for host in groups['dns']%}{{ hostvars[host].dns_public_ip }}{% endfor %}\\n&/' /etc/resolv.conf > /tmp/resolv.conf && /bin/cp -f /tmp/resolv.conf /etc/resolv.conf"
