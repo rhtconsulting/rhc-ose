@@ -7,8 +7,21 @@ provision() {
   # Grab newly create inventory file
   openshift_inventory=$(ls -Art inventory_* | tail -n 1)
 
+  # Obtain installer path from inventory file
+  if [[ -z "${INSTALLER_PATH}" ]]
+  then
+    INSTALLER_PATH=$(awk -F= "/^openshift_ansible_path=/"'{print $2}' ${openshift_inventory})
+  fi
+
+  # Obtain installer playbook from inventory file
+  if [[ -z "${INSTALLER_PLAYBOOK}" ]]
+  then
+    INSTALLER_PLAYBOOK=$(awk -F= "/^openshift_ansible_playbook=/"'{print $2}' ${openshift_inventory})
+  fi
+
   # Run the OpenShift Installer
-  ansible-playbook -i ${openshift_inventory} ${INSTALLER_PATH}/playbooks/byo/config.yml
+  echo "Executing: ansible-playbook -i ${openshift_inventory} ${INSTALLER_PATH}/${INSTALLER_PLAYBOOK}"
+  ansible-playbook -i ${openshift_inventory} ${INSTALLER_PATH}/${INSTALLER_PLAYBOOK}
 }
 
 # Process input
@@ -20,6 +33,9 @@ do
       shift;;
     --installer-path=*|-p=*)
       INSTALLER_PATH="${i#*=}"
+      shift;;
+    --installer-playbook=*|-b=*)
+      INSTALLER_PLAYBOOK="${i#*=}"
       shift;;
     --help|-h)
       usage
