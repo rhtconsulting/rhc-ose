@@ -9,7 +9,7 @@ RUN yum update -y; \
     yum install -y \
 	python-devel \
 	https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
-	https://repos.fedorapeople.org/repos/openstack/openstack-liberty/rdo-release-liberty-3.noarch.rpm && \
+	https://repos.fedorapeople.org/repos/openstack/openstack-liberty/rdo-release-liberty-5.noarch.rpm && \
     sed -i -e "s/^enabled=1/enabled=0/" /etc/yum.repos.d/epel.repo && \
     yum install -y \
 	git \
