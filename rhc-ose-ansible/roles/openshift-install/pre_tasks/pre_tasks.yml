@@ -1,0 +1,35 @@
+---
+- name: "Load openshift-provision default variables"
+  include_vars: ../defaults/main.yml
+
+- name: "Check for OpenShift Ansible path"
+  stat:
+    path: "{{ openshift_ansible_path | default(default_openshift_ansible_path) }}"
+  register: openshift_ansible_path_check
+  ignore_errors: yes
+
+- name: "Verify OpenShift Ansible path is accessible"
+  fail:
+    msg: "Unable to access{{':'}}{{ openshift_ansible_path | default(default_openshift_ansible_path) }}"
+  when: openshift_ansible_path_check.stat.isdir is undefined
+
+- name: "Verify OpenShift Ansible path is a directory"
+  fail:
+    msg: "Specified path is not a directory{{':'}}{{ openshift_ansible_path | default(default_openshift_ansible_path) }}"
+  when: not openshift_ansible_path_check.stat.isdir
+
+- name: "Check for OpenShift Ansible playbook"
+  stat:
+    path: "{{ openshift_ansible_path | default(default_openshift_ansible_path) }}/{{openshift_ansible_playbook | default(default_openshift_ansible_playbook) }}"
+  register: openshift_ansible_playbook_check
+  ignore_errors: yes
+
+- name: "Verify OpenShift Ansible playbook is accessible"
+  fail:
+    msg: "Unable to access{{':'}}{{ openshift_ansible_path | default(default_openshift_ansible_path) }}/{{ openshift_ansible_playbook | default(default_openshift_ansible_playbook) }}"
+  when: openshift_ansible_playbook_check.stat.isreg is undefined
+
+- name: "Verify OpenShift Ansible playbook is a file"
+  fail:
+    msg: "Specified playbook is not a directory{{':'}}{{ openshift_ansible_path | default(default_openshift_ansible_path) }}/{{ openshift_ansible_playbook | default(default_openshift_ansible_playbook) }}"
+  when: not openshift_ansible_playbook_check.stat.isreg

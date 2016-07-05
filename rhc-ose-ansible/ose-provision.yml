@@ -5,6 +5,7 @@
   - include: roles/openstack-create/pre_tasks/pre_tasks.yml
   - include: roles/common/pre_tasks/pre_tasks.yml
   - include: roles/subscription-manager/pre_tasks/pre_tasks.yml
+  - include: roles/openshift-install/pre_tasks/pre_tasks.yml
   roles:
     - role: common
     - role: openshift-common

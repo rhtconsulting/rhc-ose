@@ -13,6 +13,8 @@ lb
 
 # Set variables common for all OSEv3 hosts
 [OSEv3:vars]
+openshift_ansible_path={{ openshift_ansible_path }}
+openshift_ansible_playbook={{ openshift_ansible_playbook }}
 {% if ansible_ssh_user is defined %}
 ansible_ssh_user={{ ansible_ssh_user }}
 {% elif ansible_user is defined %}

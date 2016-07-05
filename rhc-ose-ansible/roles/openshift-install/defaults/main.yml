@@ -1,0 +1,3 @@
+---
+default_openshift_ansible_path: "/usr/share/ansible/openshift-ansible"
+default_openshift_ansible_playbook: "playbooks/byo/config.yml"

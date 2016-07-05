@@ -1,9 +1,13 @@
 ---
+- name: "Setting OpenShift Install Facts"
+  set_fact:
+    openshift_ansible_path: "{{ openshift_ansible_path | default( default_openshift_ansible_path) }}"
+    openshift_ansible_playbook: "{{ openshift_ansible_playbook | default( default_openshift_ansible_playbook) }}"
 
-  - name: "Creating Inventory"
-    template:
-      dest: "{{rhc_ose_inv_dest | default('/tmp') }}/inventory_{{ hostvars['localhost'].env_id}}"
-      src: "{{ role_path }}/templates/inventory_template.j2"
-      force: yes
+- name: "Creating Inventory"
+  template:
+    dest: "{{rhc_ose_inv_dest | default('/tmp') }}/inventory_{{ hostvars['localhost'].env_id}}"
+    src: "{{ role_path }}/templates/inventory_template.j2"
+    force: yes
 #    - include: /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml
 #     when: ose_install | default(true) | bool
