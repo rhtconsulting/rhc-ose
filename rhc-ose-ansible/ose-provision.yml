@@ -2,36 +2,111 @@
 # Provision OpenStack instances
 - hosts: localhost
   pre_tasks:
+  - include: roles/openstack-create/pre_tasks/pre_tasks.yml
   - include: roles/common/pre_tasks/pre_tasks.yml
+  - include: roles/subscription-manager/pre_tasks/pre_tasks.yml
   roles:
-    - role: common
-    - role: openshift-common
-    # Provision Master
-    - role: openstack-create
-      type: "master"
-      image_name: "{{ openshift_openstack_image_name }}"
-      security_groups: "{{ openshift_openstack_master_security_groups }}"
-      key_name: "{{ openstack_key_name }}"
-      flavor_name: "{{ openshift_openstack_flavor_name }}"
-      register_host_group: "openshift_masters"
-      node_count: "{{ openshift_master_count }}"
-      disk_volume: "{{ openshift_storage_disk_volume }}"
-      volume_size: "{{ openshift_openstack_master_storage_size }}"
-    # Provision Nodes
-    - role: openstack-create
-      type: "node"
-      image_name: "{{ openshift_openstack_image_name }}"
-      security_groups: "{{ openshift_openstack_node_security_groups }}"
-      key_name: "{{ openstack_key_name }}"
-      flavor_name: "{{ openshift_openstack_flavor_name }}"
-      register_host_group: "openshift_nodes"
-      node_count: "{{ openshift_node_count }}"
-      disk_volume: "{{ openshift_storage_disk_volume }}"
-      volume_size: "{{ openshift_openstack_master_storage_size }}"      
+  - role: common
+  - role: openshift-common
+  # Provision Master
+  - role: openstack-create
+    type: "master"
+    image_name: "{{ openshift_openstack_image_name }}"
+    security_groups: "{{ openshift_openstack_master_security_groups }}"
+    key_name: "{{ openstack_key_name }}"
+    flavor_name: "{{ openshift_openstack_flavor_name }}"
+    register_host_group: "masters,openshift"
+    node_count: "{{ openshift_master_count }}"
+    disk_volume: "{{ openshift_storage_disk_volume }}"
+    volume_size: "{{ openshift_openstack_master_storage_size }}"
+  # Provision Nodes
+  - role: openstack-create
+    type: "node"
+    image_name: "{{ openshift_openstack_image_name }}"
+    security_groups: "{{ openshift_openstack_node_security_groups }}"
+    key_name: "{{ openstack_key_name }}"
+    flavor_name: "{{ openshift_openstack_flavor_name }}"
+    register_host_group: "nodes,openshift"
+    node_count: "{{ openshift_node_count }}"
+    disk_volume: "{{ openshift_storage_disk_volume }}"
+    volume_size: "{{ openshift_openstack_master_storage_size }}"
+  # Provision NFS
+  - role: openstack-create
+    type: "nfs"
+    image_name: "{{ openshift_openstack_image_name }}"
+    security_groups: "default"
+    key_name: "{{ openstack_key_name }}"
+    flavor_name: "{{ openshift_openstack_flavor_name }}"
+    register_host_group: "nfs,openshift"
+    node_count: "1"
+    disk_volume: "{{ openshift_storage_disk_volume }}"
+    volume_size: "{{ openshift_openstack_master_storage_size }}"
+    # Provision DNS
+
+- include: playbooks/dns-provision.yaml
+
+- hosts: openshift
+  remote_user: "cloud-user"
+  vars:
+    ansible_ssh_user: cloud-user
+  tasks:
+  - name: "Enable direct root access"
+    shell: "cat ~/.ssh/authorized_keys | sudo tee /root/.ssh/authorized_keys >/dev/null"
+
+- hosts: all:!dns:!localhost
+  roles:
+    - role: hostnames
+
+- hosts: all:!localhost
+  roles:
+    - { role: subscription-manager, when: hostvars.localhost.rhsm_register, tags: 'subscription-manager', ansible_sudo: true }
+
+- hosts: dns
+  pre_tasks:
+  - name: "Generate dns-server views"
+    include: playbooks/dns_dual_view.yaml
+    delegate_to: localhost
+  - name: "Include the generated views"
+    include_vars: /tmp/named_views.yaml
+    delegate_to: localhost
+  - name: "Generate dns records"
+    include: playbooks/dns_records.yaml
+    delegate_to: localhost
+  - name: "Include generated dns records"
+    include_vars: /tmp/records.yaml
+    delegate_to: localhost
+  roles:
+    - role: dns-server
+    - role: dns
+
+# Use newly configured DNS server for this container ...
+- hosts: localhost
+  tasks:
+  - name: "Edit /etc/resolv.conf in container"
+    shell: "sed '0,/.*nameserver.*/s/.*nameserver.*/nameserver {%for host in groups['dns']%}{{ hostvars[host].dns_public_ip }}{% endfor %}\\n&/' /etc/resolv.conf > /tmp/resolv.conf && /bin/cp -f /tmp/resolv.conf /etc/resolv.conf"
+
 
 # Install and configure OpenShift
-- hosts:
-    - openshift_masters
-    - openshift_nodes
+
+- hosts: openshift:!dns
+  tasks:
+  - name: "Edit /etc/resolv.conf on masters/nodes"
+    lineinfile:
+      state: present
+      dest: /etc/resolv.conf
+      regexp: "nameserver {%for host in groups['dns']%} {{ hostvars[host].dns_private_ip }} {% endfor %}"
+      line: "nameserver {%for host in groups['dns']%} {{ hostvars[host].dns_private_ip }} {% endfor %}"
+      insertafter: search*
+  - name: "Include DHCP/DNS workaround for OSE 3.2"
+    lineinfile:
+      state: present
+      dest: /etc/sysconfig/network
+      regexp: "IP4_NAMESERVERS={%for host in groups['dns']%}{{ hostvars[host].dns_private_ip }}{% endfor %}"
+      line: "IP4_NAMESERVERS={%for host in groups['dns']%}{{ hostvars[host].dns_private_ip }}{% endfor %}"
   roles:
-    - openshift-provision
+    - { role: docker, tags: 'docker' }
+    - { role: openshift-provision, tags: 'openshift-provision', ansible_sudo: true }
+
+- hosts: localhost
+  roles:
+    - openshift-install

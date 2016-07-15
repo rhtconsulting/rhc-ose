@@ -1,0 +1,18 @@
+---
+dns_records_add:
+  - view: private
+    zone: {{ dns_domain }}
+    entries:
+{% for host in groups['openshift'] %}
+    - type: A
+      hostname: {{ hostvars[host]['ansible_hostname'] }}
+      ip: {{ hostvars[host]['dns_private_ip'] }}
+{% endfor %}
+  - view: public
+    zone: {{ dns_domain}}
+    entries:
+{% for host in groups['openshift']%}
+    - type: A
+      hostname: {{ hostvars[host]['ansible_hostname'] }}
+      ip: {{ hostvars[host]['dns_public_ip'] }}
+{% endfor %}
