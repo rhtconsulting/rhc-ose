@@ -47,6 +47,10 @@ do
   	-r=*|--repository=*)
       REPOSITORY="${i#*=}"
       shift;;
+    --host-net)
+      echo "Warning: Setting the --host-net flag adds \`--net=host\` to your docker run command. Be aware that this means your container can talk to any network service running on this host."
+      HOST_NET="--net=host"
+      shift;;
     -h|--help)
       usage;
       exit 0;
@@ -113,4 +117,4 @@ fi
 
 echo "Starting OpenStack Client Container...."
 echo
-docker run -it ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.openstack:z ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${ANSIBLE_CFG} ${OPENSTACK_CLIENT_IMAGE}
+docker run -it ${HOST_NET} ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.openstack:z ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${ANSIBLE_CFG} ${OPENSTACK_CLIENT_IMAGE}
