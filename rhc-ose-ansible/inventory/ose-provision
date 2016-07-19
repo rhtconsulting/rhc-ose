@@ -17,6 +17,11 @@ openshift_openstack_image_name="rhel-guest-image-7.2"
 #openshift_openstack_master_storage_size=10
 #openshift_openstack_node_storage_size=10
 
+#env_id=
+rhc_ose_inv_dest=.
+rhc_ose_cluster_method=native
+rhc_ose_cluster_public_hostname=public.hostname.com
+rhc_ose_cluster_hostname=hostname.com
 # Subscription Manager Satellite hostname. If using a Satellite server, set the FQDN here. For RHSM Hosted this value must be blank, none or false.
 rhsm_satellite=''
 
@@ -44,7 +49,6 @@ public_dns_forwarder="8.8.8.8"
 # OpenShift Ansible Path - required when running openshift-ansible from cloned git repo rather than atomic-openshift-utils
 # openshift_ansible_path='/root/repository/openshift-ansible/'
 
-rhc_ose_inv_dest=.
 #rhc_ose_ssh_user=root
 #rhc_ose_identity_provider=htpasswd
 deployment_type=openshift-enterprise
@@ -53,15 +57,22 @@ deployment_type=openshift-enterprise
 rhc_ose_enable_efk=true                  #If E-F-K logging stack should be deployed
 rhc_ose_enable_hawkular=true             #If Hawkular metrics should be deployed
 
- #Logging
+#Logging
 openshift_hosted_logging_hostname=kibana.example.com
 openshift_hosted_logging_elasticsearch_cluster_size=1
 openshift_hosted_logging_master_public_url=https://localhost:8443
 #openshift_hosted_logging_secret_vars=nothing=/dev/null
 #openshift_hosted_logging_fluentd_replicas=1
-#openshift_hosted_logging_cleanup=no #Set this to 'yes' in order to cleanup logging components instead of deploying
+#openshift_hosted_logging_cleanup=no Set this to 'yes' in order to cleanup logging components instead of deploying
 
  #Metrics
+openshift_hosted_metrics_storage_nfs_directory=/exports          #Root export directory.
+openshift_hosted_metrics_storage_volume_name=metrics             #Metrics volume within openshift_hosted_metrics_volume_dir
+openshift_hosted_metrics_storage_volume_size=10Gi                #Metrics volume size
+openshift_hosted_metrics_storage_nfs_options="*(rw,root_squash)" #NFS options for configured exports. |
+#openshift_hosted_logging_cleanup=no #Set this to 'yes' in order to cleanup logging components instead of deploying
+
+#Metrics
 openshift_hosted_metrics_storage_nfs_directory=/exports          #Root export directory.
 openshift_hosted_metrics_storage_volume_name=metrics             #Metrics volume within openshift_hosted_metrics_volume_dir
 openshift_hosted_metrics_storage_volume_size=10Gi                #Metrics volume size
