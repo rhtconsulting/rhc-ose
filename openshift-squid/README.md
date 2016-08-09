@@ -24,7 +24,6 @@ Sample deploymentConfig and service definitions are provided.
 http_proxy=http://squid.default.svc.cluster.local:3128
 https_proxy=http://squid.default.svc.cluster.local:3128
 # This is the IP address for the registry
-no_proxy=172.30.0.2:5000,172.30.0.1,kubernetes.default.svc.cluster.local,docker-registry.default.svc.cluster.local:5000
 ```
 The assumption is that the squid proxy image is uploaded to the OpenShift registry.
 It will not start if it has to be pulled from an external registry.
