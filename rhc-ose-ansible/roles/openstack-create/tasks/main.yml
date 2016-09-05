@@ -49,11 +49,12 @@
     hostname: "{{ item.info.name }}"
     ansible_ssh_host: "{{ item.public_ip }}"
     dns_public_ip: "{{ item.public_ip }}"
-    dns_private_ip: "{{ item.private_ip}}"
+    dns_private_ip: "{{ item.private_ip }}"
     ansible_ssh_user: root
     id: "{{ item.id }}"
     private_ip: "{{ item.private_ip }}"
     groups: "{{ register_host_group }}"
+    labels: "{{ labels[ item.item|int - 1 ] | default(labels[ -1 ]) | default('') }}"
   with_items: openstack_create.results
 
 - name: "Wait for {{ type }} to be available"

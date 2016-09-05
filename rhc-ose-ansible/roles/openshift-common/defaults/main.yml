@@ -65,3 +65,10 @@ default_openshift_openstack_dns_security_groups:
 default_openshift_openstack_nfs_security_groups:
   - name: default
     rules: []
+
+default_openshift_openstack_master_labels:
+  - region: master 
+default_openshift_openstack_node_labels:
+  - region: infra 
+  - region: app 
+

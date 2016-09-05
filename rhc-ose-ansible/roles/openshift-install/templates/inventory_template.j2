@@ -90,17 +90,8 @@ openshift_authorized_key_url={{ openshift_authorized_key_url }}
 {% endfor %}
 {% endif %}
 
-# host group for nodes, includes region info
+# host group for nodes
 [nodes]
-{% for inv_master in groups['masters'] %}
-{{ hostvars[inv_master]['ansible_hostname'] }}.{{full_dns_domain}} openshift_hostname={{ hostvars[inv_master]['ansible_hostname'] }}.{{full_dns_domain}} openshift_public_hostname={{ hostvars[inv_master]['ansible_hostname'] }}.{{full_dns_domain}} openshift_node_labels="{'region': 'master'}"
+{% for inv_node in groups['masters'] | intersect(groups['nodes']) %}
+{{ hostvars[inv_node]['ansible_hostname'] }}.{{full_dns_domain}} openshift_hostname={{ hostvars[inv_node]['ansible_hostname'] }}.{{full_dns_domain}} openshift_public_hostname={{ hostvars[inv_node]['ansible_hostname'] }}.{{full_dns_domain}} openshift_node_labels="{{ hostvars[inv_node]['labels'] }}"
 {% endfor %}
-{% set counter = 0 %}
-{% for inv_node in groups['nodes'] %}
-{% if counter == 0%}
-{{ hostvars[inv_node]['ansible_hostname'] }}.{{full_dns_domain}} openshift_hostname={{ hostvars[inv_node]['ansible_hostname'] }}.{{full_dns_domain}} openshift_public_hostname={{ hostvars[inv_node]['ansible_hostname'] }}.{{full_dns_domain}} openshift_node_labels="{'region': 'infra'}"
-{% else %}
-{{ hostvars[inv_node]['ansible_hostname'] }}.{{full_dns_domain}} openshift_hostname={{ hostvars[inv_node]['ansible_hostname'] }}.{{full_dns_domain}} openshift_public_hostname={{ hostvars[inv_node]['ansible_hostname'] }}.{{full_dns_domain}} openshift_node_labels="{'region': 'app'}"
-{% endif %}
-{% set counter = counter + 1%}
-{% endfor -%}

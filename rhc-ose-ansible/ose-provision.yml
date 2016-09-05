@@ -19,6 +19,7 @@
     node_count: "{{ openshift_master_count }}"
     disk_volume: "{{ openshift_storage_disk_volume }}"
     volume_size: "{{ openshift_openstack_master_storage_size }}"
+    labels: "{{ openshift_openstack_master_labels }}"
   # Provision Nodes
   - role: openstack-create
     type: "node"
@@ -30,6 +31,7 @@
     node_count: "{{ openshift_node_count }}"
     disk_volume: "{{ openshift_storage_disk_volume }}"
     volume_size: "{{ openshift_openstack_node_storage_size }}"
+    labels: "{{ openshift_openstack_node_labels }}"
   # Provision NFS
   - role: openstack-create
     type: "nfs"

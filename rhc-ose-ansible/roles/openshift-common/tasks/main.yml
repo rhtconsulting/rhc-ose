@@ -13,3 +13,5 @@
     openshift_openstack_node_security_groups: "{{ openshift_openstack_node_security_groups | default(default_openshift_openstack_node_security_groups) }}"
     openshift_openstack_dns_security_groups: "{{ openshift_openstack_dns_security_groups | default(default_openshift_openstack_dns_security_groups) }}"
     openshift_openstack_nfs_security_groups: "{{ openshift_openstack_nfs_security_groups | default(default_openshift_openstack_nfs_security_groups) }}"
+    openshift_openstack_master_labels: "{{ openshift_openstack_master_labels | default(default_openshift_openstack_master_labels) }}"
+    openshift_openstack_node_labels: "{{ openshift_openstack_node_labels | default(default_openshift_openstack_node_labels) }}"
