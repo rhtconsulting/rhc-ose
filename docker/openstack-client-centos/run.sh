@@ -97,24 +97,28 @@ if [ ! -z ${REPOSITORY} ]; then
 		exit 1
 	fi
 
-	REPOSITORY_VOLUME="-v ${REPOSITORY}:/root/repository:z"
+	#REPOSITORY_VOLUME="-v ${REPOSITORY}:/root/repository:z"
+	REPOSITORY_VOLUME="-v ${REPOSITORY}:/root/repository"
 
 	echo
 	echo "Git Repository containing scripts are found and mounted in the '/root/repository' folder"
 fi
 
 if [ -d $SSH_DIR ]; then
-	SSH_VOLUME="-v ${SSH_DIR}:/mnt/.ssh:z"
+	#SSH_VOLUME="-v ${SSH_DIR}:/mnt/.ssh:z"
+	SSH_VOLUME="-v ${SSH_DIR}:/mnt/.ssh"
 else
 	echo "Warning: SSH Directory not found"
 fi
 
 # silently check for user defined ansible config and mount it if present
 if [ -f ~/.ansible.cfg ]; then
-  ANSIBLE_CFG="-v $HOME/.ansible.cfg:/root/.ansible.cfg:z"
+  #ANSIBLE_CFG="-v $HOME/.ansible.cfg:/root/.ansible.cfg:z"
+  ANSIBLE_CFG="-v $HOME/.ansible.cfg:/root/.ansible.cfg"
 fi
 
 
 echo "Starting OpenStack Client Container...."
 echo
-docker run -it ${HOST_NET} ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.openstack:z ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${ANSIBLE_CFG} ${OPENSTACK_CLIENT_IMAGE}
+#docker run -it ${HOST_NET} ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.openstack:z ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${ANSIBLE_CFG} ${OPENSTACK_CLIENT_IMAGE}
+docker run -it ${HOST_NET} ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.openstack ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${ANSIBLE_CFG} ${OPENSTACK_CLIENT_IMAGE}
