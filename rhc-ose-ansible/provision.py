@@ -22,10 +22,11 @@ script_base_dir = os.path.realpath(os.path.dirname(sys.argv[0]))
 def provision(ansible_opts, script_dir, path_to_installer='/usr/share/ansible/openshift-ansible'):
     ansible_provision_command = "ansible-playbook %s %s/ose-provision.yml" % ( ansible_opts, script_dir)
     # Run the command and check the exit status
-    provision_exit_status = subprocess.Popen([ansible_provision_command], stderr=subprocess.STDOUT,
-                                             stdout=subprocess.PIPE).communicate().returncode
+    provision_exit_status = subprocess.Popen(ansible_provision_command.split(), stderr=subprocess.STDOUT,
+                                             stdout=subprocess.PIPE)
+    provision_exit_status.communicate()
     # if the exit status is anything other than 0, assume a failure, call the error_out function and bail
-    if provision_exit_status != 0:
+    if provision_exit_status.returncode != 0:
         error_out("Provisioning run failed: %s" % ansible_provision_command, provision_exit_status)
     search_inventory_file_name = '%s/inventory_*' % script_dir
     try:
@@ -37,17 +38,19 @@ def provision(ansible_opts, script_dir, path_to_installer='/usr/share/ansible/op
     ansible_install_command = "ansible-playbook -i %s %s/playbooks/byo/config.yml" % (openshift_inventory,
                                                                                       path_to_installer)
 
-    installation_exit_status = subprocess.Popen([ansible_install_command], stderr=subprocess.STDOUT,
-                                                stdout=subprocess.PIPE).communicate().returncode
+    installation_exit_status = subprocess.Popen(ansible_install_command.split(), stderr=subprocess.STDOUT,
+                                                stdout=subprocess.PIPE)
+    installation_exit_status.communicate()
 
-    if installation_exit_status != 0:
+    if installation_exit_status.returncode != 0:
         error_out("Openshift installer failed to run with %s" % ansible_install_command, installation_exit_status)
         
     post_install_command = "ansible-playbook -i %s %s/playbooks/openshift/post-install.yaml" % ( openshift_inventory,
                                                                                                  script_dir)
     post_install_exit_status = subprocess.Popen([post_install_command], stderr=subprocess.STDOUT,
-                                                stdout=subprocess.PIPE).communicate().returncode
-    if post_install_exit_status != 0:
+                                                stdout=subprocess.PIPE)
+    post_install_exit_status.communicate()
+    if post_install_exit_status.returncode != 0:
         error_out("Post install failed to run with: %s" % post_install_command)
 
 
