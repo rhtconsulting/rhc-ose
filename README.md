@@ -22,4 +22,4 @@ See [Provisioning Documentation](provisioning/README.adoc) for more details.
 
 ## Contributing
 
-See our [Contribution Guide](./CONTRIBUTING.md) for details on how to contribute.
+See our [Contribution Guide](.github/CONTRIBUTING.md) for details on how to contribute.
