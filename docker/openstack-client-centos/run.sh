@@ -4,7 +4,7 @@
 
 
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-OPENSTACK_CONFIG_DIR=~/.openstack/
+OPENSTACK_CONFIG_DIR=~/.config/openstack/
 OPENSTACK_CLIENT_IMAGE="rhtconsulting/rhc-openstack-client"
 SSH_DIR=~/.ssh
 REMOVE_CONTAINER_ON_EXIT="--rm"
@@ -16,7 +16,7 @@ usage() {
     echo "
      Usage: $0 [options]
      Options:
-     --configdir=<configdir>       : Directory containing Openstack configuration files (Default: ~/.openstack/)
+     --configdir=<configdir>       : Directory containing Openstack configuration files (Default: ~/.config/openstack/)
      --image-name=<name>           : Name of the image to build or use (Default: rhtconsulting/rhc-openstack-client)
      --keep                        : Whether to keep the the container after exiting
      --ssh=<ssh>                   : Location of SSH keys to mount into the container (Default: ~/.ssh)
@@ -120,5 +120,5 @@ fi
 
 echo "Starting OpenStack Client Container...."
 echo
-#docker run -it ${HOST_NET} ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.openstack:z ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${ANSIBLE_CFG} ${OPENSTACK_CLIENT_IMAGE}
-docker run -it ${HOST_NET} ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.openstack ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${ANSIBLE_CFG} ${OPENSTACK_CLIENT_IMAGE}
+#docker run -it ${HOST_NET} ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.config/openstack:z ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${ANSIBLE_CFG} ${OPENSTACK_CLIENT_IMAGE}
+docker run -it ${HOST_NET} ${REMOVE_CONTAINER_ON_EXIT} -v ${OPENSTACK_CONFIG_DIR}:/root/.config/openstack ${REPOSITORY_VOLUME} ${SSH_VOLUME} ${ANSIBLE_CFG} ${OPENSTACK_CLIENT_IMAGE}

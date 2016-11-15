@@ -4,7 +4,7 @@
 
 SSH_DIR=/root/.ssh
 INPUT_SSH_DIR=/mnt/.ssh
-CONFIG_DIR=/root/.openstack
+CONFIG_DIR=/root/.config/openstack
 
 # Copy mounted .ssh directory to ~/.ssh
 if [ -d $INPUT_SSH_DIR ]; then
