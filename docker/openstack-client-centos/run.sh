@@ -5,7 +5,7 @@
 
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 OPENSTACK_CONFIG_DIR=~/.config/openstack/
-OPENSTACK_CLIENT_IMAGE="rhtconsulting/rhc-openstack-client-oybed"
+OPENSTACK_CLIENT_IMAGE="rhtconsulting/rhc-openstack-client"
 SSH_DIR=~/.ssh
 REMOVE_CONTAINER_ON_EXIT="--rm"
 REPOSITORY=
