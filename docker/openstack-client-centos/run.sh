@@ -5,7 +5,7 @@
 
 SCRIPT_BASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 OPENSTACK_CONFIG_DIR=~/.config/openstack/
-OPENSTACK_CLIENT_IMAGE="rhtconsulting/rhc-openstack-client"
+OPENSTACK_CLIENT_IMAGE="rhtconsulting/rhc-openstack-client-oybed"
 SSH_DIR=~/.ssh
 REMOVE_CONTAINER_ON_EXIT="--rm"
 REPOSITORY=
@@ -64,7 +64,7 @@ do
 done
 
 
-if [ ! -d ${OPENSTACK_CONFIG_DIR} ]; then
+if [ ! -d "${OPENSTACK_CONFIG_DIR}" ]; then
 	echo "ERROR: OpenStack configuration directory not found!"
 	exit 1
 fi
@@ -76,7 +76,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-OPENSTACK_IMAGE=$(echo -e "${DOCKER_IMAGES}" | awk '{ print $1 }' | grep ${OPENSTACK_CLIENT_IMAGE})
+OPENSTACK_IMAGE=$(echo -e "${DOCKER_IMAGES}" | awk '{ print "|"$1"|" }' | grep "|${OPENSTACK_CLIENT_IMAGE}|")
 
 if [ $? -gt 1 ]; then
   echo "Error: Failed to parse the Docker images to find ${OPENSTACK_CLIENT_IMAGE} image."
@@ -84,15 +84,15 @@ if [ $? -gt 1 ]; then
 fi
 
 # Check if Image has been build previously
-if [ -z $OPENSTACK_IMAGE ]; then
+if [ -z "${OPENSTACK_IMAGE}" ]; then
 	echo "Building Docker Image ${OPENSTACK_CLIENT_IMAGE}...."
 	docker build -t ${OPENSTACK_CLIENT_IMAGE} ${SCRIPT_BASE_DIR}
 fi
 
 # Check if Image has been build previously
-if [ ! -z ${REPOSITORY} ]; then
+if [ -n "${REPOSITORY}" ]; then
 
-	if [ ! -d ${REPOSITORY} ]; then
+	if [ ! -d "${REPOSITORY}" ]; then
 		echo "Error: Could not locate specified repository directory"
 		exit 1
 	fi
@@ -104,7 +104,7 @@ if [ ! -z ${REPOSITORY} ]; then
 	echo "Git Repository containing scripts are found and mounted in the '/root/repository' folder"
 fi
 
-if [ -d $SSH_DIR ]; then
+if [ -d "${SSH_DIR}" ]; then
 	#SSH_VOLUME="-v ${SSH_DIR}:/mnt/.ssh:z"
 	SSH_VOLUME="-v ${SSH_DIR}:/mnt/.ssh"
 else
@@ -112,7 +112,7 @@ else
 fi
 
 # silently check for user defined ansible config and mount it if present
-if [ -f ~/.ansible.cfg ]; then
+if [ -f "~/.ansible.cfg" ]; then
   #ANSIBLE_CFG="-v $HOME/.ansible.cfg:/root/.ansible.cfg:z"
   ANSIBLE_CFG="-v $HOME/.ansible.cfg:/root/.ansible.cfg"
 fi
