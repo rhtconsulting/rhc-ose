@@ -3,14 +3,16 @@
 1. Install a registry server
 
 ```
-yum install -y docker-registry
+yum install -y docker docker-distribution firewalld
+
+systemctl enable firewalld
+systemctl start firewalld
 
 firewall-cmd --add-port 5000/tcp --permanent
 firewall-cmd --reload
 
-systemctl start docker-registry.service
-systemctl enable docker-registry.service
-
+systemctl enable docker-distribution
+systemctl start docker-distribution
 ```
 
 2. Create a new `openshift_images` file.
@@ -20,9 +22,9 @@ This is the file that lists all of the images we are going to sync, and the file
 Then, run the following commands to create a new file for your install.
 
 ```
-old_version=3.2.0.20
-old_version_hosted=3.2.0
-new_version=3.3.1.5 # Plug in version of OpenShift here, without the 'v'
+old_version=3.3.1.5
+old_version_hosted=3.3.1
+new_version=3.3.1.11 # Plug in version of OpenShift here, without the 'v'
 new_version_hosted=3.3.1 # Plug in logging/metrics tag version here
 cp openshift_images-${old_version} openshift_images-${new_version}
 sed -i "s/${old_version}/${new_version}/g" openshift_images-${new_version}
@@ -32,5 +34,5 @@ sed -i "s/${old_version_hosted}/${new_version_hosted}/g" openshift_images-${new_
 3. Run the `docker-registry-sync` script to sync Red Hat images to private registry
 
 ```
-./docker-registry-sync --from=registry.access.redhat.com --local=<registry-server-ip>:5000 --file=./openshift_images-3.3.1.5
+./docker-registry-sync --from=registry.access.redhat.com --to=<registry-server-ip>:5000 --file=./openshift_images-3.3.1.5
 ```

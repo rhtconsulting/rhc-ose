@@ -17,7 +17,7 @@ do_sync() {
   image_id=`docker images | awk "/${image_awk}/"' {print $3}'`
 
   echo "(2/3) Tagging Image ${image_id}|${image}..." | tee -a ${LOGFILE}
-  docker tag -f "${image_id}" "${push_url}" &>>${LOGFILE} || error_out "Failed to tag image: docker tag -f ${image_id} ${push_url}"
+  docker tag "${image_id}" "${push_url}" &>>${LOGFILE} || error_out "Failed to tag image: docker tag -f ${image_id} ${push_url}"
 
   echo "(3/3) Pushing Tag ${push_url}..." | tee -a ${LOGFILE}
   docker push ${push_url} &>>${LOGFILE} || error_out "Failed to push image: docker push ${push_url}"
