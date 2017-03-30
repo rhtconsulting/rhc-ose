@@ -1,0 +1,2 @@
+{"image_with_v_in_tag":{"openshift3":["ose-deployer","ose-haproxy-router","ose-sti-builder","ose-docker-builder","ose-pod","ose-docker-registry"]}, "images_without_v_in_tag": {"openshift3": ["logging-deployer","logging-elasticsearch","logging-kibana","logging-fluentd","logging-curator","logging-auth-proxy","metrics-deployer","metrics-hawkular-metrics","metrics-cassandra","metrics-heapster"]}}
+
