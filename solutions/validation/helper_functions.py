@@ -72,7 +72,7 @@ class DictionaryHandling:
                 previous_heading = server_name
                 # All dictionaries should have either True or False in order to be colourized
                 # True will be coloured Green, False will be Red. Anything else will be highlighted
-                if "False" in value:
+                if "False" in value or "None" in value:
                     print(textColors.FAIL),
                 elif "docker" in heading.lower():
                     print(textColors.WARNING),

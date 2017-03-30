@@ -20,7 +20,24 @@ from optparse import OptionParser
 ImportHelper.import_error_handling("paramiko", globals())
 
 
-ansible_ssh_user = "root"
+
+# OptionParser's first argument is what is passed in on the command line.
+# the second argument 'dest=' is the variable which holds the value. options.show_sha_sums holds the value for
+# --show-sha-sums.
+# The final arugment is the text that is printed out when the OptionParser help function is called
+parser = OptionParser()
+parser.add_option('--ansible-host-file', dest='ansible_host_file', help='Specify location of ansible hostfile')
+parser.add_option('--show-sha-sums', dest='show_sha_sums', help='Toggle whether or not to show the sha sum of files'
+                                                                'on remote host')
+parser.add_option('--ansible-ssh-user', dest='ansible_ssh_user', help='Which user will ansible be run as')
+parser.add_option('--openshift-version', dest='openshift_version', help='The version of openshift to check against')
+(options, args) = parser.parse_args()
+
+if options.ansible_ssh_user:
+    ansible_ssh_user = options.ansible_ssh_user
+else:
+    ansible_ssh_user = "root"
+
 docker_files_have_been_modified_dict = {}
 remote_docker_file_sums_dict = {}
 docker_service_check_dict = {}
@@ -39,19 +56,29 @@ ose_package_installed_dict = {}
 ose_package_not_installed_dict = {}
 ssh_connection = HandleSSHConnections()
 selinux_dict = {}
-ose_repos = ["rhel-7-server-rpms", "rhel-7-server-extras-rpms", "rhel-7-server-ose-3.1-rpms"]
+if options.openshift_version:
+    if "3.2" in options.openshift_version:
+        openshift_server_repo = "rhel-7-server-ose-3.2-rpms"
+    elif "3.1" in options.openshift_version:
+        openshift_server_repo = "rhel-7-server-ose-3.1-rpms"
+    elif "3.3" in options.openshift_version:
+        openshift_server_repo ="rhel-7-server-ose-3.3-rpms"
+else:
+    openshift_server_repo = "rhel-7-server-ose-3.3-rpms"
+ose_repos = ["rhel-7-server-rpms", "rhel-7-server-extras-rpms", openshift_server_repo]
 ose_required_packages_list = ["wget", "git", "net-tools", "bind-utils", "iptables-services", "bridge-utils",
                               "bash-completion", "atomic-openshift-utils", "docker"]
 
-# OptionParser's first argument is what is passed in on the command line.
-# the second argument 'dest=' is the variable which holds the value. options.show_sha_sums holds the value for
-# --show-sha-sums.
-# The final arugment is the text that is printed out when the OptionParser help function is called
-parser = OptionParser()
-parser.add_option('--ansible-host-file', dest='ansible_host_file', help='Specify location of ansible hostfile')
-parser.add_option('--show-sha-sums', dest='show_sha_sums', help='Toggle whether or not to show the sha sum of files'
-                                                                'on remote host')
-(options, args) = parser.parse_args()
+def is_directory_a_mount_point(host, ssh_obj, directory, dict_to_modify):
+
+    output = HandleSSHConnections.run_remote_commands(ssh_obj, "cat /proc/mounts")
+    etcd_has_partition = False
+    for line in output.split("\n"):
+        if "/var/lib/etcd" in line:
+            etcd_has_partition = True
+            DictionaryHandling.add_to_dictionary(dict_to_modify, host, "ETCD Partition", True)
+    if not etcd_has_partition:
+        DictionaryHandling.add_to_dictionary(dict_to_modify, host, "ETCD Partition", False)
 
 
 def is_selinux_enabled(host, ssh_obj, dict_to_modify):
@@ -59,7 +86,7 @@ def is_selinux_enabled(host, ssh_obj, dict_to_modify):
     is_selinux_enabled logs into the remote host and runs/parses 'sestatus'
     adds results to a dictionary
     """
-    output = HandleSSHConnections.run_remote_commands(ssh_obj, "sestatus")
+    output = HandleSSHConnections.run_remote_commands(ssh_obj, "/usr/sbin/sestatus")
     for line in output:
         if "SELinux status" in line:
             if "enabled" in line:
@@ -233,6 +260,8 @@ def which_repos_are_enabled(server_name, dict_to_modify, repo_info, these_should
     """
     repo_id_keyword = "Repo ID:"
     repo_enabled_keyword = "Enabled:"
+    if not repo_info:
+        DictionaryHandling.add_to_dictionary(dict_to_modify, server_name, "Error retrieving repo information", False)
     for line in repo_info:
         if repo_id_keyword in line:
             repo_name = line.split(repo_id_keyword)[1].strip()
