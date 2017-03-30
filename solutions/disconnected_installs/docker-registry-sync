@@ -9,7 +9,6 @@ error_out() {
 do_sync() {
   local image_url="${registry_url}/${image}"
   local push_url="${local_registry_url}/${image}"
-
   echo "(1/3) Pulling Image ${image_url}..." | tee -a ${LOGFILE}
   docker pull ${image_url} &>>${LOGFILE} || error_out "Failed to PULL image: docker pull ${image_url}"
   image_awk="${registry_url}/$(echo ${image} | sed -r 's/:([^:]*)$/.*\1/')"
@@ -17,7 +16,7 @@ do_sync() {
   image_id=`docker images | awk "/${image_awk}/"' {print $3}'`
 
   echo "(2/3) Tagging Image ${image_id}|${image}..." | tee -a ${LOGFILE}
-  docker tag -f "${image_id}" "${push_url}" &>>${LOGFILE} || error_out "Failed to tag image: docker tag -f ${image_id} ${push_url}"
+  docker tag "${image_id}" "${push_url}" &>>${LOGFILE} || error_out "Failed to tag image: docker tag -f ${image_id} ${push_url}"
 
   echo "(3/3) Pushing Tag ${push_url}..." | tee -a ${LOGFILE}
   docker push ${push_url} &>>${LOGFILE} || error_out "Failed to push image: docker push ${push_url}"
@@ -82,8 +81,11 @@ for arg in "from:$registry_url" "file:$file_path" "to:$local_registry_url"; do
 done
 
 images=`cat ${file_path}`
+image_count=$(echo "$images" | wc -l)
 
+image_num=0
 for image in $images; do
+  ((image_num++))
   if $parallel; then
     (
       do_sync
@@ -91,10 +93,12 @@ for image in $images; do
     bg_pids="$bg_pids $!"
   else
     do_sync
+    echo -e "Syncs Completed... \t\t\t\t\t\t\t\t\t(${image_num}/${image_count})"
   fi
 done
 
 count=1
+last_completed=0
 while [ $count -ne 0 ] ; do
   count=0
   for pid in $bg_pids; do
@@ -102,6 +106,11 @@ while [ $count -ne 0 ] ; do
       ((count++))
     fi
   done
+  completed=$(expr $image_count - $count)
+  if [ $completed -ne $last_completed ]; then
+    last_completed=$completed
+    echo -e "Syncs Completed... \t\t\t\t\t\t\t\t\t(${completed}/${image_count})"
+  fi
   sleep 1
 done
 
