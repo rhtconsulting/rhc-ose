@@ -97,6 +97,7 @@ def get_latest_tag_from_api(url_list, tag_list, failed_image_list, version_type 
                         latest_tag = tag
         # We want to remove everything after the hyphen because we don't care about release versions
         latest_tag_minus_hyphon = latest_tag.split('-')[0]
+        # If the tag has successfully removed a hyphen, it will be unicode, otherwise it will be a string
         if type(latest_tag_minus_hyphon) is not unicode:
             logging.error("Unable to properly parse the version for image: %s" % image_name)
             logging.error("Are you sure that the version exists in the RedHat registry?")
@@ -106,14 +107,47 @@ def get_latest_tag_from_api(url_list, tag_list, failed_image_list, version_type 
 
 
 def generate_realtime_output(cmd):
-    output = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+    output = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True, stderr=subprocess.STDOUT)
     for stdout_line in iter(output.stdout.readline, ""):
         yield stdout_line.strip()
     output.stdout.close()
     return_code = output.wait()
     if return_code:
-        raise subprocess.CalledProcessError(return_code, cmd)
+        logging.error("There appears to be a problem contacting %s" % cmd[2])
+        logging.error("Skipping...")
+        yield False
+        return
 
+
+def dry_run_print_docker_commands(remote_registry, local_registry, image_name):
+    print("docker pull %s/%s" % (remote_registry, image_name))
+    print("docker tag %s/%s %s/%s" % (remote_registry, image_name, local_registry, image_name))
+    print("docker push %s/%s" % (local_registry, image_name))
+    print("")
+
+
+def pull_images(remote_registry, image_name):
+    logging.info("Pulling %s/%s" % (remote_registry, image_name.strip()))
+    exit_with_error = False
+    for pulled_image in generate_realtime_output(["docker", "pull", "%s/%s" % (remote_registry,
+                                                                               image_name)]):
+        if pulled_image:
+            logging.info(pulled_image),
+        else:
+            exit_with_error = True
+            break
+    return(exit_with_error)
+
+
+def tag_images(remote_registry, local_registry, image_name):
+    os.popen("docker tag %s/%s %s/%s" % (remote_registry, image_name, local_registry,
+                                         image_name)).read()
+
+
+def push_images(local_registry, image_name):
+    for pushed_image in generate_realtime_output(["docker", "push", "%s/%s" % (local_registry,
+                                                                               image_name)]):
+        logging.info(pushed_image),
 
 config_file = options.json_file
 with open(config_file) as json_data:
@@ -126,33 +160,24 @@ get_latest_tag_from_api(retrieve_v_tags_from_redhat_list, latest_tag_list, faile
 get_latest_tag_from_api(retrieve_non_v_tags_from_redhat_list, latest_tag_list, failed_images, 'v')
 
 total_number_of_images_to_download = len(latest_tag_list)
-counter = 0
+counter = 1
 
 logging.info("")
 logging.info("Total images to download: %s" % total_number_of_images_to_download)
 for namespace_and_image in latest_tag_list:
     if options.dry_run:
         logging.info("Dry run mode activated. Docker commands were outputted to the screen")
-        print("docker pull %s/%s" % (options.remote_registry, namespace_and_image))
-        print("docker tag %s/%s %s/%s" % (options.remote_registry, namespace_and_image, options.local_registry,
-                                          namespace_and_image))
-        print("docker push %s/%s" % (options.local_registry, namespace_and_image))
-        print("")
+        dry_run_print_docker_commands(options.remote_registry, options.local_registry, namespace_and_image)
     else:
         logging.info("")
         logging.info("Downloading image %s/%s" % (counter, total_number_of_images_to_download))
         counter += 1
-        logging.info("Pulling %s/%s" % (options.remote_registry, namespace_and_image.strip()))
-        for pulled_image in generate_realtime_output(["docker", "pull", "%s/%s" % (options.remote_registry,
-                                                                                   namespace_and_image)]):
-            logging.info(pulled_image),
-        logging.info("Tagging for this registry: %s" % options.local_registry)
-        os.popen("docker tag %s/%s %s/%s" % (options.remote_registry, namespace_and_image, options.local_registry,
-                                             namespace_and_image)).read()
-        logging.info("Pushing into the local registry...")
-        for pushed_image in generate_realtime_output(["docker", "push", "%s/%s" % (options.local_registry,
-                                                                                   namespace_and_image)]):
-            logging.info(pushed_image),
+        # If the image pull fails skip the tagging and pushing steps
+        if not pull_images(options.remote_registry, namespace_and_image):
+            logging.info("Tagging for this registry: %s" % options.local_registry)
+            tag_images(options.remote_registry, options.local_registry, namespace_and_image)
+            logging.info("Pushing into the local registry...")
+
 
 if failed_images is not None:
     number_of_failures = len(failed_images)
