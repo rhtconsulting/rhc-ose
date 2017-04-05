@@ -63,8 +63,12 @@ if options.openshift_version:
         openshift_server_repo = "rhel-7-server-ose-3.1-rpms"
     elif "3.3" in options.openshift_version:
         openshift_server_repo ="rhel-7-server-ose-3.3-rpms"
+    elif "3.4" in options.openshift_version:
+        openshift_server_repo ="rhel-7-server-ose-3.4-rpms"
+    elif "3.5" in options.openshift_version:
+        openshift_server_repo ="rhel-7-server-ose-3.5-rpms"
 else:
-    openshift_server_repo = "rhel-7-server-ose-3.3-rpms"
+    openshift_server_repo = "rhel-7-server-ose-3.4-rpms"
 ose_repos = ["rhel-7-server-rpms", "rhel-7-server-extras-rpms", openshift_server_repo]
 ose_required_packages_list = ["wget", "git", "net-tools", "bind-utils", "iptables-services", "bridge-utils",
                               "bash-completion", "atomic-openshift-utils", "docker"]
