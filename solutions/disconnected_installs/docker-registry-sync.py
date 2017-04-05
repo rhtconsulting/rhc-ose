@@ -19,14 +19,14 @@ parser = argparse.ArgumentParser(description='Syncs images from a public docker 
 
 parser.add_argument('--from', action='store', dest='remote_registry', help='The location of the remote repository',
                     required=True)
-parser.add_argument('--local', action='store', dest='local_registry', help='The location of the local repository',
+parser.add_argument('--to', action='store', dest='local_registry', help='The location of the local repository',
                     required=True)
 parser.add_argument('--file', action='store', dest='json_file', help='A JSON formatted file with the following format:'
                                                                      '{"<tag_type>": {"<namespace>": ["image1", image2"'
                                                                      'image3]}}', required=True)
 parser.add_argument('--dry-run', action='store_true', dest='dry_run', help='If this flag is present, commands will be'
                                                                          'dumped to stdout instead of run')
-parser.add_argument('--ocp-version', action='store', dest='ocp_version', help='The version of OpenShift which you '
+parser.add_argument('--openshift-version', action='store', dest='ocp_version', help='The version of OpenShift which you '
                                                                               'want to sync images for')
 
 options = parser.parse_args()
@@ -178,8 +178,7 @@ for namespace_and_image in latest_tag_list:
             tag_images(options.remote_registry, options.local_registry, namespace_and_image)
             logging.info("Pushing into the local registry...")
 
-
-if failed_images is not None:
+if failed_images:
     number_of_failures = len(failed_images)
     number_of_images_attempted = total_number_of_images_to_download + number_of_failures
     logging.warn("")
