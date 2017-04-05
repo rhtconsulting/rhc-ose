@@ -48,6 +48,10 @@ class DictionaryHandling:
 
     @staticmethod
     def format_output(text_to_print):
+        # Generally if something is False, I want it to be a RED error, but the below list includes headings which
+        # are not fatal, and should be treated as warnings only
+        warning_heading_list = ["ETCD", "Docker Running", "Docker Enabled", "sum", "available"]
+
         # This is a hack because I am assuming I have nothing outside of the stdlib available
         longest_line = 0
         for line in text_to_print.split("\n"):
@@ -73,16 +77,18 @@ class DictionaryHandling:
                 # All dictionaries should have either True or False in order to be colourized
                 # True will be coloured Green, False will be Red. Anything else will be highlighted
                 if "False" in value or "None" in value:
-                    print(textColors.FAIL),
-                elif "docker" in heading.lower():
-                    print(textColors.WARNING),
-                elif "True" in value:
-                    print(textColors.OKGREEN),
+                    if any(word in heading for word in warning_heading_list):
+                        print(textColors.WARNING),
+                    else:
+                        print(textColors.FAIL),
+                elif "True" in value or "on" in value:
+                    if "docker-storage" in heading:
+                        print(textColors.WARNING),
+                    else:
+                        print(textColors.OKGREEN),
                 # If the file has been modified mark it yellow as we cannot know whether it is correctly
                 # modified or not
-                elif "sum" in heading:
-                    print(textColors.WARNING),
-                elif "available" in heading:
+                elif any(word in heading for word in warning_heading_list) or "off" in value:
                     print(textColors.WARNING),
                 print("\t\t" + heading + "\t" + value)
                 print(textColors.ENDC),
