@@ -1,0 +1,61 @@
+---
+# Partition disk
+  - name: "Install util-linux"
+    action: "{{ ansible_pkg_mgr }} name={{ item }} state=present"
+    with_flattened:
+      - 'parted'
+    tags:
+      - disk
+      - pkgs
+    when: volume_groups
+
+  - name: "Partition additional disks"
+    shell: |
+      if
+          [ -b {{ item.disk }} ]
+      then
+          [ -b {{ item.disk }}1 ] || parted --script "{{ item.disk }}" mklabel gpt mkpart primary 1MiB 100%
+      fi
+    args:
+      creates: '{{ item.disk }}1'
+      executable: '/bin/bash'
+    with_items: volume_groups
+    tags:
+      - disk
+
+  - name: Create Volume Group
+    lvg:
+      vg: '{{item.vg}}'
+      pvs: '{{item.disk}}1'
+      pesize: 32
+      state: present
+    with_items: volume_groups
+    tags:
+      - disk
+
+  - name: Create Logical Volumes
+    lvol:
+      vg: '{{item.vg}}'
+      lv: '{{item.lv}}'
+      size: '{{item.lv_size}}'
+    with_items: logical_volumes
+    tags:
+      - disk
+
+  - name: Create Filesystem on Logical Volumes
+    filesystem:
+      fstype: '{{item.fstype}}'
+      dev: '/dev/{{item.vg}}/{{item.lv}}'
+    with_items: logical_volumes
+    tags:
+      - disk
+
+  - name: Mount LVs
+    mount:
+      name: '{{item.mount_point}}'
+      src: '/dev/{{item.vg}}/{{item.lv}}'
+      fstype: '{{item.fstype}}'
+      state: mounted
+    with_items: logical_volumes
+    tags:
+      - disk
